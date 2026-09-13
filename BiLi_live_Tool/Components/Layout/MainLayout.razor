@@ -18,7 +18,9 @@
     <div class="blt-side">
         <div class="blt-brand"><b>@AppIdentity.Name</b><span>@AppIdentity.BrandTagline</span></div>
 
-        <div class="blt-navgroup @Fold("live")" @onclick="ToggleLive">直播控制</div>
+        <div class="blt-navgroup @Fold("live") @Here("live")" @onclick="ToggleLive">
+            <span class="blt-navgroup-t">直播控制</span><span class="blt-chev"><BltIcon Name="chevron" /></span>
+        </div>
         <div class="blt-navfold @FoldHide("live")">
             <NavLink class="blt-navitem" href="/tts"><BltIcon Emoji="🎙" /> 语音念弹幕</NavLink>
             <NavLink class="blt-navitem" href="/autodanmu"><BltIcon Emoji="💬" /> 自动弹幕</NavLink>
@@ -26,13 +28,17 @@
             <NavLink class="blt-navitem" href="/song"><BltIcon Emoji="🎵" /> 点歌功能</NavLink>
         </div>
 
-        <div class="blt-navgroup @Fold("show")" @onclick="ToggleShow">实时与展示</div>
+        <div class="blt-navgroup @Fold("show") @Here("show")" @onclick="ToggleShow">
+            <span class="blt-navgroup-t">实时与展示</span><span class="blt-chev"><BltIcon Name="chevron" /></span>
+        </div>
         <div class="blt-navfold @FoldHide("show")">
             <NavLink class="blt-navitem" href="/realtime"><BltIcon Emoji="⚡" /> 实时展示</NavLink>
             <NavLink class="blt-navitem" href="/gifts"><BltIcon Emoji="🎁" /> 礼物截图生成</NavLink>
         </div>
 
-        <div class="blt-navgroup @Fold("logs")" @onclick="ToggleLogs">日志记录</div>
+        <div class="blt-navgroup @Fold("logs") @Here("logs")" @onclick="ToggleLogs">
+            <span class="blt-navgroup-t">日志记录</span><span class="blt-chev"><BltIcon Name="chevron" /></span>
+        </div>
         <div class="blt-navfold @FoldHide("logs")">
             <NavLink class="blt-navitem" href="/logs/danmu"><BltIcon Emoji="📄" /> 弹幕记录 <span class="blt-badge @(RecOn("danmu"))">@(RecOn("danmu") ? "REC" : "OFF")</span></NavLink>
             <NavLink class="blt-navitem" href="/logs/gifts"><BltIcon Emoji="🎁" /> 礼物记录 <span class="blt-badge @(RecOn("gifts"))">@(RecOn("gifts") ? "REC" : "OFF")</span></NavLink>
@@ -41,14 +47,18 @@
             <NavLink class="blt-navitem" href="/logs/superchat"><BltIcon Emoji="⚡" /> SC 记录 <span class="blt-badge @(RecOn("superchat"))">@(RecOn("superchat") ? "REC" : "OFF")</span></NavLink>
         </div>
 
-        <div class="blt-navgroup @Fold("obs")" @onclick="ToggleObs">OBS 浮层</div>
+        <div class="blt-navgroup @Fold("obs") @Here("obs")" @onclick="ToggleObs">
+            <span class="blt-navgroup-t">OBS 浮层</span><span class="blt-chev"><BltIcon Name="chevron" /></span>
+        </div>
         <div class="blt-navfold @FoldHide("obs")">
             <NavLink class="blt-navitem" href="/alert"><BltIcon Emoji="🖼" /> 提醒特效墙</NavLink>
             <NavLink class="blt-navitem" href="/widgets"><BltIcon Emoji="📋" /> 文字挂件</NavLink>
             <NavLink class="blt-navitem" href="/keyview"><BltIcon Emoji="🎮" /> 键鼠手柄可视化</NavLink>
         </div>
 
-        <div class="blt-navgroup @Fold("sys")" @onclick="ToggleSys">设置</div>
+        <div class="blt-navgroup @Fold("sys") @Here("sys")" @onclick="ToggleSys">
+            <span class="blt-navgroup-t">设置</span><span class="blt-chev"><BltIcon Name="chevron" /></span>
+        </div>
         <div class="blt-navfold @FoldHide("sys")">
             <NavLink class="blt-navitem" href="/" Match="NavLinkMatch.All"><BltIcon Emoji="🎛" /> 房间管理</NavLink>
             <NavLink class="blt-navitem" href="/help"><BltIcon Emoji="📘" /> 使用教程</NavLink>
@@ -241,6 +251,53 @@
     private string Fold(string g) => _fold.TryGetValue(g, out var v) && v ? "folded" : "";
     private string FoldHide(string g) => _fold.TryGetValue(g, out var v) && v ? "hidden" : "";
 
+    /// <summary>Sidebar groups: the single source of truth for fold state and route highlighting.</summary>
+    private static readonly (string Key, string Title, string[] Prefixes)[] NavGroups =
+    {
+        ("live", "直播控制", new[] { "/tts", "/autodanmu", "/pk", "/song" }),
+        ("show", "实时与展示", new[] { "/realtime", "/gifts" }),
+        ("logs", "日志记录", new[] { "/logs" }),
+        ("obs", "OBS 浮层", new[] { "/alert", "/widgets", "/keyview" }),
+        ("sys", "设置", new[] { "/help", "/diagnostics", "/" }),
+    };
+
+    private string CurrentPath()
+    {
+        try { return "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0]; }
+        catch { return "/"; }
+    }
+
+    private string ActiveGroup()
+    {
+        var path = CurrentPath();
+        foreach (var g in NavGroups)
+            foreach (var p in g.Prefixes)
+                if (p == "/" ? path == "/" : path.StartsWith(p, StringComparison.OrdinalIgnoreCase))
+                    return g.Key;
+        return "";
+    }
+
+    /// <summary>Marks the group that owns the current route, so the sidebar shows where you are.</summary>
+    private string Here(string group) => ActiveGroup() == group ? "here" : "";
+
+    /// <summary>Old-version behaviour: navigating into a folded group opens it, so the active item stays visible.</summary>
+    private bool UnfoldActiveGroup()
+    {
+        var g = ActiveGroup();
+        if (g.Length > 0 && _fold.TryGetValue(g, out var folded) && folded)
+        {
+            _fold[g] = false;
+            _ = PersistFoldAsync();
+            return true;
+        }
+        return false;
+    }
+
+    private void OnLocationChanged(object? sender, EventArgs e)
+    {
+        if (UnfoldActiveGroup()) InvokeAsync(StateHasChanged);
+    }
+
     private Task ToggleLive() => ToggleFold("live");
     private Task ToggleShow() => ToggleFold("show");
     private Task ToggleLogs() => ToggleFold("logs");
@@ -295,6 +352,7 @@
     {
         Hub.OnEvent += OnEvent;
         Hub.StatusChanged += OnStatus;
+        Nav.LocationChanged += OnLocationChanged;
         var skin = (Config.GetNode("skin") as System.Text.Json.Nodes.JsonValue)?.GetValue<string>() ?? "";
         if (skin.Length == 0 || skin == "default") skin = "console";
         if (Themes.Contains(skin)) _theme = skin;
@@ -310,6 +368,7 @@
         if (!_foldLoaded)
         {
             await LoadFoldAsync();
+            UnfoldActiveGroup();
             StateHasChanged();
         }
         if (!_clockStarted)
@@ -415,6 +474,7 @@
     {
         Hub.OnEvent -= OnEvent;
         Hub.StatusChanged -= OnStatus;
+        Nav.LocationChanged -= OnLocationChanged;
         Speaker.Changed -= OnSpeakerChanged;
         Speaker.Stop();
         Sounds.Stop();

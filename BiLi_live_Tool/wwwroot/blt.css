@@ -63,7 +63,13 @@ html,body{
 .blt-brand{padding:6px 14px 14px;border-bottom:1px solid var(--line);margin-bottom:8px}
 .blt-brand b{display:block;font-family:var(--heading-font);font-size:16px;color:var(--ink);letter-spacing:.5px}
 .blt-brand span{font-size:10px;color:var(--ink-3);letter-spacing:2.5px;font-family:var(--mono)}
-.blt-navgroup{padding:12px 14px 4px;font-size:12px;color:var(--ink-3);letter-spacing:1.5px}
+.blt-navgroup{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin:0 0 3px;padding:8px 12px;min-height:33px;
+  border-top:1px solid var(--line);
+  font-size:11.5px;font-weight:700;letter-spacing:1.8px;color:var(--ink-2);
+  background:var(--panel-2);border-left:3px solid var(--line-2);
+  cursor:pointer;user-select:none;
+  transition:color .15s ease,background-color .15s ease,border-color .15s ease}
 .blt-navitem{display:flex;align-items:center;gap:8px;padding:8px 14px;color:var(--ink-2);
   cursor:pointer;border-left:2px solid transparent;font-size:14.5px}
 .blt-navitem:hover{color:var(--ink);background:rgba(255,255,255,.03)}
@@ -199,9 +205,15 @@ label.blt-label{display:block;font-size:12px;color:var(--ink-2);letter-spacing:.
 .blt-panel-head .blt-switch,.blt-panel-head a{cursor:pointer}
 
 /* ===== 侧栏分组折叠 ===== */
-.blt-navgroup{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
-.blt-navgroup::after{content:'▾';font-size:11px;color:var(--ink-3);transition:transform .15s}
-.blt-navgroup.folded::after{transform:rotate(-90deg)}
+/* Section label affordance: tinted band + left stripe + 15px chevron (was an 11px glyph) */
+.blt-brand + .blt-navgroup{margin-top:0;border-top:none}
+.blt-navgroup:hover{color:var(--ink);background:var(--panel)}
+.blt-navgroup.here{border-left-color:var(--amber);color:var(--ink)}
+.blt-navgroup-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blt-navgroup .blt-chev{display:flex;align-items:center;color:var(--ink-3);transition:color .15s ease}
+.blt-navgroup .blt-chev svg{width:15px;height:15px;stroke-width:2.4;transition:transform .18s ease}
+.blt-navgroup:hover .blt-chev{color:var(--ink-2)}
+.blt-navgroup.folded .blt-chev svg{transform:rotate(-90deg)}
 .blt-navfold.hidden{display:none}
 
 /* ===== 原生控件（select 弹层/日期/下拉箭头随主题；修白底白字） ===== */

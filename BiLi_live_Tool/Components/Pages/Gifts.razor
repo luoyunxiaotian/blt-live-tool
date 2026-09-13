@@ -11,7 +11,7 @@
     @* ── 左列：盲盒检测 + 礼物流水 ── *@
     <div>
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🎁 盲盒检测</span><span class="en">BLINDBOX DETECT</span>
+            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="🎁" /> 盲盒检测</span><span class="en">BLINDBOX DETECT</span>
                 <span class="right">
                     <span>@DetectTimeText()</span>
                     <button class="blt-btn primary" style="padding:3px 12px" @onclick="DetectAsync" disabled="@_detecting">@(_detecting ? "检测中…" : "检测当前直播间盲盒")</button>

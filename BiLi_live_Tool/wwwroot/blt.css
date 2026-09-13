@@ -246,3 +246,10 @@ input.blt-input::-webkit-calendar-picker-indicator{filter:invert(.75)}
 .blt-kv .k{font-size:13.5px}
 /* 长文本可读性：提示行高与最大宽度 */
 .blt-hint{line-height:1.6;max-width:78ch}
+
+/* 图标（替代 emoji）：随文字颜色，尺寸与行高协调 */
+.blt-ico{width:1.05em;height:1.05em;vertical-align:-0.16em;flex:none;
+  display:inline-block;stroke:currentColor;opacity:.95}
+.blt-navitem .blt-ico{width:1.15em;height:1.15em;opacity:.9}
+.blt-panel-head .t .blt-ico{vertical-align:-0.2em;margin-right:2px}
+.blt-btn .blt-ico{vertical-align:-0.18em;margin-right:3px}

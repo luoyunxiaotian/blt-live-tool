@@ -1,0 +1,16 @@
+@* Inline SVG icon (24x24, stroke, currentColor) — replaces the emoji icons so they
+   follow the active theme and render identically on every Windows build. *@
+@if (Body.Length > 0)
+{
+    <svg class="blt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">@((MarkupString)Body)</svg>
+}
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public string Emoji { get; set; } = "";
+
+    private string Body => Name.Length > 0 ? BltIcons.PathOf(Name)
+        : Emoji.Length > 0 ? BltIcons.PathOf(BltIcons.NameOfEmoji(Emoji))
+        : "";
+}

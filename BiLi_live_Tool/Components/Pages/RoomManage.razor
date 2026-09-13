@@ -29,7 +29,7 @@
    MAUI-only diagnostics cards (server / event log / quick ops) stay at the end. *@
 <div class="blt-grid">
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">🔗 直播间连接</span><span class="en">ROOM LINK</span>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="🔗" /> 直播间连接</span><span class="en">ROOM LINK</span>
             <span class="right"><span>status:</span><b class="@StateClass()">@StateText()</b></span>
         </div>
         <div class="blt-panel-body">
@@ -94,7 +94,7 @@
     </div>
 
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">🔐 B站登录</span><span class="en">AUTH</span>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="🔐" /> B站登录</span><span class="en">AUTH</span>
             <span class="right"><span>cookie:</span><b class="@CookieCls()">@CookieText()</b></span>
         </div>
         <div class="blt-panel-body">
@@ -111,7 +111,7 @@
     @* 📋 手动导入 Cookie — fallback when QR login is unavailable: paste the whole
        cookie string, parse the key=value pairs and write config.cookie. *@
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">📋 手动导入 Cookie</span><span class="en">COOKIE IMPORT</span>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="📋" /> 手动导入 Cookie</span><span class="en">COOKIE IMPORT</span>
             <span class="right"><span>备用方式 · 没有扫码条件时使用</span></span>
         </div>
         <div class="blt-panel-body">
@@ -143,7 +143,7 @@
 
     @* Auto like: POST /api/like/start|stop + GET /api/like/status (1 s poll). *@
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">👍 自动点赞</span><span class="en">AUTO LIKE</span>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="👍" /> 自动点赞</span><span class="en">AUTO LIKE</span>
             <span class="right"><span class="blt-badge @LikeBadgeCls()">@LikeBadgeText()</span></span>
         </div>
         <div class="blt-panel-body">
@@ -167,7 +167,7 @@
 
     @* 📁 记录文件夹 — absolute paths served by GET /api/status → folders. *@
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">📁 记录文件夹</span><span class="en">RECORD FOLDERS</span>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="📁" /> 记录文件夹</span><span class="en">RECORD FOLDERS</span>
             <span class="right"><button class="blt-btn" style="padding:2px 10px" @onclick="OpenDataFolder">打开数据目录</button></span>
         </div>
         <div class="blt-panel-body">
@@ -192,7 +192,7 @@
 
     @* 🎁 盲盒收入映射 is maintained on the gifts page in the MAUI rewrite. *@
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">🎁 盲盒收入映射</span><span class="en">BLINDBOX MAP</span></div>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="🎁" /> 盲盒收入映射</span><span class="en">BLINDBOX MAP</span></div>
         <div class="blt-panel-body">
             <div class="blt-hint" style="margin-top:0">
                 盲盒收入映射（礼物名 → 单个盲盒开出收入）在「礼物截图生成」页维护，用于计算盲盒盈亏，不影响记录。
@@ -205,7 +205,7 @@
 
     @* 🎨 界面皮肤 — same theme ids / names / order as the MainLayout top strip picker. *@
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">🎨 界面皮肤</span><span class="en">THEME</span>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="🎨" /> 界面皮肤</span><span class="en">THEME</span>
             <span class="right"><button class="blt-btn" style="padding:2px 10px" @onclick="ResetFoldMemory">重置卡片折叠记忆</button></span>
         </div>
         <div class="blt-panel-body">
@@ -259,7 +259,7 @@
 
     @* 🆕 检查更新 — MAUI 通道：只比较以 -maui 结尾的 Release 标签。 *@
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">🆕 检查更新</span><span class="en">UPDATE</span>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="🆕" /> 检查更新</span><span class="en">UPDATE</span>
             <span class="right"><span>@UpdateChannelText()</span></span>
         </div>
         <div class="blt-panel-body">
@@ -307,7 +307,7 @@
     </div>
 
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">🖥 服务端</span><span class="en">SERVER</span></div>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="🖥" /> 服务端</span><span class="en">SERVER</span></div>
         <div class="blt-panel-body">
             <div class="blt-kv"><span class="k">面板服务</span><span class="v @ApiCls()">@ApiText()</span></div>
             <div class="blt-kv"><span class="k">监听地址</span><span class="v">127.0.0.1:@Api.Port</span></div>
@@ -317,7 +317,7 @@
     </div>
 
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">📜 事件日志</span><span class="en">EVENT LOG</span>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="📜" /> 事件日志</span><span class="en">EVENT LOG</span>
             <span class="right"><span>tail -f · 缓存 @Hub.GetRecent("danmu").Count + 最近</span>
             <button class="blt-btn" style="padding:2px 10px" @onclick="ClearView">清空显示</button></span>
         </div>
@@ -343,7 +343,7 @@
     </div>
 
     <div class="blt-panel">
-        <div class="blt-panel-head"><span class="t">⚡ 快捷操作</span><span class="en">QUICK OPS</span>
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="⚡" /> 快捷操作</span><span class="en">QUICK OPS</span>
             <span class="right"><span>dev · 走完整事件管线</span></span>
         </div>
         <div class="blt-panel-body">

@@ -13,7 +13,7 @@
     @* ── 左列：直播间信息 + 分类计数 ── *@
     <div>
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">📊 直播间信息</span><span class="en">LIVE ROOM INFO</span>
+            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="📊" /> 直播间信息</span><span class="en">LIVE ROOM INFO</span>
                 <span class="right">
                     <span>@InfoUpdatedText()</span>
                     <button class="blt-btn" style="padding:2px 10px" @onclick="RefreshLiveInfo">立即刷新</button>
@@ -103,7 +103,7 @@
     @* ── 右列：实时事件流（最多保留 200 条） ── *@
     <div>
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">📜 实时事件流</span><span class="en">LIVE EVENTS</span>
+            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="📜" /> 实时事件流</span><span class="en">LIVE EVENTS</span>
                 <span class="right">
                     <span>tail -f · @_events.Count / @MaxEvents</span>
                     <button class="blt-btn" style="padding:2px 10px" @onclick="ClearEvents">清空显示</button>

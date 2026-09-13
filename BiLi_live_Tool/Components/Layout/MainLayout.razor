@@ -20,39 +20,39 @@
 
         <div class="blt-navgroup @Fold("live")" @onclick="ToggleLive">直播控制</div>
         <div class="blt-navfold @FoldHide("live")">
-            <NavLink class="blt-navitem" href="/tts">🎙 语音念弹幕</NavLink>
-            <NavLink class="blt-navitem" href="/autodanmu">💬 自动弹幕</NavLink>
-            <NavLink class="blt-navitem" href="/pk">⚔ PK/连线</NavLink>
-            <NavLink class="blt-navitem" href="/song">🎵 点歌功能</NavLink>
+            <NavLink class="blt-navitem" href="/tts"><BltIcon Emoji="🎙" /> 语音念弹幕</NavLink>
+            <NavLink class="blt-navitem" href="/autodanmu"><BltIcon Emoji="💬" /> 自动弹幕</NavLink>
+            <NavLink class="blt-navitem" href="/pk"><BltIcon Emoji="⚔" /> PK/连线</NavLink>
+            <NavLink class="blt-navitem" href="/song"><BltIcon Emoji="🎵" /> 点歌功能</NavLink>
         </div>
 
         <div class="blt-navgroup @Fold("show")" @onclick="ToggleShow">实时与展示</div>
         <div class="blt-navfold @FoldHide("show")">
-            <NavLink class="blt-navitem" href="/realtime">⚡ 实时展示</NavLink>
-            <NavLink class="blt-navitem" href="/gifts">🎁 礼物截图生成</NavLink>
+            <NavLink class="blt-navitem" href="/realtime"><BltIcon Emoji="⚡" /> 实时展示</NavLink>
+            <NavLink class="blt-navitem" href="/gifts"><BltIcon Emoji="🎁" /> 礼物截图生成</NavLink>
         </div>
 
         <div class="blt-navgroup @Fold("logs")" @onclick="ToggleLogs">日志记录</div>
         <div class="blt-navfold @FoldHide("logs")">
-            <NavLink class="blt-navitem" href="/logs/danmu">📄 弹幕记录 <span class="blt-badge @(RecOn("danmu"))">@(RecOn("danmu") ? "REC" : "OFF")</span></NavLink>
-            <NavLink class="blt-navitem" href="/logs/gifts">🎁 礼物记录 <span class="blt-badge @(RecOn("gifts"))">@(RecOn("gifts") ? "REC" : "OFF")</span></NavLink>
-            <NavLink class="blt-navitem" href="/logs/blindbox">📦 盲盒记录 <span class="blt-badge @(RecOn("blindbox"))">@(RecOn("blindbox") ? "REC" : "OFF")</span></NavLink>
-            <NavLink class="blt-navitem" href="/logs/guard">🛡 舰长记录 <span class="blt-badge @(RecOn("guard"))">@(RecOn("guard") ? "REC" : "OFF")</span></NavLink>
-            <NavLink class="blt-navitem" href="/logs/superchat">⚡ SC 记录 <span class="blt-badge @(RecOn("superchat"))">@(RecOn("superchat") ? "REC" : "OFF")</span></NavLink>
+            <NavLink class="blt-navitem" href="/logs/danmu"><BltIcon Emoji="📄" /> 弹幕记录 <span class="blt-badge @(RecOn("danmu"))">@(RecOn("danmu") ? "REC" : "OFF")</span></NavLink>
+            <NavLink class="blt-navitem" href="/logs/gifts"><BltIcon Emoji="🎁" /> 礼物记录 <span class="blt-badge @(RecOn("gifts"))">@(RecOn("gifts") ? "REC" : "OFF")</span></NavLink>
+            <NavLink class="blt-navitem" href="/logs/blindbox"><BltIcon Emoji="📦" /> 盲盒记录 <span class="blt-badge @(RecOn("blindbox"))">@(RecOn("blindbox") ? "REC" : "OFF")</span></NavLink>
+            <NavLink class="blt-navitem" href="/logs/guard"><BltIcon Emoji="🛡" /> 舰长记录 <span class="blt-badge @(RecOn("guard"))">@(RecOn("guard") ? "REC" : "OFF")</span></NavLink>
+            <NavLink class="blt-navitem" href="/logs/superchat"><BltIcon Emoji="⚡" /> SC 记录 <span class="blt-badge @(RecOn("superchat"))">@(RecOn("superchat") ? "REC" : "OFF")</span></NavLink>
         </div>
 
         <div class="blt-navgroup @Fold("obs")" @onclick="ToggleObs">OBS 浮层</div>
         <div class="blt-navfold @FoldHide("obs")">
-            <NavLink class="blt-navitem" href="/alert">🖼 提醒特效墙</NavLink>
-            <NavLink class="blt-navitem" href="/widgets">📋 文字挂件</NavLink>
-            <NavLink class="blt-navitem" href="/keyview">🎮 键鼠手柄可视化</NavLink>
+            <NavLink class="blt-navitem" href="/alert"><BltIcon Emoji="🖼" /> 提醒特效墙</NavLink>
+            <NavLink class="blt-navitem" href="/widgets"><BltIcon Emoji="📋" /> 文字挂件</NavLink>
+            <NavLink class="blt-navitem" href="/keyview"><BltIcon Emoji="🎮" /> 键鼠手柄可视化</NavLink>
         </div>
 
         <div class="blt-navgroup @Fold("sys")" @onclick="ToggleSys">设置</div>
         <div class="blt-navfold @FoldHide("sys")">
-            <NavLink class="blt-navitem" href="/" Match="NavLinkMatch.All">🎛 房间管理</NavLink>
-            <NavLink class="blt-navitem" href="/help">📘 使用教程</NavLink>
-            <NavLink class="blt-navitem" href="/diagnostics">🩺 网络诊断</NavLink>
+            <NavLink class="blt-navitem" href="/" Match="NavLinkMatch.All"><BltIcon Emoji="🎛" /> 房间管理</NavLink>
+            <NavLink class="blt-navitem" href="/help"><BltIcon Emoji="📘" /> 使用教程</NavLink>
+            <NavLink class="blt-navitem" href="/diagnostics"><BltIcon Emoji="🩺" /> 网络诊断</NavLink>
         </div>
     </div>
 
@@ -83,14 +83,14 @@
             </span>
             @if (UpdateBadgeVisible())
             {
-                <span class="seg amber" title="@UpdateBadgeTitle()">🆕 有新版本</span>
+                <span class="seg amber" title="@UpdateBadgeTitle()"><BltIcon Name="download" /> 有新版本</span>
             }
             @if (Verify.Locked)
             {
-                <span class="seg" style="color:var(--red)">🔒 未授权</span>
+                <span class="seg" style="color:var(--red)"><BltIcon Name="lock" /> 未授权</span>
             }
             <span class="seg amber">BUILD @KestrelHost.VersionText</span>
-            <span class="seg" style="margin-left:auto">🕒 <b id="blt-clock">--:--:--</b></span>
+            <span class="seg" style="margin-left:auto"><BltIcon Name="clock" /> <b id="blt-clock">--:--:--</b></span>
         </div>
         @if (Verify.Locked)
         {

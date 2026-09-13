@@ -84,7 +84,7 @@
         </div>
 
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🎁 感谢礼物</span><span class="en">THANK</span>
+            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="🎁" /> 感谢礼物</span><span class="en">THANK</span>
                 @* Sub-function switch lives in the card head (was a corner control). *@
                 <span class="right"><span class="blt-switch lg @OnCls(_thankEnabled)" @onclick="ToggleThank"><span class="track"></span>@OnOffText(_thankEnabled)</span></span>
             </div>
@@ -113,7 +113,7 @@
     @* ── 右列：关注感谢 / 定时弹幕 / 模拟事件 ── *@
     <div>
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">⭐ 感谢关注</span><span class="en">FOLLOW</span>
+            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="⭐" /> 感谢关注</span><span class="en">FOLLOW</span>
                 @* Sub-function switch lives in the card head (was a corner control). *@
                 <span class="right"><span class="blt-switch lg @OnCls(_followEnabled)" @onclick="ToggleFollow"><span class="track"></span>@OnOffText(_followEnabled)</span></span>
             </div>
@@ -173,7 +173,7 @@
         </div>
 
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">⚡ 模拟事件</span><span class="en">SIMULATE</span>
+            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="⚡" /> 模拟事件</span><span class="en">SIMULATE</span>
                 <span class="right"><span>dev · 走完整事件管线</span></span>
             </div>
             <div class="blt-panel-body">

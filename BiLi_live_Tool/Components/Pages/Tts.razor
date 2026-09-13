@@ -220,8 +220,37 @@
                     <span class="k">当前状态</span>
                     <span class="v @(Speaker.Speaking ? "green" : "")">@SpeakerStateText()</span>
                 </div>
+                <div style="display:flex;gap:8px;align-items:flex-end;margin-top:12px;flex-wrap:wrap">
+                    <div style="width:94px">
+                        <label class="blt-label">队列上限</label>
+                        <input class="blt-input mono" type="number" min="1" max="50" value="@_queueMax"
+                               @onchange="OnQueueMaxChanged" />
+                    </div>
+                    <button class="blt-btn" @onclick="SkipSpeech" disabled="@(!Speaker.Speaking)">⏭ 跳过本条</button>
+                    <button class="blt-btn" @onclick="ClearSpeechQueue" disabled="@(Speaker.QueueCount == 0)">🗑 清空队列</button>
+                    <span class="@SwitchClass(_guardPriority)" style="margin-left:auto" @onclick="ToggleGuardPriority">
+                        <span class="track"></span>舰长弹幕优先
+                    </span>
+                </div>
+                @{ var q = Speaker.QueueSnapshot(); }
+                @if (q.Count == 0)
+                {
+                    <div class="blt-empty" style="padding:14px 6px">队列为空 · 命中事件后在这里排队</div>
+                }
+                else
+                {
+                    <div class="blt-log" style="max-height:186px;margin-top:10px">
+                        @foreach (var row in q)
+                        {
+                            <div class="blt-logrow">
+                                <span class="tag @QueueTagClass(row)">@QueueTagText(row)</span>
+                                <span class="txt">@(row.Guard ? "⭐ " : "")@row.Text</span>
+                            </div>
+                        }
+                    </div>
+                }
                 <div class="blt-hint">
-                    播报链路已在新版内建，无需打开旧面板：命中的事件直接进入队列，按「队列上限 / 舰长优先 / 队列间隔」依次念出。
+                    「跳过本条」立刻停掉正在念的这条、接着念下一条；「清空队列」只丢弃排队中的，正在念的不受影响。上限 1~50，达到上限后新事件被忽略（舰长优先开启时舰长弹幕插队到第 2 位之后）。
                 </div>
             </div>
         </div>
@@ -309,8 +338,6 @@
                 <div class="blt-kv"><span class="k">pitch · 音调基准</span><span class="v">@_pitch</span></div>
                 <div class="blt-kv"><span class="k">gain · 增益</span><span class="v">@_gain</span></div>
                 <div class="blt-kv"><span class="k">gap · 队列间隔 ms</span><span class="v">@_gap</span></div>
-                <div class="blt-kv"><span class="k">queueMax · 队列上限</span><span class="v">@_queueMax</span></div>
-                <div class="blt-kv"><span class="k">guardPriority · 舰长优先</span><span class="v @OnOff(_guardPriority)">@OnOffText(_guardPriority)</span></div>
                 <div class="blt-kv"><span class="k">favoriteVoices · 收藏音色</span><span class="v">@_favoriteCount 个</span></div>
                 <div class="blt-kv"><span class="k">blacklistUids / bannedWords</span><span class="v">@_blacklistCount / @_bannedCount</span></div>
             </div>
@@ -561,6 +588,8 @@
         tts["volume"] = ParseD(_volumeText, 1);
         tts["blacklistUids"] = _blacklistUids;
         tts["bannedWords"] = _bannedWords;
+        tts["queueMax"] = (long)ParseD(_queueMax, 8);
+        tts["guardPriority"] = _guardPriority;
         _blacklistCount = SplitList(_blacklistUids).Count;
         _bannedCount = SplitList(_bannedWords).Count;
 
@@ -696,6 +725,45 @@
     // ---- speak queue ----
 
     private string SpeakerStateText() => Speaker.Speaking ? "正在念：" + Speaker.CurrentText : "空闲";
+
+    // ---- queue controls (skip / clear / cap / guard priority) ----
+
+    private void SkipSpeech() => Speaker.SkipCurrent();
+
+    private void ClearSpeechQueue() => Speaker.ClearQueue();
+
+    private void OnQueueMaxChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString() ?? "";
+        if (!int.TryParse(raw, out var n)) n = 8;
+        n = Math.Clamp(n, 1, 50);
+        _queueMax = n.ToString();
+        SaveSoon("tts-queue", SaveMaster);
+    }
+
+    private void ToggleGuardPriority()
+    {
+        _guardPriority = !_guardPriority;
+        SaveSoon("tts-queue", SaveMaster);
+    }
+
+    private static string QueueTagText(TtsSpeaker.QueueItem r) => r.Type switch
+    {
+        "danmu" => "弹幕",
+        "gift" => "礼物",
+        "superchat" => "SC",
+        "welcome" => "进房",
+        _ => r.Type,
+    };
+
+    private static string QueueTagClass(TtsSpeaker.QueueItem r) => r.Type switch
+    {
+        "danmu" => "tag danmu",
+        "gift" => "tag gifts",
+        "superchat" => "tag superchat",
+        "welcome" => "tag interact",
+        _ => "tag info",
+    };
 
     /// <summary>POSTs the whole document; falls back to a direct in-process write when the API is down.</summary>
     private async Task SaveAsync(string label)

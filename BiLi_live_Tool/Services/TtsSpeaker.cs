@@ -26,6 +26,7 @@ public sealed class TtsSpeaker
     private string _currentText = "";
     private readonly Dictionary<string, int> _fails = new();
     private string? _effectiveEngine;
+    private volatile bool _skipRequested;
 
     // Diagnostics for /api/maui/debug/tray
     public string LastResult { get; private set; } = "not-run";
@@ -85,6 +86,35 @@ public sealed class TtsSpeaker
     public int QueueCount { get { lock (_lock) return _queue.Count; } }
     public bool Speaking { get { lock (_lock) return _speaking; } }
     public string CurrentText { get { lock (_lock) return _currentText; } }
+
+    /// <summary>One pending queue item, as shown in the panel queue list.</summary>
+    public sealed record QueueItem(string Type, string Text, bool Guard, int Priority);
+
+    /// <summary>Pending items for the panel queue list (oldest first).</summary>
+    public List<QueueItem> QueueSnapshot()
+    {
+        lock (_lock)
+            return _queue.Select(i => new QueueItem(i.TypeKey, i.Text, i.IsGuard, i.Priority)).ToList();
+    }
+
+    /// <summary>
+    /// Legacy 「⏭ 跳过当前」: stop the item being spoken and move straight to the
+    /// next one. The stop reaches the audio layer as a failed play, so the skip
+    /// flag keeps it out of the engine-demotion counter.
+    /// </summary>
+    public void SkipCurrent()
+    {
+        _skipRequested = true;
+        try { _ = _audio.StopAsync(); } catch { }
+        Changed?.Invoke();
+    }
+
+    /// <summary>Drops everything still waiting (the item being spoken keeps playing).</summary>
+    public void ClearQueue()
+    {
+        lock (_lock) _queue.Clear();
+        Changed?.Invoke();
+    }
 
     // ---------------- event intake ----------------
 
@@ -224,6 +254,13 @@ public sealed class TtsSpeaker
                 }
                 Changed?.Invoke();
                 await SpeakItemAsync(item);
+                if (_skipRequested)
+                {
+                    // Skipped by the user: jump straight to the next item.
+                    _skipRequested = false;
+                    Changed?.Invoke();
+                    continue;
+                }
                 var gap = (int)Math.Clamp(Settings2s().Gap, 0, 5000);
                 if (gap > 0) await Task.Delay(gap);
             }
@@ -250,6 +287,12 @@ public sealed class TtsSpeaker
 
             var engine = _effectiveEngine ?? cfg.Engine;
             var ok = await TryEngineAsync(engine, text, voice, cfg, rate, pitchHz, volume);
+            if (!ok && _skipRequested)
+            {
+                // The user skipped it — not an engine failure, so no demotion.
+                LastResult = "skip";
+                return;
+            }
             if (!ok)
             {
                 _fails.TryGetValue(engine, out var f);

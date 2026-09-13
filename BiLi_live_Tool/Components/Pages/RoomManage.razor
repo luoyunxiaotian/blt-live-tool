@@ -8,6 +8,7 @@
 @inject LivePipeline Pipeline
 @inject KestrelHost Api
 @inject TtsHost Tts
+@inject VerifyService Verify
 @inject DebouncedSaver Saver
 @inject IJSRuntime JS
 @inject NavigationManager Nav
@@ -35,7 +36,7 @@
             <label class="blt-label">room_id</label>
             <div style="display:flex;gap:10px">
                 <input class="blt-input mono" @bind="_roomId" @bind:after="SaveRoomIdSoon" placeholder="直播间号（支持短号）" @onkeydown="OnRoomKey" />
-                <button class="blt-btn primary" @onclick="Connect" disabled="@Live.IsRunning">连接</button>
+                <button class="blt-btn primary" @onclick="Connect" disabled="@(Live.IsRunning || Verify.Locked)">连接</button>
                 <button class="blt-btn" @onclick="Disconnect" disabled="@(!Live.IsRunning)">断开</button>
             </div>
 
@@ -210,6 +211,34 @@
             }
         </div>
     </div>
+
+    @if (Verify.Locked)
+    {
+        @* 对齐旧版 renderVerifyLockCard：「🔒 账号待授权」说明卡 + 三个操作 *@
+        <div class="blt-panel" style="border-color:var(--red);background:var(--red-dim)">
+            <div class="blt-panel-head" style="border-bottom-color:rgba(245,110,110,.35)">
+                <span class="t" style="color:var(--red)">🔒 账号待授权</span>
+                <span class="en">VERIFY</span>
+                <span class="right"><span>@Verify.State.CheckedAt</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-hint" style="color:var(--ink-2);margin:0">
+                    本工具为作者白名单授权制：你的 B站账号 UID <b>@Verify.State.Uid</b> 需要<b>加入作者的白名单</b>后才能使用全部功能。
+                    在授权通过前，连接直播间被锁定（已保存的配置不会丢失，授权后自动恢复）。
+                    <br />原因：@Verify.State.Message
+                </div>
+                <div class="blt-hint" style="color:var(--ink-2);margin-top:6px">
+                    获取授权：联系作者 <b>B站UID <span style="font-family:var(--mono)">@VerifyService.AuthorUid</span></b>，说明你的来意即可申请。
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                    <button class="blt-btn primary" @onclick="CopyAuthorUid2">📋 复制作者B站ID</button>
+                    <button class="blt-btn" @onclick="OpenAuthorSpace2">🔗 打开作者B站主页</button>
+                    <button class="blt-btn" @onclick="RetryVerify2">↻ 重试验证</button>
+                    <span class="blt-hint" style="align-self:center;margin:0">@_verifyNote2</span>
+                </div>
+            </div>
+        </div>
+    }
 
     @* 🆕 检查更新 — MAUI 通道：只比较以 -maui 结尾的 Release 标签。 *@
     <div class="blt-panel">
@@ -391,6 +420,36 @@
     {
         if (e.Key == "Enter") return Connect();
         return Task.CompletedTask;
+    }
+
+    private string _verifyNote2 = "";
+
+    private async Task CopyAuthorUid2()
+    {
+        var text = "B站UID " + VerifyService.AuthorUid + "（B站直播助手作者）";
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", text); _verifyNote2 = "已复制作者B站ID"; }
+        catch { _verifyNote2 = "复制失败，请手动记下 UID " + VerifyService.AuthorUid; }
+        StateHasChanged();
+    }
+
+    private async Task OpenAuthorSpace2()
+    {
+        try { await JS.InvokeVoidAsync("bltOpenExternal", "https://space.bilibili.com/" + VerifyService.AuthorUid); _verifyNote2 = "已打开作者主页"; }
+        catch { _verifyNote2 = "打开失败"; }
+        StateHasChanged();
+    }
+
+    private async Task RetryVerify2()
+    {
+        _verifyNote2 = "正在重新验证…";
+        StateHasChanged();
+        try
+        {
+            var r = await JS.InvokeAsync<string>("bltFetchVerifyRefresh");
+            _verifyNote2 = string.IsNullOrEmpty(r) ? "已提交重试" : r;
+        }
+        catch { _verifyNote2 = "重试请求失败"; }
+        StateHasChanged();
     }
 
     private Task Connect()

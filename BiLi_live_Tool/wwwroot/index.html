@@ -26,6 +26,27 @@
         };
       })();
 
+
+      // Bridge helpers used by the verify-lock banner: open a URL in the system
+      // browser and trigger a forced re-verification through the local API.
+      window.bltOpenExternal = function (url) {
+        try {
+          return fetch('/api/maui/shell/open-external', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: url })
+          }).then(function (r) { return r.ok; });
+        } catch (e) { return false; }
+      };
+      window.bltFetchVerifyRefresh = function () {
+        try {
+          return fetch('/api/maui/verify/refresh', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+          }).then(function (r) { return r.json(); })
+            .then(function (j) { var s = (j && j.state) || {}; return s.locked ? ('仍未通过：' + (s.message || '')) : ('验证通过：' + (s.name || '')); })
+            .catch(function () { return '重试请求失败'; });
+        } catch (e) { return '重试请求失败'; }
+      };
+
       // Small localStorage helpers (nav fold state, etc.) callable from Blazor.
       window.bltGetJson = function (key) {
         try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }

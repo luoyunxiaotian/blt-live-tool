@@ -11,6 +11,7 @@
 @inject SongPlayer Song
 @inject UiBridge Ui
 @inject UpdateChecker Upd
+@inject VerifyService Verify
 
 <div class="blt-app">
     <div class="blt-side">
@@ -83,9 +84,39 @@
             {
                 <span class="seg amber" title="@UpdateBadgeTitle()">🆕 有新版本</span>
             }
+            @if (Verify.Locked)
+            {
+                <span class="seg" style="color:var(--red)">🔒 未授权</span>
+            }
             <span class="seg amber">BUILD @KestrelHost.VersionText</span>
             <span class="seg" style="margin-left:auto">🕒 @DateTime.Now.ToString("HH:mm:ss")</span>
         </div>
+        @if (Verify.Locked)
+        {
+            <div class="blt-panel" style="border-color:var(--red);background:var(--red-dim)">
+                <div class="blt-panel-head" style="border-bottom-color:rgba(245,110,110,.35)">
+                    <span class="t" style="color:var(--red)">🔒 账号待授权</span>
+                    <span class="en">VERIFY LOCKED</span>
+                    <span class="right"><span>@Verify.State.CheckedAt</span></span>
+                </div>
+                <div class="blt-panel-body">
+                    <div class="blt-hint" style="color:var(--ink-2);margin:0">
+                        @Verify.State.Message
+                        <br />本工具为作者白名单授权制：你的 B站账号 UID <b>@Verify.State.Uid</b> 需要加入作者的白名单后才能连接直播间。
+                        在授权通过前，除登录/授权相关操作外其余功能临时锁定（<b>已保存的配置不会丢失，授权后自动恢复</b>）。
+                    </div>
+                    <div class="blt-hint" style="color:var(--ink-2);margin-top:6px">
+                        获取授权：联系作者 <b>B站UID <span style="font-family:var(--mono)">@VerifyService.AuthorUid</span></b>，说明你的来意即可申请。
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                        <button class="blt-btn primary" @onclick="CopyAuthorUid">📋 复制作者B站ID</button>
+                        <button class="blt-btn" @onclick="OpenAuthorSpace">🔗 打开作者B站主页</button>
+                        <button class="blt-btn" @onclick="RetryVerify">↻ 重试验证</button>
+                        <span class="blt-hint" style="align-self:center;margin:0">@_verifyNote</span>
+                    </div>
+                </div>
+            </div>
+        }
         @Body
     </div>
 
@@ -109,6 +140,40 @@
     // Sidebar group fold state (localStorage 'blt_nav_fold', like the legacy panel).
     private readonly Dictionary<string, bool> _fold = new();
     private bool _foldLoaded;
+
+    private string _verifyNote = "";
+
+    private async Task CopyAuthorUid()
+    {
+        var text = "B站UID " + VerifyService.AuthorUid + "（B站直播助手作者）";
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", text); _verifyNote = "已复制作者B站ID"; }
+        catch { _verifyNote = "复制失败，请手动记下 UID " + VerifyService.AuthorUid; }
+        StateHasChanged();
+    }
+
+    private async Task OpenAuthorSpace()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("bltOpenExternal", "https://space.bilibili.com/" + VerifyService.AuthorUid);
+            _verifyNote = "已打开作者主页";
+        }
+        catch { _verifyNote = "打开失败：https://space.bilibili.com/" + VerifyService.AuthorUid; }
+        StateHasChanged();
+    }
+
+    private async Task RetryVerify()
+    {
+        _verifyNote = "正在重新验证…";
+        StateHasChanged();
+        try
+        {
+            var r = await JS.InvokeAsync<string>("bltFetchVerifyRefresh");
+            _verifyNote = string.IsNullOrEmpty(r) ? "已提交重试" : r;
+        }
+        catch { _verifyNote = "重试请求失败"; }
+        StateHasChanged();
+    }
 
     private bool UpdateBadgeVisible() => Upd.LastResult?.HasUpdate == true;
 

@@ -39,6 +39,7 @@ public sealed class KestrelHost
     private readonly SongPlayer _songPlayer;
     private readonly UiBridge _ui;
     private readonly UpdateChecker _updateChecker;
+    private readonly VerifyService _verify;
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
     private readonly ConcurrentDictionary<Guid, WebSocket> _keyviewClients = new();
     private readonly HttpClient _proxy = new() { Timeout = TimeSpan.FromSeconds(180) };
@@ -51,7 +52,7 @@ public sealed class KestrelHost
     public string? LastError { get; private set; }
     public int Port => _config.Port;
 
-    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker)
+    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker, VerifyService verify)
     {
         _config = config;
         _hub = hub;
@@ -65,6 +66,7 @@ public sealed class KestrelHost
         _songPlayer = songPlayer;
         _ui = ui;
         _updateChecker = updateChecker;
+        _verify = verify;
     }
 
     public void StartInBackground()
@@ -192,6 +194,9 @@ public sealed class KestrelHost
 
         app.MapPost("/api/connect", async (HttpContext ctx) =>
         {
+            if (_verify.Locked)
+                return Results.Json(new { error = "账号未授权，请更换登录" }, JsonWeb, statusCode: 403);
+
             ConnectBody? body = null;
             try { body = await ctx.Request.ReadFromJsonAsync<ConnectBody>(JsonWeb); } catch { }
             var roomId = (body?.RoomId ?? "").Trim();
@@ -210,7 +215,9 @@ public sealed class KestrelHost
         });
 
         // Verification lock is an Electron-only mechanism; web mode never locks.
-        app.MapPost("/api/verify-lock", () => Results.Json(new { ok = true, locked = false }, JsonWeb));
+        // 白名单授权状态（移植旧版 /api/verify-lock：返回真实锁态，不再是桩）
+        app.MapGet("/api/verify-lock", () => Results.Json(VerifyPayload(), JsonWeb));
+        app.MapPost("/api/verify-lock", () => Results.Json(VerifyPayload(), JsonWeb));
 
         app.MapGet("/api/recent", (HttpContext ctx) =>
         {
@@ -973,6 +980,13 @@ public sealed class KestrelHost
                     probe.Stop();
                     return Results.Json(new { ok = true, room, seconds, cmds, frames, parsedGifts = parsed }, JsonWeb);
                 }
+                case "verify/status":
+                    return Results.Json(VerifyPayload(), JsonWeb);
+                case "verify/refresh":
+                {
+                    var st = await _verify.RefreshAsync(force: true);
+                    return Results.Json(new { ok = true, state = st }, JsonWeb);
+                }
                 case "debug/frames":
                 {
                     // Raw danmu frames (parse diagnostics): body.filter = cmd prefix.
@@ -1172,6 +1186,24 @@ public sealed class KestrelHost
     {
         s ??= "";
         return s.Length > max ? s[..max] : (s.Length == 0 ? def : s);
+    }
+
+    /// <summary>Authorization payload shared by /api/verify-lock and the MAUI bridge.</summary>
+    private object VerifyPayload()
+    {
+        var st = _verify.State;
+        return new
+        {
+            ok = true,
+            locked = st.Locked,
+            uid = st.Uid,
+            name = st.Name,
+            code = st.Code,
+            message = st.Message,
+            checkedAt = st.CheckedAt,
+            checked_ = st.Checked,
+            authorUid = VerifyService.AuthorUid,
+        };
     }
 
     private static string SafeStr(JsonNode? n) => n is JsonValue v && v.TryGetValue<string>(out var s) ? s ?? "" : "";

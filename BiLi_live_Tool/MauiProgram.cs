@@ -36,6 +36,7 @@ namespace BiLi_live_Tool
             // Update probe: shared by the panel card, the top strip badge and the
             // silent start-up check (6h throttle, see UpdateChecker).
             builder.Services.AddSingleton(sp => new UpdateChecker(KestrelHost.VersionText));
+            builder.Services.AddSingleton<VerifyService>();
             builder.Services.AddSingleton<DebouncedSaver>();
             builder.Services.AddSingleton<KestrelHost>();
 
@@ -74,6 +75,19 @@ namespace BiLi_live_Tool
             });
             app.Services.GetRequiredService<LivePipeline>().Start();
             app.Services.GetRequiredService<TtsHost>().StartEdge();
+
+            // White-list authorization (Electron parity: verify-lock). A light poll
+            // replaces the original's config.json watcher: any new/changed uid is
+            // verified once, and a rejected account locks room connections.
+            _ = Task.Run(async () =>
+            {
+                var verify = app.Services.GetRequiredService<VerifyService>();
+                while (true)
+                {
+                    try { await verify.RefreshAsync(); } catch { }
+                    try { await Task.Delay(TimeSpan.FromSeconds(5)); } catch { return; }
+                }
+            });
 
             // Honor the original autoConnect setting (server.js:1176 parity).
             var config = app.Services.GetRequiredService<AppConfig>();

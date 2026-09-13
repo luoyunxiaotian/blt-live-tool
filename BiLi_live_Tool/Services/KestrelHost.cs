@@ -780,7 +780,7 @@ public sealed class KestrelHost
                 case "version":
                     return Results.Json(new { app = VersionText, maui = true }, JsonWeb);
                 case "app/quit":
-                    Ui(() => Application.Current?.Quit());
+                    Ui(() => App.QuitForReal());
                     return Results.Json(new { ok = true }, JsonWeb);
                 case "app/focus-panel":
                 case "app/minimize-tray":

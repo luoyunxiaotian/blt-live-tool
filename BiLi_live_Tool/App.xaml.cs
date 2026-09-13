@@ -35,7 +35,11 @@ namespace BiLi_live_Tool
             }
             catch { }
 #endif
-            window.HandlerChanged += (_, _) => StyleTitleBar(window);
+            window.HandlerChanged += (_, _) =>
+            {
+                StyleTitleBar(window);
+                HookCloseToTray(window);
+            };
             window.Destroying += async (_, _) =>
             {
                 MauiProgram.Services.GetService<LiveService>()?.Stop();
@@ -53,7 +57,63 @@ namespace BiLi_live_Tool
             return window;
         }
 
-        /// <summary>Tray left-click: minimize ↔ restore the main window.</summary>
+        /// <summary>True only for the real exit path (tray menu / API) — otherwise X hides to tray.</summary>
+        internal static bool IsReallyQuitting { get; private set; }
+
+        /// <summary>Real quit: lets the close handler pass and shuts the app down.</summary>
+        internal static void QuitForReal()
+        {
+            IsReallyQuitting = true;
+            try { Application.Current?.Quit(); } catch { }
+        }
+
+        private static bool _closeHooked;
+
+        /// <summary>
+        /// Port of the Electron behaviour: the X button minimizes to the tray;
+        /// the app keeps running (tray icon left-click restores it).
+        /// </summary>
+        private static void HookCloseToTray(Window window)
+        {
+            try
+            {
+                if (_closeHooked) return;
+                if (window.Handler?.PlatformView is Microsoft.UI.Xaml.Window winUi
+                    && winUi.AppWindow is { } appWindow)
+                {
+                    _closeHooked = true;
+                    appWindow.Closing += OnAppWindowClosing;
+                    ShowWindow(WinRT.Interop.WindowNative.GetWindowHandle(winUi), SW_HIDE);   // start hidden is a no-op; harmless
+                    // Re-show in case the hide above raced the first paint.
+                    ShowWindow(WinRT.Interop.WindowNative.GetWindowHandle(winUi), SW_SHOW);
+                }
+            }
+            catch { }
+        }
+
+        private static void OnAppWindowClosing(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs args)
+        {
+            if (IsReallyQuitting) return;
+            args.Cancel = true;   // keep running …
+            HideToTray();         // … but get out of the user's way
+        }
+
+        /// <summary>Hides the main window (tray left-click brings it back).</summary>
+        internal static void HideToTray()
+        {
+            try
+            {
+#if WINDOWS
+                var win = Current?.Windows?.FirstOrDefault();
+                if (win?.Handler?.PlatformView is not Microsoft.UI.Xaml.Window winUi) return;
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(winUi);
+                ShowWindow(hwnd, SW_HIDE);
+#endif
+            }
+            catch { }
+        }
+
+        /// <summary>Tray left-click: hidden → restore; minimized → restore; visible → minimize.</summary>
         internal static void ToggleMainWindow()
         {
             try
@@ -63,10 +123,21 @@ namespace BiLi_live_Tool
                 var platform = win?.Handler?.PlatformView;
                 if (platform == null) return;
                 var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(platform);
-                if (IsIconic(hwnd))
+                if (!IsWindowVisible(hwnd))
+                {
+                    ShowWindow(hwnd, SW_SHOW);
                     ShowWindow(hwnd, SW_RESTORE);
+                    SetForegroundWindow(hwnd);
+                }
+                else if (IsIconic(hwnd))
+                {
+                    ShowWindow(hwnd, SW_RESTORE);
+                    SetForegroundWindow(hwnd);
+                }
                 else
+                {
                     ShowWindow(hwnd, SW_MINIMIZE);
+                }
 #endif
             }
             catch { }
@@ -91,10 +162,15 @@ namespace BiLi_live_Tool
 
 #if WINDOWS
         private const int SW_MINIMIZE = 6;
+        private const int SW_HIDE = 0;
+        private const int SW_SHOW = 5;
         private const int SW_RESTORE = 9;
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool IsIconic(nint hWnd);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(nint hWnd);
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool ShowWindow(nint hWnd, int nCmdShow);

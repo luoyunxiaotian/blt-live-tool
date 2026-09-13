@@ -19,6 +19,9 @@ public sealed class TtsHost
     private Process? _moss;
     private string _edgePath = "";
     private string _mossPath = "";
+    private bool _edgeReused;
+    private bool _mossReused;
+    private static bool _swept;
 
     public static string ModelDir => Path.Combine(AppConfig.DataDir, "tts-moss");
 
@@ -44,7 +47,9 @@ public sealed class TtsHost
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
             };
-            return Process.Start(psi);
+            var p = Process.Start(psi);
+            if (p != null) TtsProcessGuard.GuardProcess(p);   // die with us, even on hard kill
+            return p;
         }
         catch
         {
@@ -52,22 +57,45 @@ public sealed class TtsHost
         }
     }
 
+    /// <summary>One-time cleanup of TTS servers leaked by force-killed earlier runs.</summary>
+    private static void SweepOrphansOnce()
+    {
+        if (_swept) return;
+        _swept = true;
+        try
+        {
+            var killed = TtsProcessGuard.KillOrphanedTtsServers();
+            if (killed > 0) System.Diagnostics.Debug.WriteLine($"[tts] swept {killed} orphaned server process(es)");
+        }
+        catch { }
+    }
+
     public void StartEdge()
     {
         lock (_lock)
         {
             if (_edge is { HasExited: false }) return;
+            SweepOrphansOnce();
+            // Reuse a healthy server when one is already serving (e.g. the
+            // Electron version started it, or a previous instance survived).
+            if (TtsProcessGuard.IsPortAlive(EdgePort))
+            {
+                _edgeReused = true;
+                _edgePath = "(reused)";
+                return;
+            }
             var exe = FindExe("edge_tts_server.exe");
             if (exe == null) return;   // panel falls back to built-in / system voices
             _edge = Spawn(exe, EdgePort.ToString());
             _edgePath = exe;
+            _edgeReused = false;
         }
     }
 
     public object EdgeStatus()
     {
         lock (_lock)
-            return new { running = _edge is { HasExited: false }, port = EdgePort, execPath = _edgePath };
+            return new { running = _edge is { HasExited: false } || (_edgeReused && TtsProcessGuard.IsPortAlive(EdgePort)), port = EdgePort, execPath = _edgePath };
     }
 
     public object EnsureMoss()
@@ -75,11 +103,19 @@ public sealed class TtsHost
         lock (_lock)
         {
             if (_moss is { HasExited: false }) return MossStatusNoLock();
+            SweepOrphansOnce();
+            if (TtsProcessGuard.IsPortAlive(MossPort))
+            {
+                _mossReused = true;
+                _mossPath = "(reused)";
+                return MossStatusNoLock();
+            }
             var exe = FindExe("moss_tts_server.exe");
             if (exe == null) return MossStatusNoLock();
             try { Directory.CreateDirectory(ModelDir); } catch { }
             _moss = Spawn(exe, $"{MossPort} \"{ModelDir}\"");
             _mossPath = exe;
+            _mossReused = false;
             return MossStatusNoLock();
         }
     }
@@ -110,7 +146,7 @@ public sealed class TtsHost
     }
 
     private object MossStatusNoLock()
-        => new { running = _moss is { HasExited: false }, port = MossPort, execPath = _mossPath, modelDir = ModelDir };
+        => new { running = _moss is { HasExited: false } || (_mossReused && TtsProcessGuard.IsPortAlive(MossPort)), port = MossPort, execPath = _mossPath, modelDir = ModelDir };
 
     public void StopAll()
     {

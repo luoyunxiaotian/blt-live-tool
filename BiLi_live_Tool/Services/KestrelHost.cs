@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -62,6 +63,10 @@ public sealed class KestrelHost
             if (!string.IsNullOrWhiteSpace(s)) v = s.Trim();
         }
         catch { }
+        // Unpackaged Windows reports display+build ("1.0.0.1"); keep three segments so
+        // the string matches the release tag convention (vX.Y.Z-maui).
+        var parts = v.Split('.');
+        if (parts.Length > 3) v = string.Join(".", parts.Take(3));
         return v + AppIdentity.ChannelSuffix;
     }
 

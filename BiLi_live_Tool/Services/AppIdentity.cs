@@ -17,14 +17,14 @@ public static class AppIdentity
 {
     // ── 品牌（改名只需改这两行）───────────────────────────────────────────
     /// <summary>User-facing product name. No platform trademark in it.</summary>
-    public const string Name = "弹幕直播助手";
+    public const string Name = "直播小帮手";
 
     /// <summary>
     /// GitHub repository holding the MAUI release line (the Electron line lives
     /// in its own repository). Used by the updater, the diagnostics probe and the
     /// release page links.
     /// </summary>
-    public const string RepoName = "danmu-live-tool";
+    public const string RepoName = "blt-live-tool";
 
     // ── 其余由上面的值派生 ────────────────────────────────────────────────
     public const string RepoOwner = "luoyunxiaotian";

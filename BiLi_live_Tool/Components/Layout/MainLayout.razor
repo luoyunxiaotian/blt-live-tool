@@ -1,5 +1,110 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@using BiLi_live_Tool.Services
+@inject EventHub Hub
+@inject KestrelHost Api
+@inject AppConfig Config
 
-@* The migrated panel UI is the app's face: it fills the whole window with no
-   wrapper chrome. Blazor only acts as the boot host here. *@
-<div style="position:fixed;inset:0;">@Body</div>
+<div class="blt-app">
+    <div class="blt-side">
+        <div class="blt-brand"><b>B站直播助手</b><span>BLT CONSOLE · MAUI</span></div>
+
+        <div class="blt-navgroup">直播控制</div>
+        <NavLink class="blt-navitem" href="/" Match="NavLinkMatch.All">🎛 房间管理</NavLink>
+        <NavLink class="blt-navitem" href="/tts">🎙 语音念弹幕</NavLink>
+        <NavLink class="blt-navitem" href="/autodanmu">💬 自动弹幕</NavLink>
+        <NavLink class="blt-navitem" href="/pk">⚔ PK 连线</NavLink>
+        <NavLink class="blt-navitem" href="/song">🎵 点歌功能</NavLink>
+
+        <div class="blt-navgroup">实时与展示</div>
+        <NavLink class="blt-navitem" href="/realtime">⚡ 实时展示</NavLink>
+        <NavLink class="blt-navitem" href="/gifts">🎁 礼物数据生成</NavLink>
+
+        <div class="blt-navgroup">日志记录</div>
+        <NavLink class="blt-navitem" href="/logs/danmu">📄 弹幕记录 <span class="blt-badge @(RecOn("danmu"))">@(RecOn("danmu") ? "REC" : "OFF")</span></NavLink>
+        <NavLink class="blt-navitem" href="/logs/gifts">🎁 礼物记录 <span class="blt-badge @(RecOn("gifts"))">@(RecOn("gifts") ? "REC" : "OFF")</span></NavLink>
+        <NavLink class="blt-navitem" href="/logs/blindbox">📦 盲盒记录 <span class="blt-badge @(RecOn("blindbox"))">@(RecOn("blindbox") ? "REC" : "OFF")</span></NavLink>
+        <NavLink class="blt-navitem" href="/logs/guard">🛡 舰长记录 <span class="blt-badge @(RecOn("guard"))">@(RecOn("guard") ? "REC" : "OFF")</span></NavLink>
+        <NavLink class="blt-navitem" href="/logs/superchat">⚡ SC 记录 <span class="blt-badge @(RecOn("superchat"))">@(RecOn("superchat") ? "REC" : "OFF")</span></NavLink>
+
+        <div class="blt-navgroup">OBS 浮层</div>
+        <NavLink class="blt-navitem" href="/alert">🖼 提醒特效墙</NavLink>
+        <NavLink class="blt-navitem" href="/widgets">📋 文字挂件</NavLink>
+        <NavLink class="blt-navitem" href="/keyview">🎮 键鼠手柄可视化</NavLink>
+
+        <div class="blt-navgroup">设置</div>
+        <NavLink class="blt-navitem" href="/diagnostics">🩺 网络诊断</NavLink>
+        <NavLink class="blt-navitem" href="/">🏠 房间管理</NavLink>
+        <NavLink class="blt-navitem" href="/help">📘 使用教程</NavLink>
+    </div>
+
+    <div class="blt-main">
+        <div class="blt-topstrip">
+            <span class="seg">🏠 房间 <b>@(string.IsNullOrEmpty(Hub.LastStatus.RealRoomId) ? (string.IsNullOrEmpty(Config.RoomId) ? "—" : Config.RoomId) : Hub.LastStatus.RealRoomId)</b></span>
+            <span class="seg">WS <b class="@WsClass()">@WsText()</b></span>
+            <span class="seg">在线 <b class="green">@FmtPop()</b></span>
+            <span class="seg">HTTP <b>127.0.0.1:@Api.Port</b> @ApiState()</span>
+            <span class="seg amber">BUILD @KestrelHost.VersionText</span>
+            <span class="seg" style="margin-left:auto">🕒 @DateTime.Now.ToString("HH:mm:ss")</span>
+        </div>
+        @Body
+    </div>
+
+    <div class="blt-foot">
+        <span>BLT CONSOLE @KestrelHost.VersionText</span><span class="sep">|</span>
+        <span>WS @WsText()</span><span class="sep">|</span>
+        <span>事件 @EventCount</span><span class="sep">|</span>
+        <span>端口 @Api.Port @ApiState()</span><span class="sep">|</span>
+        <span>模式 MAUI</span>
+    </div>
+</div>
+
+@code {
+    private System.Threading.Timer? _timer;
+    private long _eventCount;
+
+    protected override void OnInitialized()
+    {
+        Hub.OnEvent += OnEvent;
+        Hub.StatusChanged += OnStatus;
+        // 1s ticker: clock + API state refresh.
+        _timer = new System.Threading.Timer(_ => InvokeAsync(StateHasChanged), null, 1000, 1000);
+    }
+
+    private void OnEvent(LiveEvent ev) => InvokeAsync(() => { _eventCount++; StateHasChanged(); });
+    private void OnStatus(LiveStatusInfo st) => InvokeAsync(StateHasChanged);
+
+    private long EventCount => Interlocked.Read(ref _eventCount);
+
+    private string WsText() => Hub.LastStatus.State switch
+    {
+        "connected" => "CONNECTED",
+        "idle" => "IDLE",
+        "error" => "ERROR",
+        _ => Hub.LastStatus.State.ToUpperInvariant(),
+    };
+
+    private string WsClass() => Hub.LastStatus.State switch
+    {
+        "connected" => "green",
+        "error" => "red",
+        _ => "amber",
+    };
+
+    private string FmtPop() => Hub.LastStatus.Popularity > 0 ? Hub.LastStatus.Popularity.ToString("N0") : "—";
+
+    private string ApiState() => Api.IsRunning ? "OK" : (Api.LastError != null ? "FAIL" : "…");
+
+    private bool RecOn(string type)
+    {
+        var rec = Config.GetNode("recording") as System.Text.Json.Nodes.JsonObject;
+        return rec?.TryGetPropertyValue(type, out var v) == true && v is System.Text.Json.Nodes.JsonValue val && val.TryGetValue<bool>(out var b) && b;
+    }
+
+    public void Dispose()
+    {
+        Hub.OnEvent -= OnEvent;
+        Hub.StatusChanged -= OnStatus;
+        _timer?.Dispose();
+    }
+}

@@ -1,0 +1,359 @@
+@page "/"
+@using BiLi_live_Tool.Services
+@inject AppConfig Config
+@inject LiveService Live
+@inject EventHub Hub
+@inject LivePipeline Pipeline
+@inject KestrelHost Api
+@inject TtsHost Tts
+@implements IDisposable
+
+<div class="blt-pagehead"><h1>房间管理</h1><span class="en">ROOM MANAGE</span></div>
+
+<div class="blt-topstrip">
+    <span class="seg">status: <b class="@StateClass()">@StateText()</b></span>
+    @if (Hub.LastStatus.ConnectedAt > 0)
+    {
+        <span class="seg">uptime <b>@Uptime()</b></span>
+    }
+</div>
+
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：直播间连接 + 事件流 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🔗 直播间连接</span><span class="en">ROOM LINK</span>
+                <span class="right"><span>status:</span><b class="@StateClass()">@StateText()</b></span>
+            </div>
+            <div class="blt-panel-body">
+                <label class="blt-label">room_id</label>
+                <div style="display:flex;gap:10px">
+                    <input class="blt-input mono" @bind="_roomId" placeholder="直播间号（支持短号）" @onkeydown="OnRoomKey" />
+                    <button class="blt-btn primary" @onclick="Connect" disabled="@Live.IsRunning">连接</button>
+                    <button class="blt-btn" @onclick="Disconnect" disabled="@(!Live.IsRunning)">断开</button>
+                </div>
+
+                <div class="blt-steps">
+                    <div class="blt-step @StepClass(0)">
+                        <div class="s1"><span class="blt-dot @StepDot(0)"></span>解析房间</div>
+                        <div class="s2">@StepText(0)</div>
+                    </div>
+                    <div class="blt-step @StepClass(1)">
+                        <div class="s1"><span class="blt-dot @StepDot(1)"></span>检查开播</div>
+                        <div class="s2">@StepText(1)</div>
+                    </div>
+                    <div class="blt-step @StepClass(2)">
+                        <div class="s1"><span class="blt-dot @StepDot(2)"></span>连接服务器</div>
+                        <div class="s2">@StepText(2)</div>
+                    </div>
+                    <div class="blt-step @StepClass(3)">
+                        <div class="s1"><span class="blt-dot @StepDot(3)"></span>实时连接</div>
+                        <div class="s2">@StepText(3)</div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:26px;margin-top:14px;flex-wrap:wrap">
+                    <span class="blt-switch @_autoConnectClass" @onclick="ToggleAutoConnect">
+                        <span class="track"></span>自动连接 <span style="color:var(--ink-3)">启动时连上次房间</span>
+                    </span>
+                    <span class="blt-switch on"><span class="track"></span>断线重连 <span style="color:var(--ink-3)">15s 间隔</span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">📜 事件流</span><span class="en">EVENT LOG</span>
+                <span class="right"><span>tail -f · 缓存 @Hub.GetRecent("danmu").Count + 最近</span>
+                <button class="blt-btn" style="padding:2px 10px" @onclick="ClearView">清空显示</button></span>
+            </div>
+            <div class="blt-panel-body" style="padding:6px 0">
+                @if (_view.Count == 0)
+                {
+                    <div class="blt-empty">等待事件… 连接后实时滚动显示 弹幕 / 礼物 / 舰长 / SC，也可用右侧快捷操作模拟</div>
+                }
+                else
+                {
+                    <div class="blt-log">
+                        @foreach (var ev in _view)
+                        {
+                            <div class="blt-logrow">
+                                <span class="t">@ev.Time</span>
+                                <span class="tag @TagClass(ev.Type)">@TagText(ev.Type)</span>
+                                <span class="txt"><span class="u">@(string.IsNullOrEmpty(ev.Uname) ? "—" : ev.Uname)</span> @EventText(ev)</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：B站账号 + 服务端 + 快捷操作 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🔑 B站账号</span><span class="en">AUTH</span>
+                <span class="right"><span>cookie:</span><b class="@(HasCookie() ? "green" : "red")">@(HasCookie() ? "VALID" : "NONE")</b></span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-kv"><span class="k">登录状态</span><span class="v @(HasCookie() ? "green" : "red")">@(HasCookie() ? "已登录" : "未登录")</span></div>
+                <div class="blt-kv"><span class="k">UID</span><span class="v">@(string.IsNullOrEmpty(Config.Uid) ? "—" : Config.Uid)</span></div>
+                <div class="blt-kv"><span class="k">Cookie</span><span class="v">@(HasCookie() ? "已捕获（SESSDATA/bili_jct）" : "未捕获")</span></div>
+                <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                    <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
+                    <button class="blt-btn" @onclick="HideBiliBrowser">隐藏浏览器</button>
+                    <button class="blt-btn" @onclick="ClearLogin">清除登录态</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🖥 服务端</span><span class="en">SERVER</span></div>
+            <div class="blt-panel-body">
+                <div class="blt-kv"><span class="k">面板服务</span><span class="v @(Api.IsRunning ? "green" : "red")">@(Api.IsRunning ? "RUNNING" : "DOWN")</span></div>
+                <div class="blt-kv"><span class="k">监听地址</span><span class="v">127.0.0.1:@Api.Port</span></div>
+                <div class="blt-kv"><span class="k">Edge TTS (8020)</span><span class="v">@(EdgeRunning ? "RUNNING" : "OFF")</span></div>
+                <div class="blt-kv"><span class="k">MOSS 引擎 (8021)</span><span class="v">@(MossRunning ? "RUNNING" : "按需")</span></div>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">⚡ 快捷操作</span><span class="en">QUICK OPS</span>
+                <span class="right"><span>dev · 走完整事件管线</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <button class="blt-btn" @onclick="SimDanmu">模拟弹幕</button>
+                    <button class="blt-btn" @onclick="SimGifts">模拟礼物</button>
+                    <button class="blt-btn" @onclick="SimGuard">模拟舰长</button>
+                    <button class="blt-btn" @onclick="SimSc">模拟 SC</button>
+                    <button class="blt-btn" @onclick="SimFollow">模拟关注</button>
+                    <button class="blt-btn" @onclick="SimWelcome">模拟进房</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _roomId = "";
+    private string _autoConnectClass = "";
+    private bool _autoConnectBool;
+    private List<LiveEvent> _view = new();
+
+    private bool EdgeRunning => GetProp(Tts.EdgeStatus(), "running");
+    private bool MossRunning => GetProp(Tts.MossStatus(), "running");
+
+    private static bool GetProp(object o, string name)
+        => Convert.ToBoolean(o.GetType().GetProperty(name)?.GetValue(o));
+
+    protected override void OnInitialized()
+    {
+        _roomId = Config.RoomId;
+        _autoConnectBool = Config.AutoConnect;
+        _autoConnectClass = _autoConnectBool ? "on" : "";
+        Hub.OnEvent += OnEvent;
+        Hub.StatusChanged += OnStatus;
+    }
+
+    private void OnEvent(LiveEvent ev) => InvokeAsync(() =>
+    {
+        _view.Insert(0, ev);
+        if (_view.Count > 200) _view.RemoveAt(_view.Count - 1);
+        StateHasChanged();
+    });
+
+    private void OnStatus(LiveStatusInfo st) => InvokeAsync(StateHasChanged);
+
+    private Task OnRoomKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") return Connect();
+        return Task.CompletedTask;
+    }
+
+    private Task Connect()
+    {
+        var rid = _roomId.Trim();
+        if (rid.Length == 0 || Live.IsRunning) return Task.CompletedTask;
+        Config.SetRoomAndCookie(rid, "");
+        Live.Start(rid, Config.Cookie);
+        return Task.CompletedTask;
+    }
+
+    private void Disconnect() => Live.Stop();
+
+    private void ToggleAutoConnect()
+    {
+        _autoConnectBool = !_autoConnectBool;
+        _autoConnectClass = _autoConnectBool ? "on" : "";
+        var doc = Config.Snapshot();
+        doc["autoConnect"] = _autoConnectBool;
+        Config.ReplaceFrom(doc);
+    }
+
+    private void OpenBiliBrowser()
+    {
+        var rid = Live.IsRunning ? Hub.LastStatus.RealRoomId : _roomId.Trim();
+        var url = long.TryParse(rid, out _) ? $"https://live.bilibili.com/{rid}" : "https://live.bilibili.com/";
+        MainPage.Current?.ShowBiliBrowser(url);
+    }
+
+    private void HideBiliBrowser() => MainPage.Current?.HideBiliBrowser();
+
+    private void ClearLogin()
+    {
+        Config.SetBiliCookie("", "");
+        _view.Clear();
+        Hub.PublishStatus(Hub.LastStatus); // refresh trigger
+        StateHasChanged();
+    }
+
+    private void ClearView() => _view.Clear();
+
+    private void SimDanmu() => Simulate("danmu");
+    private void SimGifts() => Simulate("gifts");
+    private void SimGuard() => Simulate("guard");
+    private void SimSc() => Simulate("superchat");
+    private void SimFollow() => Simulate("follow");
+    private void SimWelcome() => SimulateWelcome();
+
+    private void Simulate(string type)
+    {
+        var ev = type switch
+        {
+            "gifts" => new LiveEvent { Type = "gifts", Uname = "测试观众", GiftName = "小花花", Num = 5, Price = 100, TotalCoin = 500, CoinType = "gold", Value = 0.5 },
+            "guard" => new LiveEvent { Type = "guard", Uname = "测试舰长", Level = 3, LevelName = "舰长", Num = 1, Price = 198000, Value = 198, IsGuard = true, GuardLevel = 3 },
+            "superchat" => new LiveEvent { Type = "superchat", Uname = "测试SC", Msg = "主播加油！", Price = 30, StartTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() },
+            "follow" => new LiveEvent { Type = "interact", Uname = "测试粉丝", MsgType = 2 },
+            _ => new LiveEvent { Type = "danmu", Uname = "测试观众", Msg = "这是一条测试弹幕" },
+        };
+        ev.Time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        ev.Ts = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        Pipeline.ProcessDebugEvent(ev);
+    }
+
+    private void SimulateWelcome()
+    {
+        Pipeline.ProcessDebugEvent(new LiveEvent
+        {
+            Type = "interact",
+            Time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = DateTimeOffset.Now.ToUnixTimeMilliseconds(),
+            Uid = "10001",
+            Uname = "测试观众",
+            MsgType = 1,
+        });
+    }
+
+    private bool HasCookie() => Config.Cookie.Contains("SESSDATA") || Config.Cookie.Contains("bili_jct");
+
+    private string StateClass() => Hub.LastStatus.State switch
+    {
+        "connected" => "green",
+        "error" => "red",
+        "idle" => "",
+        _ => "amber",
+    };
+
+    private string StateText() => Hub.LastStatus.State switch
+    {
+        "idle" => "未连接",
+        "resolving" => "解析中",
+        "checking_live" => "检测开播",
+        "not_live" => "未开播",
+        "getting_danmu" => "获取弹幕服务器",
+        "connected" => "CONNECTED",
+        "reconnecting" => "重连中",
+        "disconnected" => "已断开",
+        "error" => "错误",
+        _ => Hub.LastStatus.State,
+    };
+
+    private string Uptime()
+    {
+        var secs = (DateTimeOffset.Now.ToUnixTimeMilliseconds() - Hub.LastStatus.ConnectedAt) / 1000;
+        return $"{secs / 3600:d2}:{secs % 3600 / 60:d2}:{secs % 60:d2}";
+    }
+
+    private (bool done, bool active) StepState(int step)
+    {
+        var s = Hub.LastStatus.State;
+        return step switch
+        {
+            0 => s is "checking_live" or "getting_danmu" or "connected" or "not_live" or "reconnecting" or "disconnected"
+                ? (true, false) : s == "resolving" ? (false, true) : (false, false),
+            1 => s is "getting_danmu" or "connected" or "reconnecting" or "disconnected"
+                ? (true, false) : s is "checking_live" or "not_live" ? (false, true) : (false, false),
+            2 => s is "connected" or "reconnecting"
+                ? (true, s != "connected") : s == "getting_danmu" ? (false, true) : (false, false),
+            3 => s == "connected" ? (true, false) : (false, false),
+            _ => (false, false),
+        };
+    }
+
+    private string StepClass(int step)
+    {
+        var (done, active) = StepState(step);
+        return done ? "done" : active ? "active" : "";
+    }
+
+    private string StepDot(int step)
+    {
+        var (done, active) = StepState(step);
+        return done ? "green" : active ? "amber" : "gray";
+    }
+
+    private string StepText(int step)
+    {
+        var (done, active) = StepState(step);
+        if (done) return "OK";
+        if (!active) return "WAIT";
+        return Hub.LastStatus.State switch
+        {
+            "resolving" => "解析…",
+            "checking_live" => "查询中…",
+            "not_live" => "未开播",
+            "getting_danmu" => "获取节点…",
+            "connected" => "ONLINE",
+            "reconnecting" => "重连…",
+            _ => "进行中…",
+        };
+    }
+
+    private string TagClass(string type) => type switch
+    {
+        "danmu" => "danmu",
+        "gifts" or "gifts_merged" => "gifts",
+        "guard" => "guard",
+        "superchat" => "superchat",
+        "interact" => "interact",
+        _ => "info",
+    };
+
+    private string TagText(string type) => type switch
+    {
+        "danmu" => "DANMU",
+        "gifts" => "GIFT",
+        "gifts_merged" => "GIFTΣ",
+        "guard" => "GUARD",
+        "superchat" => "SC",
+        "interact" => "INTER",
+        _ => type.ToUpperInvariant()[..Math.Min(6, type.Length)],
+    };
+
+    private string EventText(LiveEvent ev) => ev.Type switch
+    {
+        "danmu" => ev.Msg,
+        "gifts" => $"送出 {ev.GiftName} ×{ev.Num}" + (ev.Value > 0 ? $"（≈¥{ev.Value}）" : ""),
+        "guard" => $"开通 {ev.LevelName} ×{ev.Num}",
+        "superchat" => $"SC：{ev.Msg}" + (ev.Price > 0 ? $"（¥{ev.Price}）" : ""),
+        "interact" => ev.MsgType == 2 ? "关注了直播间" : "进入直播间",
+        "gifts_merged" => $"聚合：{string.Join("、", (ev.Gifts ?? new()).Select(g => $"{g.GiftName}×{g.Num}"))}",
+        _ => "",
+    };
+
+    public void Dispose()
+    {
+        Hub.OnEvent -= OnEvent;
+        Hub.StatusChanged -= OnStatus;
+    }
+}

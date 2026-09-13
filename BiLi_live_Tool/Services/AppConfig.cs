@@ -95,6 +95,7 @@ public sealed class AppConfig
     public string RoomId { get { lock (_lock) return _GetStr(_doc, "roomId"); } }
     public string Cookie { get { lock (_lock) return _GetStr(_doc, "cookie"); } }
     public bool AutoConnect { get { lock (_lock) return _doc.TryGetPropertyValue("autoConnect", out var v) && v is JsonValue bv && bv.TryGetValue<bool>(out var b) && b; } }
+    public string Uid { get { lock (_lock) { return _doc.TryGetPropertyValue("uid", out var v) && v is JsonValue val && val.TryGetValue<string>(out var s) ? s ?? "" : ""; } } }
 
     public void SetRoomAndCookie(string roomId, string cookie)
     {

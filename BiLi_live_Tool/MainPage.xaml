@@ -1,12 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:BiLi_live_Tool"
+             xmlns:components="clr-namespace:BiLi_live_Tool.Components"
              x:Class="BiLi_live_Tool.MainPage">
 
-    <!-- The migrated panel UI is the whole window (served by the embedded
-         Kestrel). The bilibili live browser is a separate owned borderless
-         window docked over the right ~62% — the same model as the Electron
-         version's WebContentsView. -->
-    <WebView x:Name="panelWebView" BackgroundColor="#14161a" />
+    <!-- The rebuilt native Blazor UI (C 专业控制台 style) is the app's face.
+         The bilibili live browser is the owned borderless window
+         (BiliBrowserWindow), invoked from Blazor pages via MainPage.Current. -->
+    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+        <BlazorWebView.RootComponents>
+            <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
+        </BlazorWebView.RootComponents>
+    </BlazorWebView>
 
 </ContentPage>

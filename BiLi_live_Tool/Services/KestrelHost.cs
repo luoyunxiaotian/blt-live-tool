@@ -860,7 +860,6 @@ public sealed class KestrelHost
                         visible = page?.IsBiliVisible ?? false,
                         url = page?.BiliCurrentUrl ?? "",
                         roomId = _config.RoomId,
-                        debug = page?.LayoutDebug(),
                     }, JsonWeb);
                 case "bili/capture-cookie":
                     return Results.Json(new { ok = true, hasCookie = _config.Cookie.Length > 0, cookie = "" }, JsonWeb);
@@ -894,7 +893,7 @@ public sealed class KestrelHost
                 case "server/readlog":
                     return Results.Json(new { ok = true, lines = Array.Empty<string>() }, JsonWeb);
                 case "debug/tray":
-                    return Results.Json(new { tray = TrayService.LastDebug, nav = MainPage.Current?.NavDebug ?? "(no page)", layout = MainPage.Current?.LayoutDebug() ?? "(no page)" }, JsonWeb);
+                    return Results.Json(new { tray = TrayService.LastDebug }, JsonWeb);
                 case "keyview/start":
                     _keyview.Start();
                     return Results.Json(new { ok = true, overlayUrl = $"http://127.0.0.1:{Port}/keyview/overlay.html" }, JsonWeb);

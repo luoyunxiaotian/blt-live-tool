@@ -11,6 +11,18 @@
     <link rel="stylesheet" href="themes.css" />
     <link rel="stylesheet" href="BiLi_live_Tool.styles.css" />
     <link rel="icon" href="data:,">
+    <style>
+      /* 首帧前的加载态：与主题 token 同源（localStorage 已定主题），避免"先白后换肤" */
+      #blt-boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+        justify-content:center;gap:14px;background:var(--bg,#10151c);color:var(--ink,#d7dee8);
+        font:500 14px/1.6 "Noto Sans SC","Source Han Sans SC","思源黑体",sans-serif;z-index:2147483646}
+      #blt-boot .b{font-size:22px;font-weight:700;letter-spacing:.5px}
+      #blt-boot .r{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.14);
+        border-top-color:var(--amber,#ffb224);animation:blt-spin .9s linear infinite}
+      #blt-boot .s{font-size:12.5px;color:var(--ink-3,#5d6a7a)}
+      @keyframes blt-spin{to{transform:rotate(360deg)}}
+    </style>
+
 </head>
 
 <body>
@@ -56,6 +68,19 @@
         return true;
       };
 
+      // Tells the native layer the Blazor first paint is done (hide splash overlay),
+      // and drops the in-page boot state.
+      window.bltNotifyUiReady = function () {
+        try {
+          var b = document.getElementById('blt-boot');
+          if (b && b.parentNode) b.parentNode.removeChild(b);
+        } catch (e) { }
+        try {
+          fetch('/api/maui/app/ui-ready', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        } catch (e) { }
+        return true;
+      };
+
       // Verification hook used by the loopback debug bridge
       // (POST /api/maui/debug/eval). Returns a string for primitives, JSON
       // for objects, and an "ERR: ..." marker instead of throwing.
@@ -73,7 +98,13 @@
 
     <div class="status-bar-safe-area"></div>
 
-    <div id="app">Loading...</div>
+    <div id="app">
+        <div id="blt-boot">
+            <div class="b">直播小帮手</div>
+            <div class="r"></div>
+            <div class="s">正在载入界面…</div>
+        </div>
+    </div>
 
     <div id="blazor-error-ui" data-nosnippet>
         An unhandled error has occurred.

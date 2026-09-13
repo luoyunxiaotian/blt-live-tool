@@ -137,6 +137,7 @@
     private bool _themeApplied;
     private bool _audioStarted;
     private bool _clockStarted;
+    private bool _uiReady;
 
     // Sidebar group fold state (localStorage 'blt_nav_fold', like the legacy panel).
     private readonly Dictionary<string, bool> _fold = new();
@@ -262,6 +263,13 @@
         {
             _clockStarted = true;
             try { await JS.InvokeVoidAsync("bltStartClock"); } catch { }
+        }
+        if (!_uiReady)
+        {
+            // First paint complete → dismiss the native startup overlay (and the
+            // in-page boot spinner) so users see the app, not a blank window.
+            _uiReady = true;
+            try { await JS.InvokeVoidAsync("bltNotifyUiReady"); } catch { }
         }
         if (!_themeApplied)
         {

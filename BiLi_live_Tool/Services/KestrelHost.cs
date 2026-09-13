@@ -867,6 +867,10 @@ public sealed class KestrelHost
                 case "app/quit":
                     Ui(() => App.QuitForReal());
                     return Results.Json(new { ok = true }, JsonWeb);
+                case "app/ui-ready":
+                    // Blazor first paint done → drop the native startup overlay.
+                    Ui(() => page?.HideStartupOverlay());
+                    return Results.Json(new { ok = true }, JsonWeb);
                 case "app/focus-panel":
                 case "app/minimize-tray":
                     return Results.Json(new { ok = true }, JsonWeb);

@@ -8,10 +8,31 @@
     <!-- The rebuilt native Blazor UI (C 专业控制台 style) is the app's face.
          The bilibili live browser is the owned borderless window
          (BiliBrowserWindow), invoked from Blazor pages via MainPage.Current. -->
-    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
-        <BlazorWebView.RootComponents>
-            <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
-        </BlazorWebView.RootComponents>
-    </BlazorWebView>
+    <Grid>
+        <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+            <BlazorWebView.RootComponents>
+                <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
+            </BlazorWebView.RootComponents>
+        </BlazorWebView>
+
+        <!-- 原生启动加载层：窗口一出现就有内容（不经过 WebView，故无白/黑闪烁），
+             Blazor 首帧完成后由 app/ui-ready 桥接淡出。 -->
+        <Grid x:Name="StartupOverlay" BackgroundColor="#0B0F14">
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="14">
+                <Label x:Name="StartupBrand" Text="直播小帮手" TextColor="#D7DEE8"
+                       FontSize="26" FontAttributes="Bold" HorizontalOptions="Center" />
+                <ActivityIndicator x:Name="StartupSpinner" IsRunning="True" Color="#FFB224"
+                                   WidthRequest="34" HeightRequest="34" HorizontalOptions="Center" />
+                <Label x:Name="StartupStage" Text="正在启动…" TextColor="#8B97A7"
+                       FontSize="13" HorizontalOptions="Center" />
+                <Label x:Name="StartupError" Text="" TextColor="#F56E6E" FontSize="12.5"
+                       HorizontalOptions="Center" WidthRequest="520" LineBreakMode="WordWrap"
+                       IsVisible="False" />
+                <Button x:Name="StartupRetry" Text="重试" IsVisible="False" Clicked="OnStartupRetryClicked"
+                        BackgroundColor="#FFB224" TextColor="#1A1300" FontSize="13"
+                        Padding="18,6" CornerRadius="4" HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Grid>
+    </Grid>
 
 </ContentPage>

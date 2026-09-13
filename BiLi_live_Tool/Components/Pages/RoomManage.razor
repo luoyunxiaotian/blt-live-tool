@@ -59,21 +59,10 @@
                     <span class="blt-switch on"><span class="track"></span>断线重连 <span style="color:var(--ink-3)">15s 间隔</span></span>
                 </div>
 
-                @* B站浏览器控制条 —— 放在左栏常显区（停靠时右侧按钮会被盖住） *@
-                <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center;flex-wrap:wrap">
-                    <span class="blt-label" style="margin:0">B站浏览器</span>
-                    @if (MainPage.Current?.IsBiliVisible == true)
-                    {
-                        <span class="blt-badge green">显示中</span>
-                        <button class="blt-btn" @onclick="HideBiliBrowser">隐藏浏览器</button>
-                    }
-                    else
-                    {
-                        <span class="blt-badge off">已隐藏</span>
-                        <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
-                    }
-                    <span class="blt-badge @(HasCookie() ? "green" : "off")">@(HasCookie() ? "已登录" : "未登录")</span>
-                    <button class="blt-btn" @onclick="ClearLogin">清除登录态</button>
+                @* B站浏览器控制条 —— 固定两键，隐藏键在最左（停靠时左栏 38% 可见区必可点） *@
+                <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center">
+                    <button class="blt-btn" @onclick="HideBiliBrowser">隐藏浏览器</button>
+                    <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
                 </div>
             </div>
         </div>
@@ -117,7 +106,6 @@
                 <div class="blt-kv"><span class="k">Cookie</span><span class="v">@(HasCookie() ? "已捕获（SESSDATA/bili_jct）" : "未捕获")</span></div>
                 <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
                     <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
-                    <button class="blt-btn" @onclick="HideBiliBrowser">隐藏浏览器</button>
                     <button class="blt-btn" @onclick="ClearLogin">清除登录态</button>
                 </div>
             </div>

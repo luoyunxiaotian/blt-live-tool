@@ -40,21 +40,14 @@
 
     <div class="blt-main">
         <div class="blt-topstrip">
+            <span class="seg">
+                <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="HideBili">隐藏浏览器</button>
+                <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="ShowBili">打开浏览器</button>
+            </span>
             <span class="seg">🏠 房间 <b>@(string.IsNullOrEmpty(Hub.LastStatus.RealRoomId) ? (string.IsNullOrEmpty(Config.RoomId) ? "—" : Config.RoomId) : Hub.LastStatus.RealRoomId)</b></span>
             <span class="seg">WS <b class="@WsClass()">@WsText()</b></span>
             <span class="seg">在线 <b class="green">@FmtPop()</b></span>
             <span class="seg">HTTP <b>127.0.0.1:@Api.Port</b> @ApiState()</span>
-            <span class="seg">
-                <span>B站浏览器</span>
-                @if (MainPage.Current?.IsBiliVisible == true)
-                {
-                    <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="HideBili">隐藏</button>
-                }
-                else
-                {
-                    <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="ShowBili">打开</button>
-                }
-            </span>
             <span class="seg amber">BUILD @KestrelHost.VersionText</span>
             <span class="seg" style="margin-left:auto">🕒 @DateTime.Now.ToString("HH:mm:ss")</span>
         </div>

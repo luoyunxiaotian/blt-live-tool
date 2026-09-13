@@ -5,6 +5,10 @@
 @inject KestrelHost Api
 @inject AppConfig Config
 @inject IJSRuntime JS
+@inject AudioService Audio
+@inject TtsSpeaker Speaker
+@inject PanelSoundPlayer Sounds
+@inject SongPlayer Song
 
 <div class="blt-app">
     <div class="blt-side">
@@ -73,6 +77,7 @@
         <span>BLT CONSOLE @KestrelHost.VersionText</span><span class="sep">|</span>
         <span>WS @WsText()</span><span class="sep">|</span>
         <span>事件 @EventCount</span><span class="sep">|</span>
+        <span>🔊 队列 @Speaker.QueueCount @(Speaker.Speaking ? "· 正在念…" : "")</span><span class="sep">|</span>
         <span>端口 @Api.Port @ApiState()</span><span class="sep">|</span>
         <span>模式 MAUI</span>
     </div>
@@ -83,6 +88,7 @@
     private long _eventCount;
     private string _theme = "console";
     private bool _themeApplied;
+    private bool _audioStarted;
 
     private static readonly string[] Themes =
     {
@@ -107,7 +113,22 @@
             _themeApplied = true;
             await ApplyThemeAsync(_theme);
         }
+        if (!_audioStarted)
+        {
+            _audioStarted = true;
+            try
+            {
+                Audio.Attach(JS);
+                await Song.InitAsync(JS);
+                Speaker.Changed += OnSpeakerChanged;
+                Speaker.Start();
+                Sounds.Start();
+            }
+            catch { }
+        }
     }
+
+    private void OnSpeakerChanged() => InvokeAsync(StateHasChanged);
 
     private async Task OnThemeChanged(ChangeEventArgs e)
     {
@@ -174,6 +195,9 @@
     {
         Hub.OnEvent -= OnEvent;
         Hub.StatusChanged -= OnStatus;
+        Speaker.Changed -= OnSpeakerChanged;
+        Speaker.Stop();
+        Sounds.Stop();
         _timer?.Dispose();
     }
 }

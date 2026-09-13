@@ -28,6 +28,10 @@ namespace BiLi_live_Tool
             builder.Services.AddSingleton<LivePipeline>();
             builder.Services.AddSingleton<MusicLoginService>();
             builder.Services.AddSingleton<KeyViewService>();
+            builder.Services.AddSingleton<AudioService>();
+            builder.Services.AddSingleton<TtsSpeaker>();
+            builder.Services.AddSingleton<PanelSoundPlayer>();
+            builder.Services.AddSingleton<SongPlayer>();
             builder.Services.AddSingleton<KestrelHost>();
 
 #if DEBUG

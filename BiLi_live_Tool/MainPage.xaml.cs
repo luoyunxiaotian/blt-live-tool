@@ -18,6 +18,20 @@ namespace BiLi_live_Tool
         {
             InitializeComponent();
             Current = this;
+#if WINDOWS
+            // Chromium gates HTMLMediaElement.play() behind a user gesture;
+            // TTS/panel sounds must play on their own, so allow autoplay.
+            blazorWebView.BlazorWebViewInitializing += (_, e) =>
+            {
+                try
+                {
+                    var args = e.EnvironmentOptions.AdditionalBrowserArguments ?? "";
+                    if (!args.Contains("autoplay-policy"))
+                        e.EnvironmentOptions.AdditionalBrowserArguments = args + " --autoplay-policy=no-user-gesture-required";
+                }
+                catch { }
+            };
+#endif
             _biliBrowser = new BiliBrowserWindow(
                 () => MauiProgram.Services?.GetService<AppConfig>(),
                 () => Dispatcher);

@@ -35,6 +35,7 @@ public sealed class KestrelHost
     private readonly TtsHost _tts;
     private readonly MusicLoginService _musicLogin;
     private readonly KeyViewService _keyview;
+    private readonly TtsSpeaker _speaker;
     private readonly UpdateChecker _updateChecker = new(VersionText);
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
     private readonly ConcurrentDictionary<Guid, WebSocket> _keyviewClients = new();
@@ -48,7 +49,7 @@ public sealed class KestrelHost
     public string? LastError { get; private set; }
     public int Port => _config.Port;
 
-    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview)
+    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker)
     {
         _config = config;
         _hub = hub;
@@ -58,6 +59,7 @@ public sealed class KestrelHost
         _tts = tts;
         _musicLogin = musicLogin;
         _keyview = keyview;
+        _speaker = speaker;
     }
 
     public void StartInBackground()
@@ -467,6 +469,16 @@ public sealed class KestrelHost
         });
         app.MapPost("/api/song-request/playlist/clear", () => Results.Json(_pipeline.SongRequest.ClearPlaylist(), JsonWeb));
         app.MapPost("/api/song-request/skip", () => Results.Json(_pipeline.SongRequest.SkipCurrent(), JsonWeb));
+
+        // Player progress relay: the Blazor song player posts here and the frame
+        // is broadcast to WS clients (OBS lyrics overlay consumes song_progress).
+        app.MapPost("/api/song-request/progress", async (HttpContext ctx) =>
+        {
+            var body = await ReadJsonObject(ctx);
+            var data = body["data"];
+            _hub.PublishOutbound("song_progress", data);
+            return Results.Json(new { ok = true }, JsonWeb);
+        });
         app.MapGet("/api/song-request/recent", () => Results.Json(_pipeline.SongRequest.Recent(), JsonWeb));
         app.MapPost("/api/song-request/search", async (HttpContext ctx) =>
         {
@@ -896,7 +908,19 @@ public sealed class KestrelHost
                 case "server/readlog":
                     return Results.Json(new { ok = true, lines = Array.Empty<string>() }, JsonWeb);
                 case "debug/tray":
-                    return Results.Json(new { tray = TrayService.LastDebug, titleBar = App.TitleBarDebug }, JsonWeb);
+                    return Results.Json(new
+                    {
+                        tray = TrayService.LastDebug,
+                        titleBar = App.TitleBarDebug,
+                        tts = new
+                        {
+                            queue = _speaker.QueueCount,
+                            speaking = _speaker.Speaking,
+                            current = _speaker.CurrentText,
+                            last = _speaker.LastResult,
+                            lastError = _speaker.LastEngineError,
+                        },
+                    }, JsonWeb);
                 case "keyview/start":
                     _keyview.Start();
                     return Results.Json(new { ok = true, overlayUrl = $"http://127.0.0.1:{Port}/keyview/overlay.html" }, JsonWeb);
@@ -965,7 +989,9 @@ public sealed class KestrelHost
                     await ctx.Request.Body.CopyToAsync(ms, ctx.RequestAborted);
                     var bytes = ms.ToArray();
                     req.Content = new ByteArrayContent(bytes);
-                    req.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                    // Parse (not the ctor): the ctor rejects values with parameters
+                    // like "application/json; charset=utf-8".
+                    req.Content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse(
                         string.IsNullOrEmpty(ctx.Request.ContentType) ? "application/json" : ctx.Request.ContentType);
                 }
                 using var resp = await _proxy.SendAsync(req, ctx.RequestAborted);
@@ -975,10 +1001,10 @@ public sealed class KestrelHost
                 await resp.Content.CopyToAsync(ctx.Response.Body, ctx.RequestAborted);
                 return Results.Empty;
             }
-            catch
+            catch (Exception ex)
             {
                 return Results.Json(
-                    new { error = engine == "moss" ? "MOSS 引擎未运行" : "edge-tts 服务未运行（请检查 tts 目录或系统语音）" },
+                    new { error = "TTS 代理失败: " + ex.GetType().Name + ": " + ex.Message },
                     JsonWeb, statusCode: 502);
             }
         });

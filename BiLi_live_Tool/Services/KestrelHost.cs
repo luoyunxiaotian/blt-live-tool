@@ -845,6 +845,9 @@ public sealed class KestrelHost
                 case "bili/hide":
                     Ui(() => page?.HideBiliBrowser());
                     return Results.Json(new { visible = false }, JsonWeb);
+                case "bili/close":
+                    Ui(() => page?.CloseBiliBrowser());
+                    return Results.Json(new { visible = false }, JsonWeb);
                 case "bili/refresh":
                     Ui(() => page?.ReloadBili());
                     return Results.Json(new { ok = true }, JsonWeb);

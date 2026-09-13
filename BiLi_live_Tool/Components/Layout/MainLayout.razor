@@ -42,6 +42,7 @@
         <div class="blt-topstrip">
             <span class="seg">
                 <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="HideBili">隐藏浏览器</button>
+                <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="CloseBili">关闭浏览器</button>
                 <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="ShowBili">打开浏览器</button>
             </span>
             <span class="seg">🏠 房间 <b>@(string.IsNullOrEmpty(Hub.LastStatus.RealRoomId) ? (string.IsNullOrEmpty(Config.RoomId) ? "—" : Config.RoomId) : Hub.LastStatus.RealRoomId)</b></span>
@@ -106,6 +107,7 @@
     }
 
     private void HideBili() => MainPage.Current?.HideBiliBrowser();
+    private void CloseBili() => MainPage.Current?.CloseBiliBrowser();
 
     private void ShowBili()
     {

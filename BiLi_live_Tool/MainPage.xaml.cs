@@ -53,6 +53,7 @@ namespace BiLi_live_Tool
         }
 
         public void HideBiliBrowser() => _biliBrowser.Hide();
+        public void CloseBiliBrowser() => _biliBrowser.Close();
 
         public bool IsBiliVisible => _biliBrowser.IsVisible;
 

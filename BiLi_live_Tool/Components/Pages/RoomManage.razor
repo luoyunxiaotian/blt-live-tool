@@ -59,9 +59,10 @@
                     <span class="blt-switch on"><span class="track"></span>断线重连 <span style="color:var(--ink-3)">15s 间隔</span></span>
                 </div>
 
-                @* B站浏览器控制条 —— 固定两键，隐藏键在最左（停靠时左栏 38% 可见区必可点） *@
+                @* B站浏览器控制条 —— 固定三键，隐藏/关闭在最左（停靠时左栏 38% 可见区必可点） *@
                 <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center">
-                    <button class="blt-btn" @onclick="HideBiliBrowser">隐藏浏览器</button>
+                    <button class="blt-btn" @onclick="HideBiliBrowser" data-tip="挪到屏幕外，内存保留">隐藏浏览器</button>
+                    <button class="blt-btn" @onclick="CloseBiliBrowser" data-tip="销毁窗口释放内存，再打开自动重建">关闭浏览器</button>
                     <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
                 </div>
             </div>
@@ -203,6 +204,7 @@
     }
 
     private void HideBiliBrowser() => MainPage.Current?.HideBiliBrowser();
+    private void CloseBiliBrowser() => MainPage.Current?.CloseBiliBrowser();
 
     private void ClearLogin()
     {

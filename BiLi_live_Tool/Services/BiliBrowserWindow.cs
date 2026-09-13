@@ -102,6 +102,29 @@ public sealed class BiliBrowserWindow
         });
     }
 
+    /// <summary>
+    /// Fully destroys the window + WebView (frees the renderer memory; Hide
+    /// only parks it off-screen). Show recreates everything on demand.
+    /// </summary>
+    public void Close()
+    {
+        RunOnUi(() =>
+        {
+            _visible = false;
+            _lastRect = 0;
+            _pollCts?.Cancel();
+            var w = _window;
+            _window = null;
+            _webView = null;
+            _platformWindow = null;
+            try
+            {
+                if (w != null) Application.Current?.CloseWindow(w);
+            }
+            catch { }
+        });
+    }
+
     public void Reload() => RunOnUi(() => { try { _webView?.Reload(); } catch { } });
     public void GoBack() => RunOnUi(() => { try { if (_webView?.CanGoBack == true) _webView.GoBack(); } catch { } });
     public void GoForward() => RunOnUi(() => { try { if (_webView?.CanGoForward == true) _webView.GoForward(); } catch { } });

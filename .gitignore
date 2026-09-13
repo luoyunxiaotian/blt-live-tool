@@ -3,3 +3,6 @@ obj/
 .vs/
 wwwroot/legacy/
 *.user
+
+# 授权校验密钥（不进仓库，随构建复制）
+verify-key.txt

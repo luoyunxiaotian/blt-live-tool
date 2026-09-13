@@ -34,7 +34,30 @@ public sealed class VerifyService
 {
     public const string AuthorUid = "10412378";
     private const string VerifyUrl = "https://ai-daynews.xyz/api/verify";
-    private const string HmacSecret = "<verify-key-not-in-repo>";
+    /// <summary>
+    /// HMAC key for the whitelist endpoint. Deliberately kept OUT of the repository:
+    /// it is read from %BLT_VERIFY_KEY% or &lt;app&gt;erify-key.txt (copied into
+    /// builds that legitimately talk to the author's verify server). When missing we
+    /// report a clear reason instead of letting the server answer "签名验证失败".
+    /// </summary>
+    private static readonly string HmacSecret = LoadSecret();
+
+    private static string LoadSecret()
+    {
+        try
+        {
+            var env = Environment.GetEnvironmentVariable("BLT_VERIFY_KEY");
+            if (!string.IsNullOrWhiteSpace(env)) return env.Trim();
+            var file = System.IO.Path.Combine(AppContext.BaseDirectory, "verify-key.txt");
+            if (System.IO.File.Exists(file))
+            {
+                var text = System.IO.File.ReadAllText(file).Trim();
+                if (text.Length > 0) return text;
+            }
+        }
+        catch { }
+        return "";
+    }
     private static readonly Regex DedeUserIDRegex = new(@"(?:^|;\s*)DedeUserID=(\d+)", RegexOptions.Compiled);
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(9) };
 
@@ -95,6 +118,13 @@ public sealed class VerifyService
         if (!force && DateTimeOffset.UtcNow - _lastAttempt < TimeSpan.FromSeconds(10)) return State;
         _lastAttempt = DateTimeOffset.UtcNow;
 
+        if (HmacSecret.Length == 0)
+        {
+            _lastUid = uid;
+            SetState(new VerifyState(true, uid, "", "NO_KEY",
+                "授权校验密钥缺失（源码不含密钥）：自行构建请联系作者获取 verify-key.txt", Now(), true));
+            return State;
+        }
         var (ok, name, code, message) = await VerifyUidAsync(uid, ct);
         if (ok)
         {

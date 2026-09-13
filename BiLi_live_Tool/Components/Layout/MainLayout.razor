@@ -63,12 +63,12 @@
                 <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="CloseBili">关闭浏览器</button>
                 <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="ShowBili">打开浏览器</button>
             </span>
-            <span class="seg">🏠 房间 <b>@(string.IsNullOrEmpty(Hub.LastStatus.RealRoomId) ? (string.IsNullOrEmpty(Config.RoomId) ? "—" : Config.RoomId) : Hub.LastStatus.RealRoomId)</b></span>
+            <span class="seg"><BltIcon Emoji="🏠" />房间 <b>@(string.IsNullOrEmpty(Hub.LastStatus.RealRoomId) ? (string.IsNullOrEmpty(Config.RoomId) ? "—" : Config.RoomId) : Hub.LastStatus.RealRoomId)</b></span>
             <span class="seg">WS <b class="@WsClass()">@WsText()</b></span>
             <span class="seg">在线 <b class="green">@FmtPop()</b></span>
             <span class="seg">HTTP <b>127.0.0.1:@Api.Port</b> @ApiState()</span>
             <span class="seg">
-                🎨 主题
+                <BltIcon Emoji="🎨" />主题
                 <select class="blt-input" style="width:138px;padding:1px 6px;font-size:11px" value="@_theme" @onchange="OnThemeChanged">
                     <option value="classic">★ 经典默认（旧版）</option>
                     <option value="console">C 专业控制台</option>
@@ -87,7 +87,7 @@
             }
             @if (Verify.Locked)
             {
-                <span class="seg" style="color:var(--red)"><BltIcon Name="lock" /> 未授权</span>
+                <span class="seg" style="color:var(--red-ink)"><BltIcon Name="lock" /> 未授权</span>
             }
             <span class="seg amber">BUILD @KestrelHost.VersionText</span>
             <span class="seg" style="margin-left:auto"><BltIcon Name="clock" /> <b id="blt-clock">--:--:--</b></span>
@@ -96,7 +96,7 @@
         {
             <div class="blt-panel" style="border-color:var(--red);background:var(--red-dim);position:relative;z-index:30">
                 <div class="blt-panel-head" style="border-bottom-color:rgba(245,110,110,.35)">
-                    <span class="t" style="color:var(--red)">🔒 账号待授权</span>
+                    <span class="t" style="color:var(--red-ink)"><BltIcon Name="lock" /> 账号待授权</span>
                     <span class="en">VERIFY LOCKED</span>
                     <span class="right"><span>@Verify.State.CheckedAt</span></span>
                 </div>
@@ -110,11 +110,11 @@
                         获取授权：联系作者 <b>B站UID <span style="font-family:var(--mono)">@VerifyService.AuthorUid</span></b>，说明你的来意即可申请。
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-                        <button class="blt-btn primary" @onclick="CopyAuthorUid">📋 复制作者B站ID</button>
-                        <button class="blt-btn" @onclick="OpenAuthorSpace">🔗 打开作者B站主页</button>
-                        <button class="blt-btn" @onclick="RetryVerify">↻ 重试验证</button>
-                        <button class="blt-btn" @onclick="OpenLoginBrowser">🔑 重新登录</button>
-                        <button class="blt-btn" @onclick="ClearLogin">🚪 清除登录态</button>
+                        <button class="blt-btn primary" @onclick="CopyAuthorUid"><BltIcon Emoji="📋" />复制作者B站ID</button>
+                        <button class="blt-btn" @onclick="OpenAuthorSpace"><BltIcon Emoji="🔗" />打开作者B站主页</button>
+                        <button class="blt-btn" @onclick="RetryVerify"><BltIcon Emoji="↻" />重试验证</button>
+                        <button class="blt-btn" @onclick="OpenLoginBrowser"><BltIcon Emoji="🔑" />重新登录</button>
+                        <button class="blt-btn" @onclick="ClearLogin"><BltIcon Emoji="🚪" />清除登录态</button>
                         <span class="blt-hint" style="align-self:center;margin:0">@_verifyNote</span>
                     </div>
                 </div>
@@ -127,7 +127,7 @@
                 <div style="position:absolute;inset:0;z-index:20;background:rgba(10,12,16,.55);backdrop-filter:blur(1.5px);cursor:not-allowed"
                      title="账号未授权：请先完成授权或更换已授权账号"></div>
                 <div style="position:absolute;inset:0;z-index:21;display:flex;align-items:center;justify-content:center;pointer-events:none">
-                    <span class="blt-badge red" style="font-size:12px;padding:4px 10px">🔒 未授权 · 功能已锁定（请用上方按钮完成授权/重新登录）</span>
+                    <span class="blt-badge red" style="font-size:12px;padding:4px 10px"><BltIcon Emoji="🔒" />未授权 · 功能已锁定（请用上方按钮完成授权/重新登录）</span>
                 </div>
                 @Body
             </div>
@@ -142,7 +142,7 @@
         <span>BLT CONSOLE @KestrelHost.VersionText</span><span class="sep">|</span>
         <span>WS @WsText()</span><span class="sep">|</span>
         <span>事件 @EventCount</span><span class="sep">|</span>
-        <span>🔊 队列 @Speaker.QueueCount @(Speaker.Speaking ? "· 正在念…" : "")</span><span class="sep">|</span>
+        <span><BltIcon Emoji="🔊" />队列 @Speaker.QueueCount @(Speaker.Speaking ? "· 正在念…" : "")</span><span class="sep">|</span>
         <span>端口 @Api.Port @ApiState()</span><span class="sep">|</span>
         <span>模式 MAUI</span>
     </div>

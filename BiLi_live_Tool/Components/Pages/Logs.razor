@@ -60,7 +60,7 @@
         <span class="right">
             @if (_error.Length > 0)
             {
-                <b style="color:var(--red)">@_error</b>
+                <b style="color:var(--red-ink)">@_error</b>
             }
             @if (_pending > 0)
             {
@@ -75,7 +75,7 @@
             <div class="blt-empty">
                 @if (_error.Length > 0)
                 {
-                    <span style="color:var(--red)">@_error</span>
+                    <span style="color:var(--red-ink)">@_error</span>
                 }
                 else if (_loading)
                 {
@@ -135,7 +135,7 @@
             <button class="blt-btn" @onclick="RebuildHtml">重建HTML</button>
             @if (_notice.Length > 0)
             {
-                <span style="font-family:var(--mono);font-size:10.5px;color:var(--amber)">@_notice</span>
+                <span style="font-family:var(--mono);font-size:10.5px;color:var(--amber-ink)">@_notice</span>
             }
         </div>
 
@@ -144,7 +144,7 @@
             <div class="blt-empty">
                 @if (_filesError.Length > 0)
                 {
-                    <span style="color:var(--red)">@_filesError</span>
+                    <span style="color:var(--red-ink)">@_filesError</span>
                 }
                 else
                 {

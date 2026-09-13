@@ -16,7 +16,7 @@
 <div class="blt-pagehead">
     <h1>语音念弹幕</h1><span class="en">TTS</span>
     <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
-        <span class="blt-hint" style="margin:0;font-family:var(--mono);color:var(--amber)">@_status</span>
+        <span class="blt-hint" style="margin:0;font-family:var(--mono);color:var(--amber-ink)">@_status</span>
         @* Auto-save status line: replaced the 保存全部 button. *@
         <span class="blt-hint" style="margin:0">@AutoSaveText()</span>
     </span>
@@ -92,7 +92,7 @@
                        on-demand download); this hint covers a broken install. *@
                     @if (!_mossInstalled)
                     {
-                        <div class="blt-hint" style="color:var(--amber)">
+                        <div class="blt-hint" style="color:var(--amber-ink)">
                             未找到 moss_tts_server.exe：请重新安装本程序，或把它放到 @_mossPath 同级目录
                         </div>
                     }
@@ -114,7 +114,7 @@
                 </div>
                 @if (_engine != "edge")
                 {
-                    <div class="blt-hint" style="color:var(--amber);margin:0 0 8px">
+                    <div class="blt-hint" style="color:var(--amber-ink);margin:0 0 8px">
                         当前引擎为 @_engine：下方列表来自 edge 引擎，选中后写入 tts.voice（moss 另用 mossVoice）
                     </div>
                 }
@@ -310,7 +310,7 @@
                         {
                             <div class="blt-logrow">
                                 <span class="tag @QueueTagClass(row)">@QueueTagText(row)</span>
-                                <span class="txt">@(row.Guard ? "⭐ " : "")@row.Text</span>
+                                <span class="txt">@(row.Guard ? "★ " : "")@row.Text</span>
                             </div>
                         }
                     </div>
@@ -319,7 +319,7 @@
                 @* 4) skip / clear *@
                 <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
                     <button class="blt-btn" @onclick="SkipSpeech" disabled="@(!Speaker.Speaking)">⏭ 跳过本条</button>
-                    <button class="blt-btn" @onclick="ClearSpeechQueue" disabled="@(Speaker.QueueCount == 0)">🗑 清空队列</button>
+                    <button class="blt-btn" @onclick="ClearSpeechQueue" disabled="@(Speaker.QueueCount == 0)"><BltIcon Emoji="🗑" />清空队列</button>
                 </div>
                 <div class="blt-hint">
                     「跳过本条」立刻停掉正在念的这条、接着念下一条；「清空队列」只丢弃排队中的，正在念的不受影响。上限 1~50，达到上限后新事件被忽略（舰长优先开启时舰长弹幕插队到第 2 位之后）。
@@ -343,7 +343,7 @@
         </div>
 
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">⚙ 其他参数</span><span class="en">READ ONLY</span>
+            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="⚙" />其他参数</span><span class="en">READ ONLY</span>
                 <span class="right"><span>由原版面板维护</span></span>
             </div>
             <div class="blt-panel-body">

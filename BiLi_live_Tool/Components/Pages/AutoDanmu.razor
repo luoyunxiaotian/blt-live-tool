@@ -13,7 +13,7 @@
 <div class="blt-pagehead">
     <h1>自动弹幕</h1><span class="en">AUTO DANMU</span>
     <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
-        <span class="blt-hint" style="margin:0;font-family:var(--mono);color:var(--amber)">@_status</span>
+        <span class="blt-hint" style="margin:0;font-family:var(--mono);color:var(--amber-ink)">@_status</span>
         @* 保存全部 button replaced by the auto-save status line (every edit writes through immediately). *@
         <span class="blt-hint" style="margin:0">@AutoSaveText()</span>
     </span>
@@ -46,7 +46,7 @@
     @* ── 左列：欢迎 / 礼物感谢 ── *@
     <div>
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">👋 欢迎进房</span><span class="en">WELCOME</span>
+            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="👋" />欢迎进房</span><span class="en">WELCOME</span>
                 @* Sub-function switch lives in the card head (was a corner control). *@
                 <span class="right"><span class="blt-switch lg @OnCls(_welcomeEnabled)" @onclick="ToggleWelcome"><span class="track"></span>@OnOffText(_welcomeEnabled)</span></span>
             </div>
@@ -177,7 +177,7 @@
                 <span class="right"><span>dev · 走完整事件管线</span></span>
             </div>
             <div class="blt-panel-body">
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                <div class="blt-g2">
                     <button class="blt-btn" @onclick="SimFollow" disabled="@_busy">模拟关注</button>
                     <button class="blt-btn" @onclick="SimDanmu" disabled="@_busy">模拟弹幕</button>
                     <button class="blt-btn" @onclick="SimGifts" disabled="@_busy">模拟礼物</button>

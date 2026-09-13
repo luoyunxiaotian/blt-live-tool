@@ -114,7 +114,7 @@
         </div>
 
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">⚙ 提醒配置</span><span class="en">ALERT CONFIG</span>
+            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="⚙" />提醒配置</span><span class="en">ALERT CONFIG</span>
                 <span class="right"><span>alert{theme,durationMs,types}</span>
                     <button class="blt-btn" style="padding:2px 10px" @onclick="Reload">重新读取</button>
                 </span>
@@ -138,7 +138,7 @@
                 @foreach (var t in _types)
                 {
                     <div class="blt-kv">
-                        <span class="k">@t.Name</span>
+                        <span class="k"><BltIcon Emoji="@t.Ico" /> @t.Name</span>
                         <span style="display:flex;align-items:center;gap:10px">
                             <select class="blt-input" style="width:150px" @bind="t.Sound" @bind:after="SaveTypeSoundSoon">
                                 <option value="">无音效</option>
@@ -180,6 +180,7 @@
     /// <summary>One row per overlay type key (matches alert.types.{key} in the overlay script).</summary>
     private sealed class TypeRow
     {
+        public string Ico { get; init; } = "";
         public string Key = "";
         public string Name = "";
         public bool On = true;
@@ -188,11 +189,11 @@
 
     private readonly List<TypeRow> _types = new()
     {
-        new TypeRow { Key = "gift", Name = "🎁 礼物" },
-        new TypeRow { Key = "guard", Name = "🛡 舰长 / 大航海" },
-        new TypeRow { Key = "superchat", Name = "💬 醒目留言" },
-        new TypeRow { Key = "follow", Name = "⭐ 关注" },
-        new TypeRow { Key = "enter", Name = "👋 进房", On = false },
+        new TypeRow { Key = "gift", Ico = "🎁", Name = "礼物" },
+        new TypeRow { Key = "guard", Ico = "🛡", Name = "舰长 / 大航海" },
+        new TypeRow { Key = "superchat", Ico = "💬", Name = "醒目留言" },
+        new TypeRow { Key = "follow", Ico = "⭐", Name = "关注" },
+        new TypeRow { Key = "enter", Ico = "👋", Name = "进房", On = false },
     };
 
     private JsonObject? _doc;      // last GET /api/config snapshot (full document)
@@ -432,7 +433,7 @@
         return _savedAt.HasValue ? "已自动保存 " + _savedAt.Value.ToString("HH:mm:ss") : "改动即时自动保存";
     }
 
-    private string SaveStatusStyle() => _saveMsg.Length > 0 ? "color:var(--red);margin:0" : "margin:0";
+    private string SaveStatusStyle() => _saveMsg.Length > 0 ? "color:var(--red-ink);margin:0" : "margin:0";
 
     private string MasterCls() => _enabled ? "on" : "";
 

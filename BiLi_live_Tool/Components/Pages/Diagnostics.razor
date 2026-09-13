@@ -22,7 +22,7 @@
         }
         @if (_error.Length > 0)
         {
-            <div style="color:var(--red);font-size:12px;padding:2px 0 8px">@_error</div>
+            <div style="color:var(--red-ink);font-size:12px;padding:2px 0 8px">@_error</div>
         }
         @if (_copyHint.Length > 0)
         {
@@ -59,9 +59,9 @@
             </div>
             <div style="display:flex;gap:14px;flex-wrap:wrap;padding:10px 2px 0;font-family:var(--mono);font-size:11px;color:var(--ink-2)">
                 <span>合计 <b style="color:var(--ink)">@_results.Count</b> 项</span>
-                <span>OK <b style="color:var(--green)">@CountState("ok")</b></span>
-                <span>WARN <b style="color:var(--amber)">@CountState("warn")</b></span>
-                <span>FAIL <b style="color:var(--red)">@CountState("fail")</b></span>
+                <span>OK <b style="color:var(--green-ink)">@CountState("ok")</b></span>
+                <span>WARN <b style="color:var(--amber-ink)">@CountState("warn")</b></span>
+                <span>FAIL <b style="color:var(--red-ink)">@CountState("fail")</b></span>
                 <span style="margin-left:auto">BUILD @KestrelHost.VersionText · 端口 @Api.Port</span>
             </div>
         }

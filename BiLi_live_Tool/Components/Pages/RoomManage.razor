@@ -85,7 +85,7 @@
             </div>
             @if (_idleNote.Length > 0)
             {
-                <div class="blt-hint" style="color:var(--amber);margin:6px 0 0">@_idleNote</div>
+                <div class="blt-hint" style="color:var(--amber-ink);margin:6px 0 0">@_idleNote</div>
             }
             <div class="blt-hint">
                 窗口打开时约占 150MB~0.8GB 内存；闲置（无跳转、未播放视频）超过该时长会自动关闭释放内存，再点『打开B站浏览器』可重新打开。
@@ -127,15 +127,15 @@
             </div>
             @if (_cookieInfo.Length > 0)
             {
-                <div class="blt-hint" style="color:var(--green);margin:8px 0 0">@_cookieInfo</div>
+                <div class="blt-hint" style="color:var(--green-ink);margin:8px 0 0">@_cookieInfo</div>
             }
             @if (_cookieWarn.Length > 0)
             {
-                <div class="blt-hint" style="color:var(--amber);margin:8px 0 0">@_cookieWarn</div>
+                <div class="blt-hint" style="color:var(--amber-ink);margin:8px 0 0">@_cookieWarn</div>
             }
             @if (_cookieError.Length > 0)
             {
-                <div class="blt-hint" style="color:var(--red);margin:8px 0 0">@_cookieError</div>
+                <div class="blt-hint" style="color:var(--red-ink);margin:8px 0 0">@_cookieError</div>
             }
             <div class="blt-kv"><span class="k">当前 Cookie</span><span class="v @CookieCls()">@CookieText()</span></div>
         </div>
@@ -157,7 +157,7 @@
             </div>
             @if (_likeError.Length > 0)
             {
-                <div class="blt-hint" style="color:var(--red);margin:0">@_likeError</div>
+                <div class="blt-hint" style="color:var(--red-ink);margin:0">@_likeError</div>
             }
             <p class="blt-hint">
                 点赞为 B站「点赞」长按协议循环发送，用于提升直播间热度；仅在已连接且已配置 Cookie 时可用。
@@ -224,17 +224,17 @@
             <div class="blt-hint">即时生效 · 全部页面换装 · 自动保存</div>
             @if (_foldMsg.Length > 0)
             {
-                <div class="blt-hint" style="color:var(--green);margin:8px 0 0">@_foldMsg</div>
+                <div class="blt-hint" style="color:var(--green-ink);margin:8px 0 0">@_foldMsg</div>
             }
         </div>
     </div>
 
     @if (Verify.Locked)
     {
-        @* 对齐旧版 renderVerifyLockCard：「🔒 账号待授权」说明卡 + 三个操作 *@
+        @* 对齐旧版 renderVerifyLockCard：「<BltIcon Name="lock" /> 账号待授权」说明卡 + 三个操作 *@
         <div class="blt-panel" style="border-color:var(--red);background:var(--red-dim)">
             <div class="blt-panel-head" style="border-bottom-color:rgba(245,110,110,.35)">
-                <span class="t" style="color:var(--red)">🔒 账号待授权</span>
+                <span class="t" style="color:var(--red-ink)"><BltIcon Name="lock" /> 账号待授权</span>
                 <span class="en">VERIFY</span>
                 <span class="right"><span>@Verify.State.CheckedAt</span></span>
             </div>
@@ -248,9 +248,9 @@
                     获取授权：联系作者 <b>B站UID <span style="font-family:var(--mono)">@VerifyService.AuthorUid</span></b>，说明你的来意即可申请。
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-                    <button class="blt-btn primary" @onclick="CopyAuthorUid2">📋 复制作者B站ID</button>
-                    <button class="blt-btn" @onclick="OpenAuthorSpace2">🔗 打开作者B站主页</button>
-                    <button class="blt-btn" @onclick="RetryVerify2">↻ 重试验证</button>
+                    <button class="blt-btn primary" @onclick="CopyAuthorUid2"><BltIcon Emoji="📋" />复制作者B站ID</button>
+                    <button class="blt-btn" @onclick="OpenAuthorSpace2"><BltIcon Emoji="🔗" />打开作者B站主页</button>
+                    <button class="blt-btn" @onclick="RetryVerify2"><BltIcon Emoji="↻" />重试验证</button>
                     <span class="blt-hint" style="align-self:center;margin:0">@_verifyNote2</span>
                 </div>
             </div>
@@ -282,7 +282,7 @@
                 <button class="blt-btn primary" @onclick="StartUpdateDownload" disabled="@(!_updateHasAsset || _updaterBusy)">@DownloadBtnText()</button>
                 @if (_updaterPhase == "Staged")
                 {
-                    <button class="blt-btn amber" @onclick="ApplyUpdateNow">🔄 更新并重启</button>
+                    <button class="blt-btn amber" @onclick="ApplyUpdateNow"><BltIcon Emoji="🔄" />更新并重启</button>
                     <button class="blt-btn" @onclick="CancelUpdate">稍后</button>
                 }
             </div>
@@ -347,7 +347,7 @@
             <span class="right"><span>dev · 走完整事件管线</span></span>
         </div>
         <div class="blt-panel-body">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="blt-g2">
                 <button class="blt-btn" @onclick="SimDanmu">模拟弹幕</button>
                 <button class="blt-btn" @onclick="SimGifts">模拟礼物</button>
                 <button class="blt-btn" @onclick="SimGuard">模拟舰长</button>
@@ -689,12 +689,12 @@
         }
 
         _cookieInfo = hasSession
-            ? $"✅ 已识别 SESSDATA（共 {pairs.Count} 项，已保存）"
+            ? $"已识别 SESSDATA（共 {pairs.Count} 项，已保存）"
             : $"已保存 {pairs.Count} 项 Cookie";
         var warns = new List<string>();
         if (!hasSession) warns.Add("缺少 SESSDATA：登录态可能无效");
         if (!hasJct) warns.Add("缺少 bili_jct：发言/点赞等写操作会失败");
-        _cookieWarn = warns.Count > 0 ? "⚠ " + string.Join("；", warns) : "";
+        _cookieWarn = warns.Count > 0 ? string.Join("；", warns) : "";
 
         Hub.PublishStatus(Hub.LastStatus);   // refresh the login rows above
         StateHasChanged();

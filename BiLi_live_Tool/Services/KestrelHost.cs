@@ -933,7 +933,42 @@ public sealed class KestrelHost
                             duration = _songPlayer.Duration,
                             note = _songPlayer.LastNote,
                         },
+                        autoDanmu = _pipeline.AutoDanmu.SendStats(),
                     }, JsonWeb);
+                case "debug/probe":
+                {
+                    // Throwaway guest connection used to sample raw frames from any
+                    // room without disturbing the live connection (protocol drift
+                    // debugging: e.g. SEND_GIFT_V2 shipping a protobuf payload).
+                    var room = SafeStr(body["room"]);
+                    if (room.Length == 0) room = "6";
+                    var filter = SafeStr(body["filter"]);
+                    var seconds = 20;
+                    if (body["seconds"] is JsonValue sv2 && sv2.TryGetValue<double>(out var sd))
+                        seconds = Math.Clamp((int)sd, 3, 90);
+                    var probeHub = new EventHub();
+                    var probe = new DanmuClient(probeHub);
+                    probe.Start(room, "");
+                    try { await Task.Delay(TimeSpan.FromSeconds(seconds)); } catch { }
+                    var frames = probe.RecentRawFrames(filter);
+                    var cmds = probe.SeenCmds();
+                    // Normalized events from the throwaway connection: lets a probe
+                    // prove the parser itself, not just the wire format.
+                    var parsed = probeHub.GetRecent("gifts");
+                    probe.Stop();
+                    return Results.Json(new { ok = true, room, seconds, cmds, frames, parsedGifts = parsed }, JsonWeb);
+                }
+                case "debug/frames":
+                {
+                    // Raw danmu frames (parse diagnostics): body.filter = cmd prefix.
+                    var filter = SafeStr(body["filter"]);
+                    return Results.Json(new
+                    {
+                        ok = true,
+                        cmds = _live.SeenCmds(),
+                        frames = _live.RecentRawFrames(filter),
+                    }, JsonWeb);
+                }
                 case "debug/eval":
                 {
                     // Verification hook: runs JS in the hosted Blazor web view and

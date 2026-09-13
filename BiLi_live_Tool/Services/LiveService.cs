@@ -14,6 +14,14 @@ public sealed class LiveService
     public bool IsRunning => _client != null;
     public string CurrentRoomId { get; private set; } = "";
 
+    /// <summary>Raw frames from the live connection (parse diagnostics only).</summary>
+    public List<string> RecentRawFrames(string? filter = null)
+        => _client?.RecentRawFrames(filter) ?? new List<string>();
+
+    /// <summary>Cmd strings seen on the wire with captured counts.</summary>
+    public Dictionary<string, int> SeenCmds()
+        => _client?.SeenCmds() ?? new Dictionary<string, int>();
+
     public void Start(string roomId, string cookie)
     {
         Stop();

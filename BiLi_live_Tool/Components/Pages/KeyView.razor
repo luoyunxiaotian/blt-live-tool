@@ -5,6 +5,7 @@
 @using System.Text.Json.Nodes
 @inject KestrelHost Api
 @inject IJSRuntime JS
+@inject BiLi_live_Tool.Services.DebouncedSaver Saver
 @implements IDisposable
 
 @* KeyView console. Talks to the embedded API on 127.0.0.1: POST
@@ -12,7 +13,12 @@
    config pair config-get / config-set (whole-object replace, which the store
    then broadcasts as {t:'cfg'} to every overlay client). *@
 
-<div class="blt-pagehead"><h1>键鼠手柄可视化</h1><span class="en">KEYVIEW</span></div>
+<div class="blt-pagehead"><h1>键鼠手柄可视化</h1><span class="en">KEYVIEW</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
+        @* 保存配置 button replaced by the auto-save status line (every edit writes through immediately). *@
+        <span class="blt-hint" style="margin:0">@AutoSaveText()</span>
+    </span>
+</div>
 
 <div class="blt-topstrip">
     <span class="seg">采集 <b class="@(_running ? "green" : "red")">@(_running ? "RUNNING" : "STOPPED")</b></span>
@@ -49,7 +55,7 @@
                     <input class="blt-input mono" readonly value="@OverlayUrl" />
                     <button class="blt-btn" @onclick="CopyOverlayUrl">复制地址</button>
                 </div>
-                <p style="color:var(--ink-3);font-size:11.5px;margin:8px 0 0">
+                <p class="blt-hint">
                     说明：在 OBS 中添加「浏览器源」并粘贴上方地址（建议竖屏比例，如 405×720 或 1080×1920）。
                 </p>
             </div>
@@ -60,8 +66,8 @@
             <div class="blt-panel-body">
                 <div class="blt-kv"><span class="k">输入影响</span><span class="v green">只读采集 · 不拦截按键</span></div>
                 <div class="blt-kv"><span class="k">游戏兼容</span><span class="v amber">反作弊环境谨慎开启</span></div>
-                <div class="blt-kv"><span class="k">热更新</span><span class="v green">保存后广播 {t:'cfg'} 到浮层</span></div>
-                <p style="color:var(--ink-3);font-size:11.5px;margin:8px 0 0">
+                <div class="blt-kv"><span class="k">热更新</span><span class="v green">改动自动保存并广播 {t:'cfg'} 到浮层</span></div>
+                <p class="blt-hint">
                     说明：全局键鼠钩子为只读采集（不影响实际输入）；游戏反作弊环境请谨慎开启。
                     OBS 中粘贴浮层地址（建议竖屏比例）。
                 </p>
@@ -94,7 +100,7 @@
                         else if (r.Kind == "select")
                         {
                             <span style="display:flex;align-items:center;gap:8px">
-                                <select class="blt-input mono" style="width:200px" @bind="r.Text">
+                                <select class="blt-input mono" style="width:200px" @bind="r.Text" @bind:after="() => SaveRowSoon(200)">
                                     @foreach (var o in r.Options)
                                     {
                                         <option value="@o.Value">@o.Label</option>
@@ -105,27 +111,26 @@
                         else if (r.Kind == "number")
                         {
                             <span style="display:flex;align-items:center;gap:8px">
-                                <input class="blt-input mono" style="width:110px" type="number" min="@Fmt(r.Min)" max="@Fmt(r.Max)" step="@Fmt(r.Step)" disabled="@r.ReadOnly" @bind="r.Num" />
+                                <input class="blt-input mono" style="width:110px" type="number" min="@Fmt(r.Min)" max="@Fmt(r.Max)" step="@Fmt(r.Step)" disabled="@r.ReadOnly" @bind="r.Num" @bind:after="() => SaveRowSoon(450)" />
                                 @if (r.Unit.Length > 0)
                                 {
-                                    <span style="color:var(--ink-3);font-size:11px">@r.Unit</span>
+                                    <span class="blt-hint" style="margin:0">@r.Unit</span>
                                 }
                             </span>
                         }
                         else
                         {
                             <span style="display:flex;align-items:center;gap:8px">
-                                <input class="blt-input mono" style="width:200px" @bind="r.Text" />
+                                <input class="blt-input mono" style="width:200px" @bind="r.Text" @bind:after="() => SaveRowSoon(450)" />
                             </span>
                         }
                     </div>
                 }
 
-                <div style="display:flex;gap:8px;margin-top:12px">
-                    <button class="blt-btn primary" @onclick="SaveConfig">保存配置</button>
-                    <button class="blt-btn" @onclick="LoadConfig">放弃修改</button>
+                <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+                    <span class="blt-hint" style="margin:0">改动即时生效并自动保存 · 整组配置一次提交，无需手动保存</span>
                 </div>
-                <p style="color:var(--ink-3);font-size:11.5px;margin:10px 0 0">
+                <p class="blt-hint">
                     保存为整组替换（POST /api/maui/keyview/config-set，body 为 config:{…} 全量键），保存后浮层立即收到新配置。
                 </p>
             </div>
@@ -171,6 +176,13 @@
     private string _lastError = "";
     private string _note = "";
     private bool _noteOk = true;
+
+    // auto-save status (the 保存配置 / 放弃修改 buttons were replaced by one 重新读取 button)
+    private DateTime? _savedAt;
+    private string _saveMsg = "";
+    private readonly SemaphoreSlim _saveGate = new(1, 1);   // one config-set POST at a time
+    private bool _saveInFlight;                             // a POST is running
+    private bool _savePending;                              // an edit arrived while that POST was running
 
     private string Base => "http://127.0.0.1:" + Api.Port;
     private string OverlayUrl => _overlayUrl.Length > 0 ? _overlayUrl : Base + "/keyview/overlay.html";
@@ -386,13 +398,22 @@
     private void ToggleRow(KeyRow r)
     {
         r.Flag = !r.Flag;
-        Notify($"{r.Key}：{(r.Flag ? "ON" : "OFF")}（记得保存）", true);
+        Notify($"{r.Key}：{(r.Flag ? "ON" : "OFF")} · 自动保存中…", true);
+        SaveRowSoon(200);
     }
 
     private async Task SaveConfig()
     {
+        await _saveGate.WaitAsync();
         try
         {
+            // Never post an empty key group: that would wipe the stored config if the
+            // rows failed to load and an edit slipped through anyway.
+            if (_rows.Count == 0)
+            {
+                _saveMsg = "配置未载入，未提交";
+                return;
+            }
             var cfg = new JsonObject();
             foreach (var r in _rows)
             {
@@ -418,16 +439,65 @@
             var o = await PostJsonAsync("/api/maui/keyview/config-set", body);
             if (o == null)
             {
+                _saveMsg = _lastError.Length > 0 ? _lastError : "接口无响应";
                 Notify("保存失败" + ErrSuffix(), false);
                 return;
             }
-            await LoadConfig();
-            Notify($"配置已保存 · {_rows.Count} 个键已广播到浮层", true);
+            _saveMsg = "";
+            _savedAt = DateTime.Now;
+            // Read back to normalize the rows — but skip it while a newer edit is already
+            // queued, otherwise the read-back would revert that edit before it is written.
+            if (!_savePending) await LoadConfig();
+            Notify($"配置已自动保存 · {_rows.Count} 个键已广播到浮层（{_savedAt.Value:HH:mm:ss}）", true);
         }
         catch (Exception ex)
         {
+            _saveMsg = ex.Message;
             Notify("保存失败：" + ex.Message, false);
         }
+        finally
+        {
+            _saveGate.Release();
+        }
+    }
+
+    // ---- auto-save (debounced) ----
+    // config-set replaces the whole key group, so edits coalesce into a single pending
+    // save: switches 200 ms, numbers and text 450 ms. An edit that lands while a POST is
+    // in flight marks _savePending and is written by the follow-up run.
+
+    /// <summary>Debounced save; the delegate runs off the renderer thread, so marshal back and repaint.</summary>
+    private void SaveSoon(string key, Func<Task> save, int delayMs)
+        => Saver.Run(key, () => InvokeAsync(async () => { await save(); StateHasChanged(); }), delayMs);
+
+    private void SaveRowSoon(int delayMs)
+    {
+        if (_saveInFlight) { _savePending = true; return; }
+        SaveSoon("keyview-config", SaveConfigCoalesced, delayMs);
+    }
+
+    private async Task SaveConfigCoalesced()
+    {
+        _saveInFlight = true;
+        try
+        {
+            await SaveConfig();
+        }
+        finally
+        {
+            _saveInFlight = false;
+        }
+        if (_savePending)
+        {
+            _savePending = false;
+            SaveSoon("keyview-config", SaveConfigCoalesced, 150);   // write the edit that raced this POST
+        }
+    }
+
+    private string AutoSaveText()
+    {
+        if (_saveMsg.Length > 0) return "保存失败：" + _saveMsg;
+        return _savedAt.HasValue ? "已自动保存 " + _savedAt.Value.ToString("HH:mm:ss") : "改动即时自动保存";
     }
 
     private async Task<List<KeyOption>> LoadThemes()

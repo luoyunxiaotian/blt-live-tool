@@ -5,12 +5,12 @@
 @using System.Text.RegularExpressions
 @inject AppConfig Config
 @inject SongPlayer Player
+@inject BiLi_live_Tool.Services.DebouncedSaver Saver
 @implements IDisposable
 
 <div class="blt-pagehead"><h1>点歌功能</h1><span class="en">SONG REQUEST</span></div>
 
 <div class="blt-topstrip">
-    <span class="seg">总开关 <span class="blt-badge @OnOffCls(_enabled)">@OnOffText(_enabled)</span></span>
     <span class="seg">当前平台 <b>@PlatName(_platform)</b></span>
     <span class="seg">播放列表 <b>@_playlist.Count</b> 首@(CurSeg())</span>
     <span class="seg">cookie
@@ -26,7 +26,7 @@
         }
     </span>
     <span class="seg">
-        <button class="blt-btn" style="padding:1px 10px;font-size:10.5px" @onclick="RefreshClicked" disabled="@_busy">刷新</button>
+        <button class="blt-btn" style="padding:3px 12px" @onclick="RefreshClicked" disabled="@_busy">刷新</button>
     </span>
 </div>
 
@@ -39,16 +39,18 @@
                 <span class="right"><span>songRequest · POST /api/config</span></span>
             </div>
             <div class="blt-panel-body">
+                @* Master switch (songRequest.enabled): promoted from the page header to the top of this card. *@
+                <div class="blt-master @MasterCls()">
+                    <span class="st">启用弹幕点歌</span>
+                    <span class="sub">观众发送「@KeywordText() + 歌名」即可点歌（当前平台 @PlatName(_platform)）</span>
+                    <span class="right">
+                        <span class="blt-switch lg @BigSwitchClass()" @onclick="ToggleEnabled"><span class="track"></span>@(_enabled ? "ON" : "OFF")</span>
+                    </span>
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 14px">
                     <div>
-                        <label class="blt-label">总开关</label>
-                        <span class="blt-switch @OnOff(_enabled)" @onclick="ToggleEnabled" data-tip="开启后观众弹幕发送「关键词 + 歌名」即可点歌">
-                            <span class="track"></span>@OnOffText(_enabled)
-                        </span>
-                    </div>
-                    <div>
                         <label class="blt-label">点歌平台</label>
-                        <select class="blt-input" @bind="_platform">
+                        <select class="blt-input" @bind="_platform" @bind:after="SaveSettingsSoon">
                             <option value="qq">QQ音乐</option>
                             <option value="netease">网易云音乐</option>
                             <option value="kugou">酷狗音乐</option>
@@ -57,27 +59,27 @@
                     </div>
                     <div>
                         <label class="blt-label">触发关键词</label>
-                        <input class="blt-input" @bind="_keyword" placeholder="点歌" />
+                        <input class="blt-input" @bind="_keyword" @bind:after="SaveSettingsTextSoon" placeholder="点歌" />
                     </div>
                     <div>
                         <label class="blt-label">每日上限（0=不限）</label>
-                        <input class="blt-input" type="number" min="0" @bind="_maxDaily" />
+                        <input class="blt-input" type="number" min="0" @bind="_maxDaily" @bind:after="SaveSettingsTextSoon" />
                     </div>
                     <div>
                         <label class="blt-label">全局冷却（秒）</label>
-                        <input class="blt-input" type="number" min="0" @bind="_cooldownSec" />
+                        <input class="blt-input" type="number" min="0" @bind="_cooldownSec" @bind:after="SaveSettingsTextSoon" />
                     </div>
                     <div>
                         <label class="blt-label">每用户冷却（秒）</label>
-                        <input class="blt-input" type="number" min="0" @bind="_userCooldownSec" />
+                        <input class="blt-input" type="number" min="0" @bind="_userCooldownSec" @bind:after="SaveSettingsTextSoon" />
                     </div>
                     <div>
                         <label class="blt-label">最低粉丝勋章</label>
-                        <input class="blt-input" type="number" min="0" @bind="_fanMedalMin" />
+                        <input class="blt-input" type="number" min="0" @bind="_fanMedalMin" @bind:after="SaveSettingsTextSoon" />
                     </div>
                     <div>
                         <label class="blt-label">最低荣誉等级</label>
-                        <input class="blt-input" type="number" min="0" @bind="_honorLevelMin" />
+                        <input class="blt-input" type="number" min="0" @bind="_honorLevelMin" @bind:after="SaveSettingsTextSoon" />
                     </div>
                     <div>
                         <label class="blt-label">仅舰长可点</label>
@@ -91,13 +93,14 @@
                             <span class="blt-switch @OnOff(_dedupEnabled)" @onclick="ToggleDedup">
                                 <span class="track"></span>@OnOffText(_dedupEnabled)
                             </span>
-                            <input class="blt-input" type="number" min="0" style="width:72px" @bind="_dedupMin" disabled="@(!_dedupEnabled)" />
+                            <input class="blt-input" type="number" min="0" style="width:72px" @bind="_dedupMin" @bind:after="SaveSettingsTextSoon" disabled="@(!_dedupEnabled)" />
                         </div>
                     </div>
                 </div>
-                <div style="display:flex;gap:10px;align-items:center;margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">
-                    <button class="blt-btn primary" @onclick="SaveSettings" disabled="@_busy">保存设置</button>
-                    <span style="color:var(--ink-3);font-size:11.5px">回写整份配置；黑名单 / Cookie / UP 名单等未展示字段原样保留</span>
+                @* 保存设置 button replaced by the auto-save status line (every edit writes through immediately). *@
+                <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">
+                    <span class="blt-hint" style="margin:0">@AutoSaveText()</span>
+                    <span class="blt-hint" style="margin:0">改动即时生效 · 回写整份配置，黑名单 / Cookie / UP 名单等未展示字段原样保留</span>
                 </div>
             </div>
         </div>
@@ -136,7 +139,7 @@
                                 <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@r.Title</span>
                                 <span class="blt-badge @r.PlatformBadgeCls">@r.PlatformBadgeName</span>
                                 <span class="blt-badge @r.VipBadgeCls">@r.VipBadgeText</span>
-                                <button class="blt-btn" style="padding:2px 10px;font-size:11px;flex:none" @onclick="r.Add" disabled="@_busy">添加</button>
+                                <button class="blt-btn" style="padding:3px 10px;flex:none" @onclick="r.Add" disabled="@_busy">添加</button>
                             </div>
                         }
                     </div>
@@ -171,7 +174,7 @@
                             <div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line)">
                                 <span class="blt-badge @b.TypeCls" style="flex:none">@b.TypeText</span>
                                 <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@b.Value</span>
-                                <button class="blt-btn" style="padding:2px 10px;font-size:11px" @onclick="b.Remove" disabled="@_busy">删除</button>
+                                <button class="blt-btn" style="padding:3px 10px" @onclick="b.Remove" disabled="@_busy">删除</button>
                             </div>
                         }
                     </div>
@@ -194,7 +197,7 @@
             <div class="blt-panel-body" style="padding:4px 0">
                 @if (_playlist.Count == 0)
                 {
-                    <div class="blt-empty">播放列表为空 · 弹幕「@_keyword 歌名」或在此手动搜索添加</div>
+                    <div class="blt-empty">播放列表为空 · 弹幕「@KeywordText() + 歌名」或在此手动搜索添加</div>
                 }
                 else
                 {
@@ -217,10 +220,10 @@
                             </span>
                             <span style="width:104px;flex:none;color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@row.Requester</span>
                             <span style="flex:none;display:flex;gap:6px">
-                                <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="row.Play">▶</button>
-                                <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="row.MoveUp" disabled="@(!row.CanUp || _busy)">↑</button>
-                                <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="row.MoveDown" disabled="@(!row.CanDown || _busy)">↓</button>
-                                <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="row.Remove" disabled="@_busy">删除</button>
+                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.Play">▶</button>
+                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.MoveUp" disabled="@(!row.CanUp || _busy)">↑</button>
+                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.MoveDown" disabled="@(!row.CanDown || _busy)">↓</button>
+                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.Remove" disabled="@_busy">删除</button>
                             </span>
                         </div>
                     }
@@ -255,12 +258,12 @@
                     }
                     else
                     {
-                        <span style="flex:1;color:var(--ink-3);font-size:11.5px">未在播放 · 弹幕点歌或点列表「▶」开播</span>
+                        <span class="blt-hint" style="flex:1;margin:0">未在播放 · 弹幕点歌或点列表「▶」开播</span>
                     }
                 </div>
                 @if (Player.LastNote.Length > 0)
                 {
-                    <div style="font-family:var(--mono);font-size:10.5px;margin-top:6px;color:@NoteCls(Player.LastNote)">@Player.LastNote</div>
+                    <div class="blt-hint" style="font-family:var(--mono);margin:6px 0 0;color:@NoteCls(Player.LastNote)">@Player.LastNote</div>
                 }
                 <div style="display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap">
                     <button class="blt-btn" style="padding:3px 10px" @onclick="PlayPrev" disabled="@(Player.PlayingIndex < 1)">⏮ 上一首</button>
@@ -271,9 +274,9 @@
                 <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
                     <input type="range" min="0" max="@RangeMax" step="0.5" value="@RangeValue"
                            style="flex:1;accent-color:var(--amber)" @onchange="OnSeekChanged" />
-                    <span style="font-family:var(--mono);font-size:11px;color:var(--ink-2);flex:none">@MmSs(Player.Current) / @MmSs(Player.Duration)</span>
+                    <span class="blt-hint" style="font-family:var(--mono);color:var(--ink-2);flex:none;margin:0">@MmSs(Player.Current) / @MmSs(Player.Duration)</span>
                 </div>
-                <p style="color:var(--ink-3);font-size:11.5px;margin:10px 0 0">
+                <p class="blt-hint">
                     播放走新版内建音频链路（/api/song-request/song-url + blt-audio.js），进度同时上报 OBS 歌词浮层。
                 </p>
             </div>
@@ -346,7 +349,7 @@
                 </div>
                 <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
                     <button class="blt-btn" @onclick="OpenBiliBrowser">打开B站浏览器</button>
-                    <span style="color:var(--ink-3);font-size:11.5px">登录后自动捕获并同步 B站 Cookie（SESSDATA / bili_jct）</span>
+                    <span class="blt-hint" style="margin:0">登录后自动捕获并同步 B站 Cookie（SESSDATA / bili_jct）</span>
                 </div>
 
                 <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">
@@ -366,7 +369,7 @@
                             {
                                 <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line)">
                                     <span style="flex:1;font-family:var(--mono);font-size:12px">@u.Uid</span>
-                                    <button class="blt-btn" style="padding:2px 10px;font-size:11px" @onclick="u.Remove" disabled="@_busy">删除</button>
+                                    <button class="blt-btn" style="padding:3px 10px" @onclick="u.Remove" disabled="@_busy">删除</button>
                                 </div>
                             }
                         </div>
@@ -452,6 +455,11 @@
     private bool _searching;
     private string _feedback = "";
     private string _feedbackCls = "off";
+
+    // ---------- auto-save state ----------
+    private readonly SemaphoreSlim _saveGate = new(1, 1);   // serializes POSTs (auto-save can fire back to back)
+    private DateTime? _savedAt;
+    private string _saveMsg = "";
 
     // ---------- player / lyrics state ----------
     private string _lyricSongKey = "";
@@ -991,6 +999,8 @@
         await PostJson("/api/song-request/cookie", new JsonObject { ["platform"] = platform, ["cookie"] = value });
         SetMsg(value.Length > 0 ? "已保存 " + PlatName(platform) + " Cookie" : "已清除 " + PlatName(platform) + " Cookie", "green");
         await LoadCookiesAsync();
+        _saveMsg = "";                 // Cookie 保存是显式提交，成功后同样刷新自动保存状态行
+        _savedAt = DateTime.Now;
     }, "保存 Cookie 失败");
 
     private async Task SaveQqCookie() => await SaveCookie("qq", _cookieQq);
@@ -1014,37 +1024,85 @@
         await LoadUpListAsync();
     }, "删除 UP 主失败");
 
-    // ---------- settings ----------
+    // ---------- settings (every edit auto-saves; the 保存设置 button is gone) ----------
 
-    private async Task SaveSettings() => await Guard(async () =>
+    /// <summary>Reads the whole config document, patches songRequest and POSTs it back.</summary>
+    private async Task SaveSettings()
     {
-        var doc = await GetJson("/api/config") as JsonObject ?? new JsonObject();
-        var sr = doc["songRequest"] as JsonObject;
-        if (sr == null)
+        // Auto-save can fire from several debounce keys in a row → serialize instead of
+        // dropping the write (a dropped write would silently lose the newest edit).
+        await _saveGate.WaitAsync();
+        try
         {
-            sr = new JsonObject();
-            doc["songRequest"] = sr;
+            var doc = await GetJson("/api/config") as JsonObject ?? new JsonObject();
+            var sr = doc["songRequest"] as JsonObject;
+            if (sr == null)
+            {
+                sr = new JsonObject();
+                doc["songRequest"] = sr;
+            }
+            var keyword = _keyword.Trim();
+            sr["enabled"] = JsonValue.Create(_enabled);
+            sr["platform"] = JsonValue.Create(_platform);
+            sr["keyword"] = JsonValue.Create(keyword.Length > 0 ? keyword : "点歌");
+            sr["cooldownMs"] = JsonValue.Create(ParseLong(_cooldownSec, 10) * 1000L);
+            sr["userCooldownMs"] = JsonValue.Create(ParseLong(_userCooldownSec, 60) * 1000L);
+            sr["fanMedalMin"] = JsonValue.Create(ParseLong(_fanMedalMin));
+            sr["honorLevelMin"] = JsonValue.Create(ParseLong(_honorLevelMin));
+            sr["guardOnly"] = JsonValue.Create(_guardOnly);
+            sr["maxDaily"] = JsonValue.Create(ParseLong(_maxDaily));
+            sr["dedupEnabled"] = JsonValue.Create(_dedupEnabled);
+            sr["dedupMs"] = JsonValue.Create(ParseLong(_dedupMin, 5) * 60000L);
+            var resp = await PostJson("/api/config", doc);
+            ApplySettings((resp as JsonObject)?["songRequest"] as JsonObject);
+            _saveMsg = "";
+            _savedAt = DateTime.Now;
         }
-        var keyword = _keyword.Trim();
-        sr["enabled"] = JsonValue.Create(_enabled);
-        sr["platform"] = JsonValue.Create(_platform);
-        sr["keyword"] = JsonValue.Create(keyword.Length > 0 ? keyword : "点歌");
-        sr["cooldownMs"] = JsonValue.Create(ParseLong(_cooldownSec, 10) * 1000L);
-        sr["userCooldownMs"] = JsonValue.Create(ParseLong(_userCooldownSec, 60) * 1000L);
-        sr["fanMedalMin"] = JsonValue.Create(ParseLong(_fanMedalMin));
-        sr["honorLevelMin"] = JsonValue.Create(ParseLong(_honorLevelMin));
-        sr["guardOnly"] = JsonValue.Create(_guardOnly);
-        sr["maxDaily"] = JsonValue.Create(ParseLong(_maxDaily));
-        sr["dedupEnabled"] = JsonValue.Create(_dedupEnabled);
-        sr["dedupMs"] = JsonValue.Create(ParseLong(_dedupMin, 5) * 60000L);
-        var resp = await PostJson("/api/config", doc);
-        ApplySettings((resp as JsonObject)?["songRequest"] as JsonObject);
-        SetMsg("点歌设置已保存", "green");
-    }, "保存设置失败");
+        catch (Exception ex)
+        {
+            _saveMsg = Trim(ex.Message);
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
+    }
 
-    private void ToggleEnabled() => _enabled = !_enabled;
-    private void ToggleGuardOnly() => _guardOnly = !_guardOnly;
-    private void ToggleDedup() => _dedupEnabled = !_dedupEnabled;
+    /// <summary>Debounced auto-save: the delegate runs off the renderer thread, so marshal back and repaint.</summary>
+    private void SaveSoon(string key, int delayMs)
+        => Saver.Run(key, () => InvokeAsync(async () => { await SaveSettings(); StateHasChanged(); }), delayMs);
+
+    private void SaveSettingsSoon() => SaveSoon("song-settings", 200);       // select / switch
+    private void SaveSettingsTextSoon() => SaveSoon("song-settings", 450);   // text / number input
+
+    /// <summary>Auto-save status line; replaces the old 保存设置 button.</summary>
+    private string AutoSaveText()
+    {
+        if (_saveMsg.Length > 0) return "保存失败：" + _saveMsg;
+        return _savedAt.HasValue ? "已自动保存 " + _savedAt.Value.ToString("HH:mm:ss") : "改动即时自动保存";
+    }
+
+    // State tokens only — the markup already carries the base classes (same idiom as @OnOff above).
+    private string MasterCls() => _enabled ? "on" : "";
+    private string BigSwitchClass() => _enabled ? "on" : "";
+
+    private void ToggleEnabled()
+    {
+        _enabled = !_enabled;
+        SaveSettingsSoon();
+    }
+
+    private void ToggleGuardOnly()
+    {
+        _guardOnly = !_guardOnly;
+        SaveSettingsSoon();
+    }
+
+    private void ToggleDedup()
+    {
+        _dedupEnabled = !_dedupEnabled;
+        SaveSettingsSoon();
+    }
 
     private void OpenBiliBrowser() => MainPage.Current?.ShowBiliBrowser("https://live.bilibili.com/");
 
@@ -1151,8 +1209,14 @@
     };
 
     private static string OnOff(bool b) => b ? "on" : "";
-    private static string OnOffCls(bool b) => b ? "green" : "off";
     private static string OnOffText(bool b) => b ? "ON" : "OFF";
+
+    /// <summary>Effective trigger keyword (empty input falls back to the server-side default).</summary>
+    private string KeywordText()
+    {
+        var k = _keyword.Trim();
+        return k.Length > 0 ? k : "点歌";
+    }
     private static string CkCls(bool b) => b ? "green" : "off";
     private static string CkText(bool b) => b ? "已配置" : "未配置";
 

@@ -15,33 +15,43 @@
     <div class="blt-side">
         <div class="blt-brand"><b>B站直播助手</b><span>BLT CONSOLE · MAUI</span></div>
 
-        <div class="blt-navgroup">直播控制</div>
-        <NavLink class="blt-navitem" href="/" Match="NavLinkMatch.All">🎛 房间管理</NavLink>
-        <NavLink class="blt-navitem" href="/tts">🎙 语音念弹幕</NavLink>
-        <NavLink class="blt-navitem" href="/autodanmu">💬 自动弹幕</NavLink>
-        <NavLink class="blt-navitem" href="/pk">⚔ PK 连线</NavLink>
-        <NavLink class="blt-navitem" href="/song">🎵 点歌功能</NavLink>
+        <div class="blt-navgroup @Fold("live")" @onclick="ToggleLive">直播控制</div>
+        <div class="blt-navfold @FoldHide("live")">
+            <NavLink class="blt-navitem" href="/" Match="NavLinkMatch.All">🎛 房间管理</NavLink>
+            <NavLink class="blt-navitem" href="/tts">🎙 语音念弹幕</NavLink>
+            <NavLink class="blt-navitem" href="/autodanmu">💬 自动弹幕</NavLink>
+            <NavLink class="blt-navitem" href="/pk">⚔ PK 连线</NavLink>
+            <NavLink class="blt-navitem" href="/song">🎵 点歌功能</NavLink>
+        </div>
 
-        <div class="blt-navgroup">实时与展示</div>
-        <NavLink class="blt-navitem" href="/realtime">⚡ 实时展示</NavLink>
-        <NavLink class="blt-navitem" href="/gifts">🎁 礼物数据生成</NavLink>
+        <div class="blt-navgroup @Fold("show")" @onclick="ToggleShow">实时与展示</div>
+        <div class="blt-navfold @FoldHide("show")">
+            <NavLink class="blt-navitem" href="/realtime">⚡ 实时展示</NavLink>
+            <NavLink class="blt-navitem" href="/gifts">🎁 礼物数据生成</NavLink>
+        </div>
 
-        <div class="blt-navgroup">日志记录</div>
-        <NavLink class="blt-navitem" href="/logs/danmu">📄 弹幕记录 <span class="blt-badge @(RecOn("danmu"))">@(RecOn("danmu") ? "REC" : "OFF")</span></NavLink>
-        <NavLink class="blt-navitem" href="/logs/gifts">🎁 礼物记录 <span class="blt-badge @(RecOn("gifts"))">@(RecOn("gifts") ? "REC" : "OFF")</span></NavLink>
-        <NavLink class="blt-navitem" href="/logs/blindbox">📦 盲盒记录 <span class="blt-badge @(RecOn("blindbox"))">@(RecOn("blindbox") ? "REC" : "OFF")</span></NavLink>
-        <NavLink class="blt-navitem" href="/logs/guard">🛡 舰长记录 <span class="blt-badge @(RecOn("guard"))">@(RecOn("guard") ? "REC" : "OFF")</span></NavLink>
-        <NavLink class="blt-navitem" href="/logs/superchat">⚡ SC 记录 <span class="blt-badge @(RecOn("superchat"))">@(RecOn("superchat") ? "REC" : "OFF")</span></NavLink>
+        <div class="blt-navgroup @Fold("logs")" @onclick="ToggleLogs">日志记录</div>
+        <div class="blt-navfold @FoldHide("logs")">
+            <NavLink class="blt-navitem" href="/logs/danmu">📄 弹幕记录 <span class="blt-badge @(RecOn("danmu"))">@(RecOn("danmu") ? "REC" : "OFF")</span></NavLink>
+            <NavLink class="blt-navitem" href="/logs/gifts">🎁 礼物记录 <span class="blt-badge @(RecOn("gifts"))">@(RecOn("gifts") ? "REC" : "OFF")</span></NavLink>
+            <NavLink class="blt-navitem" href="/logs/blindbox">📦 盲盒记录 <span class="blt-badge @(RecOn("blindbox"))">@(RecOn("blindbox") ? "REC" : "OFF")</span></NavLink>
+            <NavLink class="blt-navitem" href="/logs/guard">🛡 舰长记录 <span class="blt-badge @(RecOn("guard"))">@(RecOn("guard") ? "REC" : "OFF")</span></NavLink>
+            <NavLink class="blt-navitem" href="/logs/superchat">⚡ SC 记录 <span class="blt-badge @(RecOn("superchat"))">@(RecOn("superchat") ? "REC" : "OFF")</span></NavLink>
+        </div>
 
-        <div class="blt-navgroup">OBS 浮层</div>
-        <NavLink class="blt-navitem" href="/alert">🖼 提醒特效墙</NavLink>
-        <NavLink class="blt-navitem" href="/widgets">📋 文字挂件</NavLink>
-        <NavLink class="blt-navitem" href="/keyview">🎮 键鼠手柄可视化</NavLink>
+        <div class="blt-navgroup @Fold("obs")" @onclick="ToggleObs">OBS 浮层</div>
+        <div class="blt-navfold @FoldHide("obs")">
+            <NavLink class="blt-navitem" href="/alert">🖼 提醒特效墙</NavLink>
+            <NavLink class="blt-navitem" href="/widgets">📋 文字挂件</NavLink>
+            <NavLink class="blt-navitem" href="/keyview">🎮 键鼠手柄可视化</NavLink>
+        </div>
 
-        <div class="blt-navgroup">设置</div>
-        <NavLink class="blt-navitem" href="/diagnostics">🩺 网络诊断</NavLink>
-        <NavLink class="blt-navitem" href="/">🏠 房间管理</NavLink>
-        <NavLink class="blt-navitem" href="/help">📘 使用教程</NavLink>
+        <div class="blt-navgroup @Fold("sys")" @onclick="ToggleSys">设置</div>
+        <div class="blt-navfold @FoldHide("sys")">
+            <NavLink class="blt-navitem" href="/diagnostics">🩺 网络诊断</NavLink>
+            <NavLink class="blt-navitem" href="/">🏠 房间管理</NavLink>
+            <NavLink class="blt-navitem" href="/help">📘 使用教程</NavLink>
+        </div>
     </div>
 
     <div class="blt-main">
@@ -91,6 +101,58 @@
     private bool _themeApplied;
     private bool _audioStarted;
 
+    // Sidebar group fold state (localStorage 'blt_nav_fold', like the legacy panel).
+    private readonly Dictionary<string, bool> _fold = new();
+    private bool _foldLoaded;
+
+    private string Fold(string g) => _fold.TryGetValue(g, out var v) && v ? "folded" : "";
+    private string FoldHide(string g) => _fold.TryGetValue(g, out var v) && v ? "hidden" : "";
+
+    private Task ToggleLive() => ToggleFold("live");
+    private Task ToggleShow() => ToggleFold("show");
+    private Task ToggleLogs() => ToggleFold("logs");
+    private Task ToggleObs() => ToggleFold("obs");
+    private Task ToggleSys() => ToggleFold("sys");
+
+    private async Task ToggleFold(string g)
+    {
+        var now = !(_fold.TryGetValue(g, out var v) && v);
+        _fold[g] = now;
+        await PersistFoldAsync();
+        StateHasChanged();
+    }
+
+    private async Task PersistFoldAsync()
+    {
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(_fold);
+            await JS.InvokeVoidAsync("bltSetJson", "blt_nav_fold", json);
+        }
+        catch { }
+    }
+
+    private async Task LoadFoldAsync()
+    {
+        if (_foldLoaded) return;
+        _foldLoaded = true;
+        try
+        {
+            var raw = await JS.InvokeAsync<string>("bltGetJson", "blt_nav_fold");
+            if (!string.IsNullOrWhiteSpace(raw))
+            {
+                var map = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, bool>>(raw);
+                if (map != null)
+                    foreach (var kv in map) _fold[kv.Key] = kv.Value;
+            }
+            else
+            {
+                _fold["logs"] = true;   // sensible default: log pages folded away
+            }
+        }
+        catch { }
+    }
+
     private static readonly string[] Themes =
     {
         "console", "neon", "workbench", "bili", "vibrancy", "brutal", "hud", "editorial",
@@ -109,6 +171,11 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!_foldLoaded)
+        {
+            await LoadFoldAsync();
+            StateHasChanged();
+        }
         if (!_themeApplied)
         {
             _themeApplied = true;

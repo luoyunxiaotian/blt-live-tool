@@ -26,6 +26,15 @@
         };
       })();
 
+      // Small localStorage helpers (nav fold state, etc.) callable from Blazor.
+      window.bltGetJson = function (key) {
+        try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+      };
+      window.bltSetJson = function (key, value) {
+        try { localStorage.setItem(key, value); } catch (e) { }
+        return true;
+      };
+
       // Verification hook used by the loopback debug bridge
       // (POST /api/maui/debug/eval). Returns a string for primitives, JSON
       // for objects, and an "ERR: ..." marker instead of throwing.
@@ -52,6 +61,7 @@
     </div>
 
     <script src="blt-audio.js"></script>
+    <script src="blt-panels.js"></script>
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 
 </body>

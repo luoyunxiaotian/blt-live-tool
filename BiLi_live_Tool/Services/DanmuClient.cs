@@ -87,7 +87,54 @@ public sealed class DanmuClient
     private CancellationTokenSource? _cts;
     private ClientWebSocket? _ws;
 
+    // Raw-frame capture, bucketed per cmd: a busy room floods a flat ring
+    // buffer with DANMU_MSG, so each cmd keeps its own small history and rare
+    // frames (gifts!) survive long enough to be inspected.
+    private readonly Dictionary<string, Queue<string>> _rawByCmd = new();
+    private readonly object _rawLock = new();
+    private const int RawPerCmd = 4;
+
     public DanmuClient(EventHub hub) { _hub = hub; }
+
+    /// <summary>Recent raw frames as "CMD :: {json}", grouped by cmd. filter = cmd prefix.</summary>
+    public List<string> RecentRawFrames(string? filter = null, int max = 60)
+    {
+        lock (_rawLock)
+        {
+            var all = new List<string>();
+            foreach (var kv in _rawByCmd)
+            {
+                if (!string.IsNullOrEmpty(filter) &&
+                    !kv.Key.StartsWith(filter, StringComparison.OrdinalIgnoreCase)) continue;
+                all.AddRange(kv.Value);
+            }
+            return all.Count <= max ? all : all.GetRange(all.Count - max, max);
+        }
+    }
+
+    /// <summary>Cmd strings seen so far with their captured counts (diagnostics).</summary>
+    public Dictionary<string, int> SeenCmds()
+    {
+        lock (_rawLock) return _rawByCmd.ToDictionary(kv => kv.Key, kv => kv.Value.Count);
+    }
+
+    private void CaptureFrame(string cmd, JsonElement msg)
+    {
+        try
+        {
+            var key = cmd.Split(':')[0].Trim();   // SEND_GIFT:xxx → SEND_GIFT
+            var raw = msg.GetRawText();
+            if (raw.Length > 6000) raw = raw.Substring(0, 6000) + "…[truncated]";
+            lock (_rawLock)
+            {
+                if (!_rawByCmd.TryGetValue(key, out var q))
+                    _rawByCmd[key] = q = new Queue<string>();
+                q.Enqueue(key + " :: " + raw);
+                while (q.Count > RawPerCmd) q.Dequeue();
+            }
+        }
+        catch { }
+    }
 
     public void Start(string roomId, string cookie)
     {
@@ -362,6 +409,7 @@ public sealed class DanmuClient
         var cmd = msg.ValueKind == JsonValueKind.Object && msg.TryGetProperty("cmd", out var c) && c.ValueKind == JsonValueKind.String
             ? c.GetString() ?? ""
             : "";
+        CaptureFrame(cmd, msg);
 
         if (cmd.StartsWith("ONLINE_RANK_COUNT", StringComparison.Ordinal))
         {
@@ -420,6 +468,33 @@ public static class BiliNormalize
             if (cmd.StartsWith("SEND_GIFT", StringComparison.Ordinal))
             {
                 if (!msg.TryGetProperty("data", out var d) || d.ValueKind != JsonValueKind.Object) return null;
+
+                // SEND_GIFT_V2 (current server protocol) carries the gift as a
+                // base64 protobuf blob in data.pb — the JSON fields below simply
+                // do not exist there, which is why every V2 gift used to land as
+                // an empty "GIFT — 送出 ×1" row with no name to thank for.
+                if (GetProp(d, "pb") is { ValueKind: JsonValueKind.String } pbEl)
+                {
+                    try
+                    {
+                        var g = ParseGiftPb(Convert.FromBase64String(pbEl.GetString() ?? ""));
+                        if (g.Uname.Length > 0 || g.GiftName.Length > 0)
+                        {
+                            var perYuanPb = g.CoinType == "silver" ? 10000 : 1000;
+                            return new LiveEvent
+                            {
+                                Type = "gifts", Time = time, Ts = ts,
+                                Uid = g.Uid, Uname = g.Uname,
+                                GiftName = g.GiftName, Num = g.Num, Price = g.Price,
+                                TotalCoin = g.TotalCoin, CoinType = g.CoinType,
+                                Value = Math.Round(g.TotalCoin / (double)perYuanPb * 100) / 100,
+                                MedalLevel = g.Medal,
+                            };
+                        }
+                    }
+                    catch { }
+                }
+
                 long num = GetLong(d, "num", 1); if (num < 1) num = 1;
                 long price = GetLong(d, "price");
                 long totalCoin = GetLong(d, "total_coin"); if (totalCoin == 0) totalCoin = num * price;
@@ -428,11 +503,28 @@ public static class BiliNormalize
                 var value = Math.Round(totalCoin / perYuan * 100) / 100;
                 var tier = ExtractTier(msg);
                 var guard = DetectGuard(msg);
+                // Field-name drift across gift variants (plain / blind box / combo):
+                // accept the snake_case aliases and the blind box's inner gift so a
+                // frame we cannot fully map still lands with its real name.
+                var giftName = GetStr(d, "giftName");
+                if (giftName.Length == 0) giftName = GetStr(d, "gift_name");
+                if (GetProp(d, "blind_gift") is { ValueKind: JsonValueKind.Object } blind)
+                {
+                    if (giftName.Length == 0) giftName = GetStr(blind, "gift_name");
+                    if (price == 0) price = GetLong(blind, "gift_price", price);
+                }
+                var uname = GetStr(d, "uname");
+                if (uname.Length == 0) uname = GetStr(d, "user_name");
+                if (uname.Length == 0 && GetProp(d, "user_info") is { ValueKind: JsonValueKind.Object } ui)
+                    uname = GetStr(ui, "uname");
+                // Never emit a nameless, meaningless row (that is what showed up as
+                // “GIFT — 送出 ×1” in the stream and blocked the thank-you danmu).
+                if (uname.Length == 0 && giftName.Length == 0) return null;
                 return new LiveEvent
                 {
                     Type = "gifts", Time = time, Ts = ts,
-                    Uid = Plain(GetProp(d, "uid")), Uname = GetStr(d, "uname"),
-                    GiftName = GetStr(d, "giftName"), Num = (int)num, Price = price,
+                    Uid = Plain(GetProp(d, "uid")), Uname = uname,
+                    GiftName = giftName, Num = (int)num, Price = price,
                     TotalCoin = totalCoin, CoinType = coinType, Value = value,
                     MedalLevel = tier.Medal, HonorLevel = tier.Honor,
                     IsGuard = guard.IsGuard, GuardLevel = guard.Level,
@@ -568,8 +660,7 @@ public static class BiliNormalize
     }
 
     // Port of parseInteractPb: INTERACT_WORD_V2 carries the user inside base64 protobuf.
-    private static (string Uid, string Uname) ParseInteractPb(byte[] buf)
-    {
+    private static (string Uid, string Uname) ParseInteractPb(byte[] buf)    {
         var uid = "";
         var uname = "";
         var pos = 0;
@@ -613,6 +704,176 @@ public static class BiliNormalize
         }
         catch { }
         return (uid, uname);
+    }
+
+    /// <summary>
+    /// SEND_GIFT_V2 protobuf (field numbers verified against live frames
+    /// 2026-09-13): f1 uid, f2 uname, f8.f5 medal level, f10 = gift message
+    /// {f2 name, f5 price, f8 coin_type, f14 total_coin, f3/f17 count}.
+    /// The count is derived from total/price when possible so it is right
+    /// whichever count field the server happens to fill.
+    /// </summary>
+    private static (string Uid, string Uname, string GiftName, int Num, long Price, long TotalCoin, string CoinType, int Medal)
+        ParseGiftPb(byte[] buf)
+    {
+        var uid = "";
+        var uname = "";
+        var giftName = "";
+        var coinType = "gold";
+        long price = 0, totalCoin = 0, numA = 0, numB = 0;
+        var medal = 0;
+        var pos = 0;
+
+        ulong ReadVarint()
+        {
+            ulong v = 0; var shift = 0;
+            while (pos < buf.Length)
+            {
+                var c = buf[pos++];
+                v |= (ulong)(c & 0x7f) << shift;
+                if ((c & 0x80) == 0) break;
+                shift += 7;
+            }
+            return v;
+        }
+
+        byte[] ReadBytes(int len)
+        {
+            if (len <= 0 || pos + len > buf.Length) { pos = buf.Length; return Array.Empty<byte>(); }
+            var b = new byte[len];
+            Buffer.BlockCopy(buf, pos, b, 0, len);
+            pos += len;
+            return b;
+        }
+
+        void ParseGiftMessage(byte[] g)
+        {
+            var i = 0;
+            ulong Rv()
+            {
+                ulong v = 0; var shift = 0;
+                while (i < g.Length)
+                {
+                    var c = g[i++];
+                    v |= (ulong)(c & 0x7f) << shift;
+                    if ((c & 0x80) == 0) break;
+                    shift += 7;
+                }
+                return v;
+            }
+            string Rs(int len)
+            {
+                if (len <= 0 || i + len > g.Length) { i = g.Length; return ""; }
+                var s = Encoding.UTF8.GetString(g, i, len);
+                i += len;
+                return s;
+            }
+            while (i < g.Length)
+            {
+                var tag = Rv();
+                var fn = (int)(tag >> 3);
+                var wt = (int)(tag & 7);
+                if (wt == 0)
+                {
+                    var v = (long)Rv();
+                    if (fn == 3) numA = v;
+                    else if (fn == 5) price = v;
+                    else if (fn == 14) totalCoin = v;
+                    else if (fn == 17) numB = v;
+                }
+                else if (wt == 2)
+                {
+                    var len = (int)Rv();
+                    if (fn == 2) giftName = Rs(len);
+                    else if (fn == 8) coinType = Rs(len);
+                    else Rs(len);
+                }
+                else if (wt == 5) i += 4;
+                else if (wt == 1) i += 8;
+                else break;
+            }
+        }
+
+        try
+        {
+            while (pos < buf.Length)
+            {
+                var tag = ReadVarint();
+                var field = (int)(tag >> 3);
+                var wire = (int)(tag & 7);
+                if (wire == 0)
+                {
+                    var v = ReadVarint();
+                    if (field == 1) uid = v.ToString();
+                }
+                else if (wire == 2)
+                {
+                    var len = (int)ReadVarint();
+                    if (field == 2) uname = Encoding.UTF8.GetString(ReadBytes(len));
+                    else if (field == 8) medal = ParseMedalLevel(ReadBytes(len));
+                    else if (field == 10) ParseGiftMessage(ReadBytes(len));
+                    else ReadBytes(len);
+                }
+                else if (wire == 5) pos += 4;
+                else if (wire == 1) pos += 8;
+                else break;
+            }
+        }
+        catch { }
+
+        long num;
+        if (price > 0 && totalCoin > 0 && totalCoin % price == 0) num = totalCoin / price;
+        else num = Math.Max(numA, numB);
+        if (num < 1) num = 1;
+        if (price > 0 && totalCoin == 0) totalCoin = num * price;
+        return (uid, uname, giftName, (int)num, price, totalCoin, coinType, medal);
+    }
+
+    /// <summary>Medal submessage of a V2 gift: f5 carries the 粉丝团 level.</summary>
+    private static int ParseMedalLevel(byte[] m)
+    {
+        var i = 0;
+        while (i < m.Length)
+        {
+            var tag = 0; var shift = 0;
+            while (i < m.Length)
+            {
+                var c = m[i++];
+                tag |= (c & 0x7f) << shift;
+                if ((c & 0x80) == 0) break;
+                shift += 7;
+            }
+            var fn = tag >> 3;
+            var wt = tag & 7;
+            if (wt == 0)
+            {
+                var v = 0; shift = 0;
+                while (i < m.Length)
+                {
+                    var c = m[i++];
+                    v |= (c & 0x7f) << shift;
+                    if ((c & 0x80) == 0) break;
+                    shift += 7;
+                }
+                if (fn == 5) return v;
+            }
+            else if (wt == 2)
+            {
+                var len = 0; shift = 0;
+                while (i < m.Length)
+                {
+                    var c = m[i++];
+                    len |= (c & 0x7f) << shift;
+                    if ((c & 0x80) == 0) break;
+                    shift += 7;
+                }
+                i += len;
+            }
+            else if (wt == 5) i += 4;
+            else if (wt == 1) i += 8;
+            else break;
+        }
+        return 0;
     }
 
     private static JsonElement GetProp(JsonElement el, string name)

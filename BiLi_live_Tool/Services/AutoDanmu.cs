@@ -115,6 +115,9 @@ public sealed class AutoDanmu
     private long _lastSend;
     private int _followCount;
     private int _timerFired;
+    private string _lastSendText = "";
+    private string _lastSendResult = "";
+    private string _lastSendAt = "";
     private CancellationTokenSource? _timerCts;
 
     public AutoDanmu(Func<long, string, Task> send, Func<bool> isReady, Func<(long RoomId, string Cookie)> context)
@@ -313,17 +316,40 @@ public sealed class AutoDanmu
         {
             baseAt = Math.Max(_lastSend, DateTimeOffset.Now.ToUnixTimeMilliseconds());
             _lastSend = baseAt + gap;
+            _lastSendText = msg;
+            _lastSendAt = DateTime.Now.ToString("HH:mm:ss");
+            _lastSendResult = "排队中";
         }
         var delay = Math.Max(0, (int)(baseAt - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
         var ctx = _context();
-        if (ctx.RoomId == 0) return;
+        if (ctx.RoomId == 0)
+        {
+            lock (_lock) _lastSendResult = "未连接直播间";
+            return;
+        }
         _ = Task.Run(async () =>
         {
             try { await Task.Delay(delay); }
             catch { return; }
-            try { await _send(ctx.RoomId, msg); }
-            catch { /* send failures (no cookie, rate limit) surface in UI toasts; never break the pipeline */ }
+            try
+            {
+                await _send(ctx.RoomId, msg);
+                lock (_lock) _lastSendResult = "ok";
+            }
+            catch (Exception ex)
+            {
+                // Surface the failure instead of swallowing it: a thank-you that
+                // never appears is usually this line (cookie / 风控 / 未开播).
+                lock (_lock) _lastSendResult = "失败: " + ex.Message;
+            }
         });
+    }
+
+    /// <summary>Last auto-danmu send attempt — diagnostics for the panel/debug bridge.</summary>
+    public object SendStats()
+    {
+        lock (_lock)
+            return new { lastText = _lastSendText, result = _lastSendResult, at = _lastSendAt, followCount = _followCount };
     }
 
     // ---- timer danmaku ----

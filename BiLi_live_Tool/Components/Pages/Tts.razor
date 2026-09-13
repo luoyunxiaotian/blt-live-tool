@@ -7,6 +7,7 @@
 @inject TtsHost TtsEngine
 @inject LivePipeline Pipeline
 @inject TtsSpeaker Speaker
+@inject BiLi_live_Tool.Services.DebouncedSaver Saver
 @implements IDisposable
 @* TTS page: engine panel, master switch, per-type switches, tone presets and voice preview.
    Config is read from GET /api/config and written back as the whole document via POST /api/config
@@ -15,8 +16,9 @@
 <div class="blt-pagehead">
     <h1>语音念弹幕</h1><span class="en">TTS</span>
     <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
-        <span style="font-family:var(--mono);font-size:11px;color:var(--amber)">@_status</span>
-        <button class="blt-btn primary" @onclick="SaveAll" disabled="@_busy">保存全部</button>
+        <span class="blt-hint" style="margin:0;font-family:var(--mono);color:var(--amber)">@_status</span>
+        @* Auto-save status line: replaced the 保存全部 button. *@
+        <span class="blt-hint" style="margin:0">@AutoSaveText()</span>
     </span>
 </div>
 
@@ -29,6 +31,15 @@
     <span class="seg">总开关 <b class="@OnOff(_enabled)">@OnOffText(_enabled)</b></span>
 </div>
 
+@* Master switch (tts.enabled): promoted from the corner panel to a page-level control bar. *@
+<div class="blt-master @MasterCls()">
+    <span class="st">启用语音念弹幕</span>
+    <span class="sub">观众弹幕/礼物/SC/进房 → 语音播报（引擎 @_engine）</span>
+    <span class="right">
+        <span class="@BigSwitchClass(_enabled)" @onclick="ToggleEnabled"><span class="track"></span>@OnOffText(_enabled)</span>
+    </span>
+</div>
+
 <div class="blt-grid blt-cols-2">
     @* ── 左列：引擎 / 音色 / 语气 ── *@
     <div>
@@ -39,7 +50,7 @@
             <div class="blt-panel-body">
                 <label class="blt-label">engine · 引擎选择</label>
                 <div style="display:flex;gap:10px">
-                    <select class="blt-input" style="flex:1;cursor:pointer" @bind="_engine">
+                    <select class="blt-input" style="flex:1;cursor:pointer" @bind="_engine" @bind:after="SaveEngineSoon">
                         <option value="edge">edge · 在线语音（edge-tts，322 音色）</option>
                         <option value="moss">moss · 本地离线引擎（端口 8021）</option>
                         <option value="sys">sys · 系统语音兜底</option>
@@ -52,35 +63,33 @@
                     {
                         <div class="blt-kv"><span class="k">edge 服务 :8020</span><span class="v @OnOff(_edgeRunning)">@RunText(_edgeRunning)</span></div>
                         <div class="blt-kv"><span class="k">在线音色清单</span><span class="v @OnOff(_voices.Count > 0)">@VoiceStateText()</span></div>
-                        <div class="blt-kv"><span class="k">引擎程序</span><span class="v" style="font-size:11px;word-break:break-all">@PathText(_edgePath)</span></div>
+                        <div class="blt-kv"><span class="k">引擎程序</span><span class="v" style="word-break:break-all">@PathText(_edgePath)</span></div>
                     }
                     else if (_engine == "moss")
                     {
                         <div class="blt-kv"><span class="k">moss 服务 :8021</span><span class="v @OnOff(_mossRunning)">@RunText(_mossRunning)</span></div>
-                        <div class="blt-kv"><span class="k">模型目录</span><span class="v" style="font-size:11px;word-break:break-all">@PathText(_mossModelDir)</span></div>
+                        <div class="blt-kv"><span class="k">模型目录</span><span class="v" style="word-break:break-all">@PathText(_mossModelDir)</span></div>
                         <div class="blt-kv"><span class="k">本地音色（mossVoice）</span><span class="v amber">@_mossVoice</span></div>
                     }
                     else
                     {
                         <div class="blt-kv"><span class="k">系统语音</span><span class="v amber">免服务 · 本机语音合成</span></div>
-                        <div class="blt-kv"><span class="k">回退顺序</span><span class="v" style="font-size:11px">edge → moss → sys</span></div>
+                        <div class="blt-kv"><span class="k">回退顺序</span><span class="v">edge → moss → sys</span></div>
                     }
                 </div>
 
-                <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-                    @if (_engine == "moss")
-                    {
+                @if (_engine == "moss")
+                {
+                    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
                         <button class="blt-btn" @onclick="StartMoss" disabled="@_busy">启动</button>
                         <button class="blt-btn" @onclick="StopMoss" disabled="@_busy">停止</button>
                         <button class="blt-btn" @onclick="RestartMoss" disabled="@_busy">重启</button>
-                    }
-                    <button class="blt-btn primary" @onclick="SaveEngine" disabled="@_busy">保存引擎</button>
-                </div>
+                    </div>
+                }
+                <div class="blt-hint">引擎改动即时生效并自动保存 · @AutoSaveText()</div>
                 @if (_engine == "sys")
                 {
-                    <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
-                        sys 引擎不依赖本地服务；edge 未运行时自动回退到系统语音
-                    </div>
+                    <div class="blt-hint">sys 引擎不依赖本地服务；edge 未运行时自动回退到系统语音</div>
                 }
             </div>
         </div>
@@ -92,8 +101,8 @@
             <div class="blt-panel-body">
                 @if (_engine != "edge")
                 {
-                    <div style="font-family:var(--mono);font-size:10.5px;color:var(--amber);margin-bottom:8px">
-                        当前引擎为 @_engine：下方列表来自 edge 引擎，保存后写入 tts.voice（moss 另用 mossVoice）
+                    <div class="blt-hint" style="color:var(--amber);margin:0 0 8px">
+                        当前引擎为 @_engine：下方列表来自 edge 引擎，选中后写入 tts.voice（moss 另用 mossVoice）
                     </div>
                 }
                 <label class="blt-label">搜索音色（ShortName / 名称）</label>
@@ -101,7 +110,7 @@
 
                 <div style="margin-top:10px">
                     <label class="blt-label">edge 音色（前 50 条 / 共 @_voices.Count 条 · 常用 @_favorites.Count / 20）</label>
-                    <select class="blt-input mono" style="cursor:pointer" @bind="_voice">
+                    <select class="blt-input mono" style="cursor:pointer" @bind="_voice" @bind:after="SaveVoiceSoon">
                         @if (_favorites.Count > 0)
                         {
                             <optgroup label="⭐ 常用音色">
@@ -121,16 +130,14 @@
                 <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
                     <button class="blt-btn" @onclick="ToggleFavorite" disabled="@_busy">@FavoriteBtnText()</button>
                     <button class="blt-btn" @onclick="Preview" disabled="@_busy">试听</button>
-                    <button class="blt-btn primary" @onclick="SaveVoice" disabled="@_busy">保存音色</button>
-                    <span style="font-family:var(--mono);font-size:11px;color:var(--ink-2)">@_previewMsg</span>
+                    <span class="blt-hint" style="margin:0">@_previewMsg</span>
                 </div>
                 @if (_previewUrl.Length > 0)
                 {
                     <audio controls src="@_previewUrl" style="width:100%;margin-top:10px"></audio>
                 }
-                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
-                    试听走 POST /api/tts/edge/（text + voice）· 返回 audio/mpeg 字节
-                </div>
+                <div class="blt-hint">音色选中即时生效并自动保存 · @AutoSaveText()</div>
+                <div class="blt-hint">试听走 POST /api/tts/edge/（text + voice）· 返回 audio/mpeg 字节</div>
             </div>
         </div>
 
@@ -140,16 +147,14 @@
             </div>
             <div class="blt-panel-body">
                 <label class="blt-label">全局语气（tone.global）</label>
-                <div style="display:flex;gap:10px">
-                    <select class="blt-input" style="flex:1;cursor:pointer" @bind="_toneGlobal">
-                        <option value="">— 默认（normal）—</option>
-                        @foreach (var t in _tonePresets)
-                        {
-                            <option value="@t.Key">@t.Label</option>
-                        }
-                    </select>
-                    <button class="blt-btn primary" @onclick="SaveTone" disabled="@_busy">保存语气</button>
-                </div>
+                <select class="blt-input" style="cursor:pointer" @bind="_toneGlobal" @bind:after="SaveToneSoon">
+                    <option value="">— 默认（normal）—</option>
+                    @foreach (var t in _tonePresets)
+                    {
+                        <option value="@t.Key">@t.Label</option>
+                    }
+                </select>
+                <div class="blt-hint">语气改动即时生效并自动保存 · @AutoSaveText()</div>
 
                 <div style="margin-top:12px">
                     @if (_tonePresets.Count == 0)
@@ -161,8 +166,8 @@
                         @foreach (var t in _tonePresets)
                         {
                             <div class="blt-kv">
-                                <span class="k">@t.Label <span style="font-family:var(--mono);color:var(--ink-3);font-size:10px">@t.Key</span></span>
-                                <span class="v" style="font-size:11px">@t.Desc</span>
+                                <span class="k">@t.Label <span class="blt-hint" style="margin:0;font-family:var(--mono)">@t.Key</span></span>
+                                <span class="v">@t.Desc</span>
                             </div>
                         }
                     }
@@ -183,9 +188,10 @@
                 }
                 @foreach (var row in _toneByType)
                 {
-                    <div style="display:flex;align-items:center;gap:10px;padding:5px 0">
-                        <span style="width:88px;flex:none;color:var(--ink-2)">@row.Label</span>
-                        <select class="blt-input" style="flex:1;cursor:pointer" @bind="row.Selected">
+                    <div style="display:flex;align-items:center;gap:10px;padding:5px 0;flex-wrap:wrap">
+                        <span class="blt-hint" style="width:88px;flex:none;margin:0">@row.Label</span>
+                        <select class="blt-input" style="flex:1;min-width:140px;cursor:pointer"
+                                @bind="row.Selected" @bind:after="SaveToneByTypeSoon">
                             <option value="">跟随全局</option>
                             @foreach (var t in _tonePresets)
                             {
@@ -194,15 +200,12 @@
                         </select>
                     </div>
                 }
-                <div style="display:flex;gap:8px;margin-top:12px">
-                    <button class="blt-btn primary" @onclick="SaveToneByType" disabled="@_busy">保存分类语气</button>
-                    <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);align-self:center">下次播报即生效</span>
-                </div>
+                <div class="blt-hint">下次播报即生效 · @AutoSaveText()</div>
             </div>
         </div>
     </div>
 
-    @* ── 右列：播报队列 / 总开关 / 分类开关 / 只读参数 ── *@
+    @* ── 右列：播报队列 / 语速音量 / 分类开关（含念昵称）/ 黑名单 / 只读参数 ── *@
     <div>
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">📢 播报队列</span><span class="en">SPEAK QUEUE</span>
@@ -217,52 +220,54 @@
                     <span class="k">当前状态</span>
                     <span class="v @(Speaker.Speaking ? "green" : "")">@SpeakerStateText()</span>
                 </div>
-                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
+                <div class="blt-hint">
                     播报链路已在新版内建，无需打开旧面板：命中的事件直接进入队列，按「队列上限 / 舰长优先 / 队列间隔」依次念出。
                 </div>
             </div>
         </div>
 
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🔊 总开关与语速</span><span class="en">MASTER</span>
-                <span class="right"><span>enabled / rate / volume</span></span>
+            <div class="blt-panel-head"><span class="t">🔊 语速与音量</span><span class="en">RATE / VOLUME</span>
+                <span class="right"><span>rate / volume</span></span>
             </div>
             <div class="blt-panel-body">
-                <span class="@SwitchClass(_enabled)" @onclick="ToggleEnabled"><span class="track"></span>语音念弹幕 <span style="color:var(--ink-3)">总开关（tts.enabled）</span></span>
-
-                <div style="display:flex;gap:14px;margin-top:16px;flex-wrap:wrap">
+                <div style="display:flex;gap:14px;flex-wrap:wrap">
                     <div style="flex:1;min-width:110px">
                         <label class="blt-label">rate · 语速</label>
-                        <input class="blt-input mono" type="number" step="0.05" min="0.5" max="2.5" @bind="_rateText" />
+                        <input class="blt-input mono" type="number" step="0.05" min="0.5" max="2.5"
+                               @bind="_rateText" @bind:after="SaveMasterSoon" />
                     </div>
                     <div style="flex:1;min-width:110px">
                         <label class="blt-label">volume · 音量</label>
-                        <input class="blt-input mono" type="number" step="0.05" min="0" max="1" @bind="_volumeText" />
+                        <input class="blt-input mono" type="number" step="0.05" min="0" max="1"
+                               @bind="_volumeText" @bind:after="SaveMasterSoon" />
                     </div>
                 </div>
-                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
-                    rate 0.5–2.5（1 = 原速）· volume 0–1
-                </div>
-
-                <div style="display:flex;gap:8px;margin-top:14px">
-                    <button class="blt-btn primary" @onclick="SaveMaster" disabled="@_busy">保存总开关</button>
-                </div>
+                <div class="blt-hint">rate 0.5–2.5（1 = 原速）· volume 0–1 · 总开关已移到页面顶部主控条</div>
+                <div class="blt-hint">改动即时生效并自动保存 · @AutoSaveText()</div>
             </div>
         </div>
 
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">🧩 分类开关</span><span class="en">BY TYPE</span>
-                <span class="right"><span>enabled + volume</span></span>
+                <span class="right"><span>enabled + sayUid + volume</span></span>
             </div>
             <div class="blt-panel-body">
                 @foreach (var row in _cats)
                 {
-                    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)">
+                    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap">
                         <span class="@SwitchClass(row.Enabled)" @onclick="() => ToggleCat(row)"><span class="track"></span>@row.Label</span>
-                        <span style="font-family:var(--mono);font-size:10px;color:var(--ink-3)">tts.@row.Key</span>
+                        <span class="blt-hint" style="margin:0;font-family:var(--mono)">tts.@row.Key</span>
+                        @* sayUid = 「念昵称」：real checkbox, never the UID itself. *@
+                        <label class="blt-label" style="display:inline-flex;align-items:center;gap:6px;margin:0;letter-spacing:0"
+                               title="朗读时先念用户昵称再念内容，UID 永远不会被念出">
+                            <input type="checkbox" style="width:auto;margin:0;accent-color:var(--amber)"
+                                   @bind="row.SayUid" @bind:after="SaveCatsSoon" />念昵称
+                        </label>
                         <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
-                            <span style="font-size:10.5px;color:var(--ink-3)">音量</span>
-                            <input class="blt-input mono" style="width:84px" type="number" step="0.05" min="0" max="1" @bind="row.Volume" />
+                            <span class="blt-hint" style="margin:0">音量</span>
+                            <input class="blt-input mono" style="width:84px" type="number" step="0.05" min="0" max="1"
+                                   @bind="row.Volume" @bind:after="SaveCatsSoon" />
                         </span>
                     </div>
                 }
@@ -270,9 +275,29 @@
                 {
                     <div class="blt-empty">配置读取失败，分类开关不可用</div>
                 }
-                <div style="display:flex;gap:8px;margin-top:14px">
-                    <button class="blt-btn primary" @onclick="SaveCats" disabled="@_busy">保存分类设置</button>
-                </div>
+                <div class="blt-hint">开关 / 念昵称 / 音量改动即时生效并自动保存 · @AutoSaveText()</div>
+            </div>
+        </div>
+
+        @* Blacklist: same semantics as the legacy 队列 / 过滤 panel (tts.blacklistUids + tts.bannedWords). *@
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🚫 黑名单</span><span class="en">BLACKLIST</span>
+                <span class="right"><span>blacklistUids / bannedWords</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <label class="blt-label">黑名单 UID（blacklistUids）</label>
+                <textarea class="blt-input mono" rows="2" placeholder="123456,789012"
+                          title="这些 UID 的用户发的内容不朗读，逗号分隔（填数字 UID，不是昵称）"
+                          @bind="_blacklistUids" @bind:event="oninput" @bind:after="SaveFiltersSoon"></textarea>
+                <div class="blt-hint">逗号分隔，命中即不念</div>
+
+                <label class="blt-label" style="margin-top:12px">屏蔽词（bannedWords）</label>
+                <textarea class="blt-input mono" rows="2" placeholder="广告,主播名字"
+                          title="包含这些关键词的弹幕不朗读，逗号分隔。可屏蔽广告、敏感词"
+                          @bind="_bannedWords" @bind:event="oninput" @bind:after="SaveFiltersSoon"></textarea>
+                <div class="blt-hint">弹幕含任一词则不念，逗号分隔</div>
+
+                <div class="blt-hint">已配置 @_blacklistCount 个 UID · @_bannedCount 个屏蔽词 · @AutoSaveText()</div>
             </div>
         </div>
 
@@ -300,6 +325,7 @@
 
     private JsonObject? _doc;
     private bool _busy;
+    private readonly SemaphoreSlim _saveGate = new(1, 1);   // serializes POSTs (manual + auto-save)
     private string _status = "载入中…";
 
     // engine
@@ -312,6 +338,13 @@
     private string _rateText = "1", _volumeText = "1";
     private string _pitch = "1", _gain = "0", _gap = "0", _queueMax = "8";
     private int _favoriteCount, _blacklistCount, _bannedCount;
+
+    // filters (tts.blacklistUids / tts.bannedWords, comma separated)
+    private string _blacklistUids = "", _bannedWords = "";
+
+    // auto-save status line
+    private DateTime? _savedAt;
+    private string _saveMsg = "";
 
     // per-type switches
     private List<CatRow> _cats = new();
@@ -335,6 +368,7 @@
         public string Key = "";
         public string Label = "";
         public bool Enabled;
+        public bool SayUid;          // tts.<type>.sayUid → 「念昵称」(never speaks the UID itself)
         public string Volume = "1";
     }
 
@@ -451,8 +485,10 @@
                     && !string.IsNullOrEmpty(fs) && !_favorites.Contains(fs))
                     _favorites.Add(fs);
         _favoriteCount = _favorites.Count;
-        _blacklistCount = SplitList(Str(tts, "blacklistUids")).Count;
-        _bannedCount = SplitList(Str(tts, "bannedWords")).Count;
+        _blacklistUids = Str(tts, "blacklistUids");
+        _bannedWords = Str(tts, "bannedWords");
+        _blacklistCount = SplitList(_blacklistUids).Count;
+        _bannedCount = SplitList(_bannedWords).Count;
 
         _cats = BuildCats(tts);
 
@@ -480,6 +516,7 @@
                 Key = key,
                 Label = label,
                 Enabled = Flag(sec, "enabled", false),
+                SayUid = Flag(sec, "sayUid", false),
                 Volume = NumText(sec, "volume", 1),
             });
         }
@@ -522,6 +559,10 @@
         tts["voice"] = _voice;
         tts["rate"] = ParseD(_rateText, 1);
         tts["volume"] = ParseD(_volumeText, 1);
+        tts["blacklistUids"] = _blacklistUids;
+        tts["bannedWords"] = _bannedWords;
+        _blacklistCount = SplitList(_blacklistUids).Count;
+        _bannedCount = SplitList(_bannedWords).Count;
 
         var favArr = new JsonArray();
         foreach (var f in _favorites) favArr.Add(f);
@@ -535,6 +576,7 @@
                 tts[row.Key] = sec;
             }
             sec["enabled"] = row.Enabled;
+            sec["sayUid"] = row.SayUid;
             sec["volume"] = ParseD(row.Volume, 1);
         }
 
@@ -549,6 +591,7 @@
         tone["byType"] = byType;
     }
 
+    /// <summary>Kept as the manual whole-document path (auto-save covers the page; no button calls it any more).</summary>
     private async Task SaveAll()
     {
         ApplyToDoc();
@@ -592,12 +635,41 @@
         await SaveAsync("按事件语气已保存");
     }
 
+    private async Task SaveFilters()
+    {
+        ApplyToDoc();
+        await SaveAsync("黑名单已保存（" + _blacklistCount + " UID / " + _bannedCount + " 词）");
+    }
+
+    // ---- auto-save (debounced) ----
+    // Every control writes through the same document; the debounce only decides how
+    // often POST /api/config is hit. Instant controls (select/switch/checkbox) get
+    // 200 ms, text fields the 450 ms default.
+
+    /// <summary>Debounced save; the delegate runs off the renderer thread, so marshal back and repaint.</summary>
+    private void SaveSoon(string key, Func<Task> save, int delayMs = 450)
+        => Saver.Run(key, () => InvokeAsync(async () => { await save(); StateHasChanged(); }), delayMs);
+
+    private void SaveEngineSoon() => SaveSoon("tts-engine", SaveEngine, 200);
+
+    private void SaveVoiceSoon() => SaveSoon("tts-voice", SaveVoice, 200);
+
+    private void SaveMasterSoon() => SaveSoon("tts-master", SaveMaster);
+
+    private void SaveCatsSoon() => SaveSoon("tts-cats", SaveCats, 200);
+
+    private void SaveToneSoon() => SaveSoon("tts-tone", SaveTone, 200);
+
+    private void SaveToneByTypeSoon() => SaveSoon("tts-tone-type", SaveToneByType, 200);
+
+    private void SaveFiltersSoon() => SaveSoon("tts-filters", SaveFilters);
+
     // ---- favorite voices (tts.favoriteVoices, max 20) ----
 
     private async Task ToggleFavorite()
     {
         var name = _voice;
-        if (name.Length == 0 || _busy) return;
+        if (name.Length == 0) return;   // SaveAsync serializes with any in-flight auto-save
         if (_favorites.Contains(name))
         {
             _favorites.Remove(name);
@@ -628,7 +700,9 @@
     /// <summary>POSTs the whole document; falls back to a direct in-process write when the API is down.</summary>
     private async Task SaveAsync(string label)
     {
-        if (_busy) return;
+        // Auto-save can fire from several debounce keys at once → serialize instead of
+        // dropping the write (a dropped write would silently lose the newest edit).
+        await _saveGate.WaitAsync();
         _busy = true;
         try
         {
@@ -640,6 +714,8 @@
                 var body = await resp.Content.ReadAsStringAsync();
                 if (resp.IsSuccessStatusCode)
                 {
+                    _saveMsg = "";
+                    _savedAt = DateTime.Now;
                     _status = label + " · " + Stamp();
                     return;
                 }
@@ -653,6 +729,7 @@
         finally
         {
             _busy = false;
+            _saveGate.Release();
         }
     }
 
@@ -663,10 +740,13 @@
             Config.UpdateFrom(_doc!);   // top-level merge + persist, same semantics as POST /api/config
             Pipeline.ApplyConfig();
             ApplyFromDoc();
+            _saveMsg = "";
+            _savedAt = DateTime.Now;
             _status = why + " → 已直写本地配置 · " + Stamp();
         }
         catch (Exception ex)
         {
+            _saveMsg = Short(ex.Message);
             _status = "保存失败：" + Short(ex.Message);
         }
     }
@@ -753,7 +833,7 @@
 
     private async Task MossActionAsync(string action)
     {
-        if (_busy) return;
+        await _saveGate.WaitAsync();
         _busy = true;
         _status = "MOSS " + action + " 请求中…";
         try
@@ -787,6 +867,7 @@
         finally
         {
             _busy = false;
+            _saveGate.Release();
             RefreshEngineLocal();
         }
     }
@@ -801,7 +882,7 @@
 
     private async Task Preview()
     {
-        if (_busy) return;
+        await _saveGate.WaitAsync();
         _busy = true;
         _previewMsg = "合成中…";
         _previewUrl = "";
@@ -837,14 +918,35 @@
         finally
         {
             _busy = false;
+            _saveGate.Release();
         }
     }
 
     // ---- small helpers ----
 
-    private void ToggleEnabled() => _enabled = !_enabled;
+    private void ToggleEnabled()
+    {
+        _enabled = !_enabled;
+        SaveMasterSoon();
+    }
 
-    private static void ToggleCat(CatRow row) => row.Enabled = !row.Enabled;
+    private void ToggleCat(CatRow row)
+    {
+        row.Enabled = !row.Enabled;
+        SaveCatsSoon();
+    }
+
+    // ---- auto-save status line ----
+
+    private string AutoSaveText()
+    {
+        if (_saveMsg.Length > 0) return "保存失败：" + _saveMsg;
+        return _savedAt.HasValue ? "已自动保存 " + _savedAt.Value.ToString("HH:mm:ss") : "自动保存已开启";
+    }
+
+    private string MasterCls() => _enabled ? "on" : "";
+
+    private static string BigSwitchClass(bool on) => on ? "blt-switch lg on" : "blt-switch lg";
 
     private List<VoiceItem> ShownVoices()
     {

@@ -26,13 +26,14 @@
   --shadow:none;                 /* panel shadow (themes may add) */
   --side-blur:none;              /* sidebar backdrop filter (themes may add) */
   --heading-font:inherit;        /* page/brand heading font (editorial uses serif) */
+  color-scheme:dark;             /* native select popups / date pickers follow this */
 }
 
 html,body{
   height:100%;
   margin:0;
-  /* 思源黑体（Noto Sans SC）· Medium 字重，提升可读性 */
-  font:500 13px/1.6 "Noto Sans SC","Source Han Sans SC","思源黑体","Microsoft YaHei UI","Microsoft YaHei",sans-serif;
+  /* 思源黑体（Noto Sans SC）· Medium 字重；14px 基准，长期阅读更省力 */
+  font:500 14px/1.65 "Noto Sans SC","Source Han Sans SC","思源黑体","Microsoft YaHei UI","Microsoft YaHei",sans-serif;
   color:var(--ink);
   background:var(--bg);
   overflow:hidden;
@@ -53,34 +54,34 @@ html,body{
 .blt-side{grid-area:side;background:var(--bg-2);border-right:1px solid var(--line);
   overflow-y:auto;padding:10px 0 14px;backdrop-filter:var(--side-blur)}
 .blt-brand{padding:6px 14px 14px;border-bottom:1px solid var(--line);margin-bottom:8px}
-.blt-brand b{display:block;font-family:var(--heading-font);font-size:15px;color:var(--ink);letter-spacing:.5px}
-.blt-brand span{font-size:9px;color:var(--ink-3);letter-spacing:2.5px;font-family:var(--mono)}
-.blt-navgroup{padding:12px 14px 4px;font-size:10px;color:var(--ink-3);letter-spacing:1.5px}
+.blt-brand b{display:block;font-family:var(--heading-font);font-size:16px;color:var(--ink);letter-spacing:.5px}
+.blt-brand span{font-size:10px;color:var(--ink-3);letter-spacing:2.5px;font-family:var(--mono)}
+.blt-navgroup{padding:12px 14px 4px;font-size:11px;color:var(--ink-3);letter-spacing:1.5px}
 .blt-navitem{display:flex;align-items:center;gap:8px;padding:7px 14px;color:var(--ink-2);
-  cursor:pointer;border-left:2px solid transparent;font-size:12.5px}
+  cursor:pointer;border-left:2px solid transparent;font-size:13.5px}
 .blt-navitem:hover{color:var(--ink);background:rgba(255,255,255,.03)}
 .blt-navitem.active{color:var(--amber);border-left-color:var(--amber);background:var(--amber-dim)}
 .blt-navitem .blt-badge{margin-left:auto}
 .blt-navitem .blt-badge.off{opacity:.55}
 
 .blt-main{grid-area:main;overflow:auto;padding:14px 18px 24px}
-.blt-topstrip{display:flex;gap:10px;align-items:center;font-family:var(--mono);font-size:11px;
+.blt-topstrip{display:flex;gap:10px;align-items:center;font-family:var(--mono);font-size:11.5px;
   color:var(--ink-2);padding:0 0 12px;flex-wrap:wrap}
 .blt-topstrip .seg{display:flex;gap:6px;align-items:center}
 .blt-topstrip b{color:var(--ink);font-weight:600}
 .blt-topstrip .amber{color:var(--amber)} .blt-topstrip .green{color:var(--green)}
 
 .blt-foot{grid-area:foot;background:var(--amber);color:var(--accent-ink);font-family:var(--mono);
-  font-size:11px;font-weight:600;display:flex;align-items:center;gap:18px;padding:0 14px;
+  font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:18px;padding:0 14px;
   white-space:nowrap;overflow:hidden}
 .blt-foot .sep{opacity:.45}
 
 /* ===== panels ===== */
 .blt-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px;box-shadow:var(--shadow)}
 .blt-panel-head{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line)}
-.blt-panel-head .t{font-weight:600;font-size:12.5px}
-.blt-panel-head .en{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:1px}
-.blt-panel-head .right{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);
+.blt-panel-head .t{font-weight:700;font-size:14.5px}
+.blt-panel-head .en{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:1px}
+.blt-panel-head .right{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);
   display:flex;gap:10px;align-items:center}
 .blt-panel-body{padding:12px}
 .blt-grid{display:grid;gap:14px}
@@ -89,20 +90,20 @@ html,body{
 
 /* ===== controls ===== */
 .blt-btn{background:var(--panel-2);border:1px solid var(--line-2);color:var(--ink);
-  padding:6px 16px;border-radius:var(--r);cursor:pointer;font-size:12.5px;font-family:inherit}
+  padding:7px 16px;border-radius:var(--r);cursor:pointer;font-size:13.5px;font-family:inherit}
 .blt-btn:hover{border-color:var(--amber);color:var(--amber)}
 .blt-btn.primary{background:var(--amber);border-color:var(--amber);color:var(--accent-ink);font-weight:700}
 .blt-btn.primary:hover{filter:brightness(1.08)}
 .blt-btn:disabled{opacity:.4;cursor:not-allowed}
 .blt-input{background:var(--bg-2);border:1px solid var(--line-2);color:var(--ink);
-  padding:6px 10px;border-radius:var(--r);font-size:13px;font-family:inherit;width:100%}
+  padding:7px 10px;border-radius:var(--r);font-size:14px;font-family:inherit;width:100%}
 .blt-input:focus{outline:none;border-color:var(--amber)}
-.blt-input.mono{font-family:var(--mono);font-size:12px}
-label.blt-label{display:block;font-size:10px;color:var(--ink-3);letter-spacing:1px;margin-bottom:4px;
+.blt-input.mono{font-family:var(--mono);font-size:13px}
+label.blt-label{display:block;font-size:11.5px;color:var(--ink-2);letter-spacing:.8px;margin-bottom:5px;
   font-family:var(--mono);text-transform:uppercase}
 
 /* ===== badges / status ===== */
-.blt-badge{display:inline-block;font-family:var(--mono);font-size:9.5px;padding:1px 7px;
+.blt-badge{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 7px;
   border-radius:3px;letter-spacing:.5px}
 .blt-badge.green{background:var(--green-dim);color:var(--green)}
 .blt-badge.amber{background:var(--amber-dim);color:var(--amber)}
@@ -115,19 +116,19 @@ label.blt-label{display:block;font-size:10px;color:var(--ink-3);letter-spacing:1
 
 /* ===== kv rows ===== */
 .blt-kv{display:flex;justify-content:space-between;align-items:center;padding:6px 0;
-  border-bottom:1px dashed var(--line);font-size:12.5px}
+  border-bottom:1px dashed var(--line);font-size:13.5px}
 .blt-kv:last-child{border-bottom:none}
 .blt-kv .k{color:var(--ink-2)}
-.blt-kv .v{font-family:var(--mono);font-size:12px;color:var(--ink)}
+.blt-kv .v{font-family:var(--mono);font-size:13px;color:var(--ink)}
 .blt-kv .v.amber{color:var(--amber)} .blt-kv .v.green{color:var(--green)} .blt-kv .v.red{color:var(--red)}
 
 /* ===== event log ===== */
 .blt-log{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);
-  font-family:var(--mono);font-size:11.5px;padding:6px 0;max-height:300px;overflow-y:auto}
+  font-family:var(--mono);font-size:13px;padding:6px 0;max-height:300px;overflow-y:auto}
 .blt-logrow{display:flex;gap:8px;padding:2.5px 10px;align-items:baseline}
 .blt-logrow:hover{background:rgba(255,255,255,.025)}
-.blt-logrow .t{color:var(--ink-3);flex:none;font-size:10.5px}
-.blt-logrow .tag{flex:none;width:44px;text-align:center;font-size:9.5px;padding:0 4px;border-radius:3px}
+.blt-logrow .t{color:var(--ink-3);flex:none;font-size:11px}
+.blt-logrow .tag{flex:none;width:46px;text-align:center;font-size:10.5px;padding:0 4px;border-radius:3px}
 .blt-logrow .tag.danmu{background:var(--blue-dim);color:var(--blue)}
 .blt-logrow .tag.gifts{background:var(--red-dim);color:var(--red)}
 .blt-logrow .tag.guard{background:var(--amber-dim);color:var(--amber)}
@@ -140,20 +141,72 @@ label.blt-label{display:block;font-size:10px;color:var(--ink-3);letter-spacing:1
 /* ===== steps ===== */
 .blt-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
 .blt-step{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px}
-.blt-step .s1{font-size:11px;color:var(--ink-2);display:flex;align-items:center;gap:6px}
-.blt-step .s2{font-family:var(--mono);font-size:11px;color:var(--ink);margin-top:3px}
+.blt-step .s1{font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+.blt-step .s2{font-family:var(--mono);font-size:12.5px;color:var(--ink);margin-top:3px}
 .blt-step.done{border-color:rgba(63,214,143,.4)} .blt-step.done .s2{color:var(--green)}
 .blt-step.active{border-color:rgba(255,178,36,.5)} .blt-step.active .s2{color:var(--amber)}
 
 /* ===== toggles ===== */
-.blt-switch{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--ink-2)}
-.blt-switch .track{width:30px;height:16px;border-radius:8px;background:var(--line-2);position:relative;flex:none;transition:.15s}
-.blt-switch .track::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;
+.blt-switch{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13.5px;color:var(--ink-2)}
+.blt-switch .track{width:34px;height:18px;border-radius:9px;background:var(--line-2);position:relative;flex:none;transition:.15s}
+.blt-switch .track::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;
   border-radius:50%;background:var(--ink-2);transition:.15s}
 .blt-switch.on .track{background:var(--amber-dim);border:1px solid var(--amber)}
-.blt-switch.on .track::after{left:15px;background:var(--amber)}
+.blt-switch.on .track::after{left:17px;background:var(--amber)}
 
-.blt-empty{color:var(--ink-3);text-align:center;padding:26px 10px;font-size:12px}
+.blt-empty{color:var(--ink-3);text-align:center;padding:26px 10px;font-size:13px}
 .blt-pagehead{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
-.blt-pagehead h1{font-family:var(--heading-font);font-size:16px;font-weight:700;margin:0;color:var(--ink)}
-.blt-pagehead .en{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:1.5px}
+.blt-pagehead h1{font-family:var(--heading-font);font-size:19px;font-weight:700;margin:0;color:var(--ink)}
+.blt-pagehead .en{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:1.5px}
+
+/* ===========================================================================
+   可读性 & 层级（2026-09-13 用户反馈：字号偏小、控件与说明文字无差别）
+   规则：说明/提示 → .blt-hint（12px 弱色）；控件标签 → label.blt-label（11.5px）；
+   值/输入 → 14px；卡片标题 → 14.5px 粗体。三层对比拉开。
+   =========================================================================== */
+.blt-hint{font-size:12px;color:var(--ink-3);line-height:1.55;margin:8px 0 0}
+
+/* ===== 总开关主控条（功能级开关提到卡头，不再塞在角落） ===== */
+.blt-master{display:flex;align-items:center;gap:12px;padding:11px 13px;margin-bottom:12px;
+  background:var(--panel-2);border:1px solid var(--line-2);border-radius:var(--r)}
+.blt-master .st{font-size:14.5px;font-weight:700;color:var(--ink)}
+.blt-master .sub{font-size:12px;color:var(--ink-3)}
+.blt-master .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.blt-master.on{border-color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber-dim)}
+.blt-master.on .st{color:var(--amber)}
+.blt-switch.lg{font-size:14px;color:var(--ink)}
+.blt-switch.lg .track{width:44px;height:24px;border-radius:12px}
+.blt-switch.lg .track::after{width:18px;height:18px;top:3px;left:3px}
+.blt-switch.lg.on .track::after{left:23px}
+
+/* ===== 卡片折叠（点击卡头任意空白处）；由 blt-panels.js 维护状态 ===== */
+.blt-panel-head{cursor:pointer;user-select:none}
+.blt-panel-head .foldable{cursor:pointer}
+.blt-panel-head::after{content:'▾';margin-left:6px;font-size:12px;color:var(--ink-3);
+  transition:transform .15s;flex:none}
+.blt-panel.collapsed .blt-panel-head::after{transform:rotate(-90deg)}
+.blt-panel.collapsed .blt-panel-head{border-bottom:none}
+.blt-panel.collapsed .blt-panel-body{display:none}
+/* 卡头里的交互元素不触发折叠（js 也会拦，这里给出光标暗示） */
+.blt-panel-head button,.blt-panel-head input,.blt-panel-head select,
+.blt-panel-head .blt-switch,.blt-panel-head a{cursor:pointer}
+
+/* ===== 侧栏分组折叠 ===== */
+.blt-navgroup{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.blt-navgroup::after{content:'▾';font-size:11px;color:var(--ink-3);transition:transform .15s}
+.blt-navgroup.folded::after{transform:rotate(-90deg)}
+.blt-navfold.hidden{display:none}
+
+/* ===== 原生控件（select 弹层/日期/下拉箭头随主题；修白底白字） ===== */
+select.blt-input{appearance:none;-webkit-appearance:none;padding-right:28px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 50%),
+                   linear-gradient(135deg,var(--ink-2) 50%,transparent 50%);
+  background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+/* opaque background: --panel is translucent in neon/vibrancy, which made the
+   native popup render light-gray text on light-gray (unreadable) */
+select.blt-input option{background:var(--bg);color:var(--ink)}
+textarea.blt-input{resize:vertical;min-height:46px;line-height:1.5}
+input.blt-input[type=checkbox]{width:auto}
+.blt-input::placeholder{color:var(--ink-3)}
+input.blt-input::-webkit-calendar-picker-indicator{filter:invert(.75)}

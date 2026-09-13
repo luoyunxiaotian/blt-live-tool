@@ -2,9 +2,15 @@
 @using BiLi_live_Tool.Services
 @inject AppConfig Config
 @inject EventHub Hub
+@inject BiLi_live_Tool.Services.DebouncedSaver Saver
 @implements IDisposable
 
-<div class="blt-pagehead"><h1>PK 连线</h1><span class="en">PK &amp; ROOM MONITOR</span></div>
+<div class="blt-pagehead"><h1>PK 连线</h1><span class="en">PK &amp; ROOM MONITOR</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
+        @* 保存间隔 buttons replaced by the auto-save status line (every edit writes through immediately). *@
+        <span class="blt-hint" style="margin:0">@AutoSaveText()</span>
+    </span>
+</div>
 
 <div class="blt-grid blt-cols-2">
     @* ── 左列：PK 状态与设置 ── *@
@@ -32,17 +38,17 @@
             <div class="blt-panel-head"><span class="t">⚙ PK 设置</span><span class="en">SETTINGS</span></div>
             <div class="blt-panel-body">
                 <div style="display:flex;gap:26px;flex-wrap:wrap">
-                    <span class="blt-switch @_pkEnabledClass" @onclick="TogglePkEnabled">
-                        <span class="track"></span>开启 PK 抓取 <span style="color:var(--ink-3)">弹幕协议事件解析</span>
+                    <span class="blt-switch lg @OnCls(_pkEnabled)" @onclick="TogglePkEnabled">
+                        <span class="track"></span>开启 PK 抓取 <span class="blt-hint" style="margin:0">弹幕协议事件解析</span>
                     </span>
-                    <span class="blt-switch @_pkFloatingClass" @onclick="TogglePkFloating">
-                        <span class="track"></span>浮层显示 <span style="color:var(--ink-3)">showOnFloating</span>
+                    <span class="blt-switch lg @OnCls(_pkFloating)" @onclick="TogglePkFloating">
+                        <span class="track"></span>浮层显示 <span class="blt-hint" style="margin:0">showOnFloating</span>
                     </span>
                 </div>
                 <div class="blt-kv" style="margin-top:10px"><span class="k">对手刷新间隔</span><span class="v">@_pkRefreshMs ms</span></div>
-                <div style="display:flex;gap:8px;margin-top:10px">
-                    <input class="blt-input mono" type="number" style="width:140px" @bind="_editRefreshMs" />
-                    <button class="blt-btn" @onclick="SaveRefresh">保存间隔</button>
+                <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+                    <input class="blt-input mono" type="number" style="width:140px" @bind="_editRefreshMs" @bind:after="SaveRefreshSoon" />
+                    <span class="blt-hint" style="margin:0">改动即时生效并自动保存</span>
                 </div>
                 <div class="blt-empty" style="padding:14px 4px 4px;text-align:left">
                     提示：开启 PK 抓取后，直播间出现 PK 对局时自动识别对手并每 N 秒刷新对手数据。
@@ -58,11 +64,11 @@
                 <span class="right"><span>上限 8 房 · 间隔 @_monitorIntervalSec s</span></span>
             </div>
             <div class="blt-panel-body">
-                <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
                     <input class="blt-input mono" style="flex:1;min-width:130px" @bind="_addRoomId" placeholder="房间号" />
                     <button class="blt-btn primary" @onclick="AddRoom">添加监控</button>
-                    <input class="blt-input mono" type="number" style="width:110px" @bind="_editInterval" />
-                    <button class="blt-btn" @onclick="SaveInterval">保存间隔</button>
+                    <input class="blt-input mono" type="number" style="width:110px" @bind="_editInterval" @bind:after="SaveIntervalSoon" />
+                    <span class="blt-hint" style="margin:0">间隔秒 · 自动保存</span>
                 </div>
 
                 @if (_rooms.Count == 0)
@@ -135,8 +141,8 @@
     private long _opponentFollower;
     private string _pkCmd = "";
     private long _pkSince;
-    private string _pkEnabledClass = "";
-    private string _pkFloatingClass = "";
+    private bool _pkEnabled;
+    private bool _pkFloating;
     private long _pkRefreshMs = 8000;
     private string _editRefreshMs = "8000";
     private string _targetRoom = "";
@@ -146,6 +152,11 @@
     private List<RoomRow> _rooms = new();
     private List<PkEvent> _events = new();
     private System.Threading.Timer? _timer;
+
+    // auto-save status (the two 保存间隔 buttons were removed)
+    private DateTime? _savedAt;
+    private string _saveMsg = "";
+    private readonly SemaphoreSlim _saveGate = new(1, 1);   // serializes interval posts (two debounce keys can land together)
 
     protected override void OnInitialized()
     {
@@ -163,8 +174,8 @@
         var pk = Config.GetNode("pk") as System.Text.Json.Nodes.JsonObject;
         var enabled = pk?.TryGetPropertyValue("enabled", out var e) == true && e is System.Text.Json.Nodes.JsonValue ev && ev.TryGetValue<bool>(out var eb) && eb;
         var floating = pk?.TryGetPropertyValue("showOnFloating", out var f) == true && f is System.Text.Json.Nodes.JsonValue fv && fv.TryGetValue<bool>(out var fb) && fb;
-        _pkEnabledClass = enabled ? "on" : "";
-        _pkFloatingClass = floating ? "on" : "";
+        _pkEnabled = enabled;
+        _pkFloating = floating;
         if (pk?.TryGetPropertyValue("refreshMs", out var rm) == true && rm is System.Text.Json.Nodes.JsonValue rv && rv.TryGetValue<long>(out var rmv)) _pkRefreshMs = rmv;
         _editRefreshMs = _pkRefreshMs.ToString();
         var iv = Config.GetNode("monitorIntervalSec");
@@ -221,7 +232,8 @@
             }
             _rooms = rows;
             _monitorIntervalSec = json["intervalSec"]?.GetValue<long?>() ?? _monitorIntervalSec;
-            _editInterval = _monitorIntervalSec.ToString();
+            // _editInterval is deliberately NOT re-synced here: the 5 s poll would else
+            // overwrite a value the user is still typing before its debounce fires.
             StateHasChanged();
         }
         catch { }
@@ -229,24 +241,27 @@
 
     private void TogglePkEnabled()
     {
-        var doc = Config.Snapshot();
-        if (doc["pk"] is not System.Text.Json.Nodes.JsonObject pk) { pk = new System.Text.Json.Nodes.JsonObject(); }
-        var cur = pk.TryGetPropertyValue("enabled", out var e) == true && e is System.Text.Json.Nodes.JsonValue ev && ev.TryGetValue<bool>(out var eb) && eb;
-        pk["enabled"] = !cur;
-        doc["pk"] = pk;
-        Config.ReplaceFrom(doc);
-        LoadPkConfig();
+        _pkEnabled = !_pkEnabled;
+        ApplyPkFlags();
+        SavePkFlagsSoon();
     }
 
     private void TogglePkFloating()
     {
+        _pkFloating = !_pkFloating;
+        ApplyPkFlags();
+        SavePkFlagsSoon();
+    }
+
+    /// <summary>Writes both pk switches into the config document.</summary>
+    private void ApplyPkFlags()
+    {
         var doc = Config.Snapshot();
         if (doc["pk"] is not System.Text.Json.Nodes.JsonObject pk) { pk = new System.Text.Json.Nodes.JsonObject(); }
-        var cur = pk.TryGetPropertyValue("showOnFloating", out var f) == true && f is System.Text.Json.Nodes.JsonValue fv && fv.TryGetValue<bool>(out var fb) && fb;
-        pk["showOnFloating"] = !cur;
+        pk["enabled"] = _pkEnabled;
+        pk["showOnFloating"] = _pkFloating;
         doc["pk"] = pk;
         Config.ReplaceFrom(doc);
-        LoadPkConfig();
     }
 
     private void SaveRefresh()
@@ -258,6 +273,8 @@
         doc["pk"] = pk;
         Config.ReplaceFrom(doc);
         _pkRefreshMs = v;
+        _editRefreshMs = v.ToString();
+        MarkSaved();
         AddEvent("对手刷新间隔已保存：" + v + " ms");
     }
 
@@ -307,16 +324,64 @@
     {
         if (!long.TryParse(_editInterval, out var v) || v < 15) v = 15;
         if (v > 120) v = 120;
+        await _saveGate.WaitAsync();
         try
         {
             var payload = new System.Text.Json.Nodes.JsonObject { ["action"] = "interval", ["intervalSec"] = v };
             await PostJsonAsync("/api/rooms/monitor", payload);
             _monitorIntervalSec = v;
+            _editInterval = v.ToString();
+            MarkSaved();
             AddEvent("监控间隔已保存：" + v + " s");
             await RefreshMonitorAsync();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _saveMsg = ex.Message;
+            AddEvent("监控间隔保存失败：" + ex.Message);
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
     }
+
+    // ---- auto-save (debounced) ----
+    // Both interval fields write through on every edit; the debounce only decides how
+    // often the API is hit. The 已保存 messages still land in the PK event stream.
+
+    /// <summary>Debounced save; the delegate runs off the renderer thread, so marshal back and repaint.</summary>
+    private void SaveSoon(string key, Func<Task> save, int delayMs)
+        => Saver.Run(key, () => InvokeAsync(async () => { await save(); StateHasChanged(); }), delayMs);
+
+    private void SaveSoon(string key, Action save, int delayMs)
+        => SaveSoon(key, () => { save(); return Task.CompletedTask; }, delayMs);
+
+    private void SavePkFlagsSoon() => SaveSoon("pk-flags", ApplyPkFlagsAndStamp, 200);
+
+    private void ApplyPkFlagsAndStamp()
+    {
+        ApplyPkFlags();
+        MarkSaved();
+    }
+
+    private void SaveRefreshSoon() => SaveSoon("pk-refresh", SaveRefresh, 450);
+
+    private void SaveIntervalSoon() => SaveSoon("pk-interval", SaveInterval, 450);
+
+    private void MarkSaved()
+    {
+        _saveMsg = "";
+        _savedAt = DateTime.Now;
+    }
+
+    private string AutoSaveText()
+    {
+        if (_saveMsg.Length > 0) return "保存失败：" + _saveMsg;
+        return _savedAt.HasValue ? "已自动保存 " + _savedAt.Value.ToString("HH:mm:ss") : "改动即时自动保存";
+    }
+
+    private static string OnCls(bool on) => on ? "on" : "";
 
     private void AddEvent(string text)
     {

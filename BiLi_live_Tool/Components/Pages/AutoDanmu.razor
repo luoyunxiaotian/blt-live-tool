@@ -4,6 +4,7 @@
 @using System.Text.Json.Nodes
 @inject AppConfig Config
 @inject LivePipeline Pipeline
+@inject BiLi_live_Tool.Services.DebouncedSaver Saver
 @implements IDisposable
 @* Auto danmu page: welcome / gift thanks / follow thanks / timer pools, plus live pipeline test shots.
    Config is read from GET /api/config and written back as the whole document via POST /api/config
@@ -12,8 +13,9 @@
 <div class="blt-pagehead">
     <h1>自动弹幕</h1><span class="en">AUTO DANMU</span>
     <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
-        <span style="font-family:var(--mono);font-size:11px;color:var(--amber)">@_status</span>
-        <button class="blt-btn primary" @onclick="SaveAll" disabled="@_busy">保存全部</button>
+        <span class="blt-hint" style="margin:0;font-family:var(--mono);color:var(--amber)">@_status</span>
+        @* 保存全部 button replaced by the auto-save status line (every edit writes through immediately). *@
+        <span class="blt-hint" style="margin:0">@AutoSaveText()</span>
     </span>
 </div>
 
@@ -27,80 +29,83 @@
     <span class="seg">本场关注 <b class="green">@_followCount</b></span>
 </div>
 
+@* Page-level control bar: this page has no single master switch — it surfaces the
+   four sub-function states and points at each card for the actual toggle. *@
+<div class="blt-master @MasterCls()">
+    <span class="st">自动弹幕</span>
+    <span class="sub">无总开关 · 欢迎 / 礼物感谢 / 感谢关注 / 定时弹幕 四个子功能在各自卡片右上角独立开启</span>
+    <span class="right">
+        <span class="blt-badge @BadgeWelcome">欢迎 @OnOffText(_welcomeEnabled)</span>
+        <span class="blt-badge @BadgeThank">感谢 @OnOffText(_thankEnabled)</span>
+        <span class="blt-badge @BadgeFollow">关注 @OnOffText(_followEnabled)</span>
+        <span class="blt-badge @BadgeTimer">定时 @OnOffText(_timerEnabled)</span>
+    </span>
+</div>
+
 <div class="blt-grid blt-cols-2">
     @* ── 左列：欢迎 / 礼物感谢 ── *@
     <div>
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">👋 欢迎进房</span><span class="en">WELCOME</span>
-                <span class="right"><span>autoDanmu.welcome</span><b class="@OnOff(_welcomeEnabled)">@OnOffText(_welcomeEnabled)</b></span>
+                @* Sub-function switch lives in the card head (was a corner control). *@
+                <span class="right"><span class="blt-switch lg @OnCls(_welcomeEnabled)" @onclick="ToggleWelcome"><span class="track"></span>@OnOffText(_welcomeEnabled)</span></span>
             </div>
             <div class="blt-panel-body">
-                <span class="@SwitchClass(_welcomeEnabled)" @onclick="ToggleWelcome"><span class="track"></span>进房欢迎 <span style="color:var(--ink-3)">同一用户 60s 内只欢迎一次</span></span>
+                <div class="blt-hint" style="margin:0">同一用户 60s 内只欢迎一次 · 改动即时生效并自动保存</div>
 
                 <div style="display:flex;gap:14px;margin-top:16px;flex-wrap:wrap">
                     <div style="flex:1;min-width:110px">
                         <label class="blt-label">honorLevelMin · 荣誉下限</label>
-                        <input class="blt-input mono" type="number" step="1" min="0" @bind="_honorMin" />
+                        <input class="blt-input mono" type="number" step="1" min="0" @bind="_honorMin" @bind:after="SaveWelcomeSoon" />
                     </div>
                     <div style="flex:1;min-width:110px">
                         <label class="blt-label">fanMedalMin · 灯牌下限</label>
-                        <input class="blt-input mono" type="number" step="1" min="0" @bind="_medalMin" />
+                        <input class="blt-input mono" type="number" step="1" min="0" @bind="_medalMin" @bind:after="SaveWelcomeSoon" />
                     </div>
                     <div style="flex:1;min-width:110px">
                         <label class="blt-label">rate · 欢迎间隔秒</label>
-                        <input class="blt-input mono" type="number" step="0.5" min="0" @bind="_welcomeRate" />
+                        <input class="blt-input mono" type="number" step="0.5" min="0" @bind="_welcomeRate" @bind:after="SaveWelcomeSoon" />
                     </div>
                 </div>
-                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
-                    下限为 0 表示不过滤；大于 0 时，等级 ≤ 该值的用户不欢迎
-                </div>
+                <div class="blt-hint">下限为 0 表示不过滤；大于 0 时，等级 ≤ 该值的用户不欢迎</div>
 
                 <div style="margin-top:12px">
                     <label class="blt-label">texts · 欢迎语池（每行一条 · @PoolCount(_welcomeTexts) 条）</label>
-                    <textarea class="blt-input" style="min-height:120px;font-size:12px;line-height:1.7;resize:vertical" @bind="_welcomeTexts"></textarea>
+                    <textarea class="blt-input" style="min-height:120px;line-height:1.7;resize:vertical" @bind="_welcomeTexts" @bind:after="SaveWelcomeSoon"></textarea>
                 </div>
                 <div style="margin-top:12px">
                     <label class="blt-label">guardTexts · 舰长专属语池（每行一条 · @PoolCount(_guardTexts) 条）</label>
-                    <textarea class="blt-input" style="min-height:90px;font-size:12px;line-height:1.7;resize:vertical" @bind="_guardTexts"></textarea>
+                    <textarea class="blt-input" style="min-height:90px;line-height:1.7;resize:vertical" @bind="_guardTexts" @bind:after="SaveWelcomeSoon"></textarea>
                 </div>
-                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
-                    可用占位符：{uname} {uid} {levelName} · 留空则用内置默认语
-                </div>
-
-                <div style="display:flex;gap:8px;margin-top:14px">
-                    <button class="blt-btn primary" @onclick="SaveWelcome" disabled="@_busy">保存欢迎设置</button>
-                </div>
+                <div class="blt-hint">可用占位符：{uname} {uid} {levelName} · 留空则用内置默认语</div>
+                @* 保存欢迎设置 button replaced by the auto-save status line. *@
+                <div class="blt-hint" style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">@AutoSaveText()</div>
             </div>
         </div>
 
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">🎁 感谢礼物</span><span class="en">THANK</span>
-                <span class="right"><span>autoDanmu.thank</span><b class="@OnOff(_thankEnabled)">@OnOffText(_thankEnabled)</b></span>
+                @* Sub-function switch lives in the card head (was a corner control). *@
+                <span class="right"><span class="blt-switch lg @OnCls(_thankEnabled)" @onclick="ToggleThank"><span class="track"></span>@OnOffText(_thankEnabled)</span></span>
             </div>
             <div class="blt-panel-body">
-                <span class="@SwitchClass(_thankEnabled)" @onclick="ToggleThank"><span class="track"></span>礼物感谢 <span style="color:var(--ink-3)">聚合后播报</span></span>
+                <div class="blt-hint" style="margin:0">聚合后播报 · 改动即时生效并自动保存</div>
 
                 <div style="display:flex;gap:14px;margin-top:16px;flex-wrap:wrap">
                     <div style="flex:1;min-width:150px">
                         <label class="blt-label">waitMs · 聚合窗口（毫秒）</label>
-                        <input class="blt-input mono" type="number" step="500" min="500" @bind="_waitMs" />
+                        <input class="blt-input mono" type="number" step="500" min="500" @bind="_waitMs" @bind:after="SaveThankSoon" />
                     </div>
                 </div>
-                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
-                    同一用户在该窗口内的礼物合并为一条感谢（默认 3000ms）
-                </div>
+                <div class="blt-hint">同一用户在该窗口内的礼物合并为一条感谢（默认 3000ms）</div>
 
                 <div style="margin-top:12px">
                     <label class="blt-label">texts · 感谢语池（每行一条 · @PoolCount(_thankTexts) 条）</label>
-                    <textarea class="blt-input" style="min-height:150px;font-size:12px;line-height:1.7;resize:vertical" @bind="_thankTexts"></textarea>
+                    <textarea class="blt-input" style="min-height:150px;line-height:1.7;resize:vertical" @bind="_thankTexts" @bind:after="SaveThankSoon"></textarea>
                 </div>
-                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
-                    可用占位符：{uname} {giftSummary} {giftName} {num}
-                </div>
-
-                <div style="display:flex;gap:8px;margin-top:14px">
-                    <button class="blt-btn primary" @onclick="SaveThank" disabled="@_busy">保存礼物感谢</button>
-                </div>
+                <div class="blt-hint">可用占位符：{uname} {giftSummary} {giftName} {num}</div>
+                @* 保存礼物感谢 button replaced by the auto-save status line. *@
+                <div class="blt-hint" style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">@AutoSaveText()</div>
             </div>
         </div>
     </div>
@@ -109,15 +114,16 @@
     <div>
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">⭐ 感谢关注</span><span class="en">FOLLOW</span>
-                <span class="right"><span>autoDanmu.follow</span><b class="@OnOff(_followEnabled)">@OnOffText(_followEnabled)</b></span>
+                @* Sub-function switch lives in the card head (was a corner control). *@
+                <span class="right"><span class="blt-switch lg @OnCls(_followEnabled)" @onclick="ToggleFollow"><span class="track"></span>@OnOffText(_followEnabled)</span></span>
             </div>
             <div class="blt-panel-body">
-                <span class="@SwitchClass(_followEnabled)" @onclick="ToggleFollow"><span class="track"></span>关注感谢 <span style="color:var(--ink-3)">同一 UID 本场只谢一次</span></span>
+                <div class="blt-hint" style="margin:0">同一 UID 本场只谢一次 · 改动即时生效并自动保存</div>
 
                 <div style="display:flex;gap:14px;margin-top:16px;flex-wrap:wrap">
                     <div style="flex:1;min-width:150px">
                         <label class="blt-label">rate · 发送间隔秒</label>
-                        <input class="blt-input mono" type="number" step="0.5" min="0" @bind="_followRate" />
+                        <input class="blt-input mono" type="number" step="0.5" min="0" @bind="_followRate" @bind:after="SaveFollowSoon" />
                     </div>
                     <div style="flex:1;min-width:150px">
                         <label class="blt-label">本场统计刷新</label>
@@ -134,40 +140,35 @@
 
                 <div style="margin-top:12px">
                     <label class="blt-label">texts · 关注语池（每行一条 · @PoolCount(_followTexts) 条）</label>
-                    <textarea class="blt-input" style="min-height:140px;font-size:12px;line-height:1.7;resize:vertical" @bind="_followTexts"></textarea>
+                    <textarea class="blt-input" style="min-height:140px;line-height:1.7;resize:vertical" @bind="_followTexts" @bind:after="SaveFollowSoon"></textarea>
                 </div>
-                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
-                    可用占位符：{uname} {uid}
-                </div>
-
-                <div style="display:flex;gap:8px;margin-top:14px">
-                    <button class="blt-btn primary" @onclick="SaveFollow" disabled="@_busy">保存关注设置</button>
-                </div>
+                <div class="blt-hint">可用占位符：{uname} {uid}</div>
+                @* 保存关注设置 button replaced by the auto-save status line. *@
+                <div class="blt-hint" style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">@AutoSaveText()</div>
             </div>
         </div>
 
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">⏱ 定时弹幕</span><span class="en">TIMER</span>
-                <span class="right"><span>autoDanmu.timer</span><b class="@OnOff(_timerEnabled)">@OnOffText(_timerEnabled)</b></span>
+                @* Sub-function switch lives in the card head (was a corner control). *@
+                <span class="right"><span class="blt-switch lg @OnCls(_timerEnabled)" @onclick="ToggleTimer"><span class="track"></span>@OnOffText(_timerEnabled)</span></span>
             </div>
             <div class="blt-panel-body">
-                <span class="@SwitchClass(_timerEnabled)" @onclick="ToggleTimer"><span class="track"></span>定时发弹幕 <span style="color:var(--ink-3)">断线时自动跳过</span></span>
+                <div class="blt-hint" style="margin:0">断线时自动跳过 · 改动即时生效并自动保存</div>
 
                 <div style="display:flex;gap:14px;margin-top:16px;flex-wrap:wrap">
                     <div style="flex:1;min-width:150px">
                         <label class="blt-label">intervalSec · 间隔秒</label>
-                        <input class="blt-input mono" type="number" step="5" min="1" @bind="_timerInterval" />
+                        <input class="blt-input mono" type="number" step="5" min="1" @bind="_timerInterval" @bind:after="SaveTimerSoon" />
                     </div>
                 </div>
 
                 <div style="margin-top:12px">
                     <label class="blt-label">texts · 定时语池（每行一条 · @PoolCount(_timerTexts) 条）</label>
-                    <textarea class="blt-input" style="min-height:120px;font-size:12px;line-height:1.7;resize:vertical" @bind="_timerTexts"></textarea>
+                    <textarea class="blt-input" style="min-height:120px;line-height:1.7;resize:vertical" @bind="_timerTexts" @bind:after="SaveTimerSoon"></textarea>
                 </div>
-
-                <div style="display:flex;gap:8px;margin-top:14px">
-                    <button class="blt-btn primary" @onclick="SaveTimer" disabled="@_busy">保存定时设置</button>
-                </div>
+                @* 保存定时设置 button replaced by the auto-save status line. *@
+                <div class="blt-hint" style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">@AutoSaveText()</div>
             </div>
         </div>
 
@@ -184,10 +185,10 @@
                     <button class="blt-btn" @onclick="SimSuperchat" disabled="@_busy">模拟 SC</button>
                     <button class="blt-btn" @onclick="SimEnter" disabled="@_busy">模拟进房</button>
                 </div>
-                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:10px">
+                <div class="blt-hint" style="margin-top:10px">
                     POST /api/debug/event · 礼物感谢会在 waitMs 聚合窗口后发送；需已连接直播间才会真正发出
                 </div>
-                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-2);margin-top:6px">@_simMsg</div>
+                <div class="blt-hint" style="margin-top:6px;color:var(--ink-2)">@_simMsg</div>
             </div>
         </div>
     </div>
@@ -201,6 +202,11 @@
     private bool _busy;
     private string _status = "载入中…";
     private string _simMsg = "";
+
+    // auto-save status (the per-card save buttons were removed)
+    private DateTime? _savedAt;
+    private string _saveMsg = "";
+    private readonly SemaphoreSlim _saveGate = new(1, 1);   // serializes POSTs (auto-save can fire back to back)
 
     // welcome
     private bool _welcomeEnabled;
@@ -387,11 +393,15 @@
     /// <summary>POSTs the whole document; falls back to a direct in-process write when the API is down.</summary>
     private async Task SaveAsync(string label)
     {
-        if (_busy) return;
-        _busy = true;
+        // Auto-save can fire from several debounce keys at once → serialize instead of
+        // dropping the write (a dropped write would silently lose the newest edit).
+        // _busy is left to the simulate/test actions so an in-flight save cannot make
+        // them drop a click.
+        await _saveGate.WaitAsync();
         try
         {
-            var json = _doc!.ToJsonString();
+            var json = _doc?.ToJsonString();
+            if (json == null) { _saveMsg = "配置尚未载入，未提交"; return; }
             try
             {
                 using var resp = await Http.PostAsync(Base + "/api/config",
@@ -399,6 +409,8 @@
                 var body = await resp.Content.ReadAsStringAsync();
                 if (resp.IsSuccessStatusCode)
                 {
+                    _saveMsg = "";
+                    _savedAt = DateTime.Now;
                     _status = label + " · " + Stamp();
                     return;
                 }
@@ -411,7 +423,7 @@
         }
         finally
         {
-            _busy = false;
+            _saveGate.Release();
         }
     }
 
@@ -422,12 +434,39 @@
             Config.UpdateFrom(_doc!);   // top-level merge + persist, same semantics as POST /api/config
             Pipeline.ApplyConfig();
             ApplyFromDoc();
+            _saveMsg = "";
+            _savedAt = DateTime.Now;
             _status = why + " → 已直写本地配置 · " + Stamp();
         }
         catch (Exception ex)
         {
+            _saveMsg = Short(ex.Message);
             _status = "保存失败：" + Short(ex.Message);
         }
+    }
+
+    // ---- auto-save (debounced) ----
+    // Every control writes through the same document; the debounce only decides how
+    // often POST /api/config is hit. Instant controls (switch) get 200 ms, text and
+    // number fields the 450 ms default.
+
+    /// <summary>Debounced save; the delegate runs off the renderer thread, so marshal back and repaint.</summary>
+    private void SaveSoon(string key, Func<Task> save, int delayMs = 450)
+        => Saver.Run(key, () => InvokeAsync(async () => { await save(); StateHasChanged(); }), delayMs);
+
+    private void SaveWelcomeSoon() => SaveSoon("autodanmu-welcome", SaveWelcome);
+    private void SaveThankSoon() => SaveSoon("autodanmu-thank", SaveThank);
+    private void SaveFollowSoon() => SaveSoon("autodanmu-follow", SaveFollow);
+    private void SaveTimerSoon() => SaveSoon("autodanmu-timer", SaveTimer);
+    private void SaveWelcomeSoonSwitch() => SaveSoon("autodanmu-welcome", SaveWelcome, 200);
+    private void SaveThankSoonSwitch() => SaveSoon("autodanmu-thank", SaveThank, 200);
+    private void SaveFollowSoonSwitch() => SaveSoon("autodanmu-follow", SaveFollow, 200);
+    private void SaveTimerSoonSwitch() => SaveSoon("autodanmu-timer", SaveTimer, 200);
+
+    private string AutoSaveText()
+    {
+        if (_saveMsg.Length > 0) return "保存失败：" + _saveMsg;
+        return _savedAt.HasValue ? "已自动保存 " + _savedAt.Value.ToString("HH:mm:ss") : "改动即时自动保存";
     }
 
     // ---- follow stats ----
@@ -571,13 +610,26 @@
 
     // ---- toggles ----
 
-    private void ToggleWelcome() => _welcomeEnabled = !_welcomeEnabled;
+    private void ToggleWelcome() { _welcomeEnabled = !_welcomeEnabled; SaveWelcomeSoonSwitch(); }
 
-    private void ToggleThank() => _thankEnabled = !_thankEnabled;
+    private void ToggleThank() { _thankEnabled = !_thankEnabled; SaveThankSoonSwitch(); }
 
-    private void ToggleFollow() => _followEnabled = !_followEnabled;
+    private void ToggleFollow() { _followEnabled = !_followEnabled; SaveFollowSoonSwitch(); }
 
-    private void ToggleTimer() => _timerEnabled = !_timerEnabled;
+    private void ToggleTimer() { _timerEnabled = !_timerEnabled; SaveTimerSoonSwitch(); }
+
+    // ---- master bar helpers ----
+
+    /// <summary>Highlights the page-level bar while at least one sub-function is on.</summary>
+    private string MasterCls() => _welcomeEnabled || _thankEnabled || _followEnabled || _timerEnabled ? "on" : "";
+
+    private string BadgeWelcome => _welcomeEnabled ? "blt-badge green" : "blt-badge off";
+
+    private string BadgeThank => _thankEnabled ? "blt-badge green" : "blt-badge off";
+
+    private string BadgeFollow => _followEnabled ? "blt-badge green" : "blt-badge off";
+
+    private string BadgeTimer => _timerEnabled ? "blt-badge green" : "blt-badge off";
 
     // ---- small helpers ----
 
@@ -613,7 +665,8 @@
 
     private static string OnOffText(bool on) => on ? "ON" : "OFF";
 
-    private static string SwitchClass(bool on) => on ? "blt-switch on" : "blt-switch";
+    /// <summary>Returns the bare "on" marker for controls that already carry a base class.</summary>
+    private static string OnCls(bool on) => on ? "on" : "";
 
     private static string Stamp() => DateTime.Now.ToString("HH:mm:ss");
 

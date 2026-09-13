@@ -1,4 +1,6 @@
 @page "/"
+@using System.Text
+@using System.Text.Json.Nodes
 @using BiLi_live_Tool.Services
 @inject AppConfig Config
 @inject LiveService Live
@@ -6,6 +8,7 @@
 @inject LivePipeline Pipeline
 @inject KestrelHost Api
 @inject TtsHost Tts
+@inject DebouncedSaver Saver
 @implements IDisposable
 
 <div class="blt-pagehead"><h1>房间管理</h1><span class="en">ROOM MANAGE</span></div>
@@ -28,7 +31,7 @@
             <div class="blt-panel-body">
                 <label class="blt-label">room_id</label>
                 <div style="display:flex;gap:10px">
-                    <input class="blt-input mono" @bind="_roomId" placeholder="直播间号（支持短号）" @onkeydown="OnRoomKey" />
+                    <input class="blt-input mono" @bind="_roomId" @bind:after="SaveRoomIdSoon" placeholder="直播间号（支持短号）" @onkeydown="OnRoomKey" />
                     <button class="blt-btn primary" @onclick="Connect" disabled="@Live.IsRunning">连接</button>
                     <button class="blt-btn" @onclick="Disconnect" disabled="@(!Live.IsRunning)">断开</button>
                 </div>
@@ -54,10 +57,11 @@
 
                 <div style="display:flex;gap:26px;margin-top:14px;flex-wrap:wrap">
                     <span class="blt-switch @_autoConnectClass" @onclick="ToggleAutoConnect">
-                        <span class="track"></span>自动连接 <span style="color:var(--ink-3)">启动时连上次房间</span>
+                        <span class="track"></span>自动连接 <span class="blt-hint" style="margin:0">启动时连上次房间</span>
                     </span>
-                    <span class="blt-switch on"><span class="track"></span>断线重连 <span style="color:var(--ink-3)">15s 间隔</span></span>
+                    <span class="blt-switch on"><span class="track"></span>断线重连 <span class="blt-hint" style="margin:0">15s 间隔</span></span>
                 </div>
+                <div class="blt-hint">房间号与自动连接改动即时保存 · @AutoSaveText()</div>
 
                 @* B站浏览器控制条 —— 固定三键，隐藏/关闭在最左（停靠时左栏 38% 可见区必可点） *@
                 <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center">
@@ -99,10 +103,10 @@
     <div>
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">🔑 B站账号</span><span class="en">AUTH</span>
-                <span class="right"><span>cookie:</span><b class="@(HasCookie() ? "green" : "red")">@(HasCookie() ? "VALID" : "NONE")</b></span>
+                <span class="right"><span>cookie:</span><b class="@CookieCls()">@CookieText()</b></span>
             </div>
             <div class="blt-panel-body">
-                <div class="blt-kv"><span class="k">登录状态</span><span class="v @(HasCookie() ? "green" : "red")">@(HasCookie() ? "已登录" : "未登录")</span></div>
+                <div class="blt-kv"><span class="k">登录状态</span><span class="v @CookieCls()">@LoginText()</span></div>
                 <div class="blt-kv"><span class="k">UID</span><span class="v">@(string.IsNullOrEmpty(Config.Uid) ? "—" : Config.Uid)</span></div>
                 <div class="blt-kv"><span class="k">Cookie</span><span class="v">@(HasCookie() ? "已捕获（SESSDATA/bili_jct）" : "未捕获")</span></div>
                 <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
@@ -115,10 +119,34 @@
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">🖥 服务端</span><span class="en">SERVER</span></div>
             <div class="blt-panel-body">
-                <div class="blt-kv"><span class="k">面板服务</span><span class="v @(Api.IsRunning ? "green" : "red")">@(Api.IsRunning ? "RUNNING" : "DOWN")</span></div>
+                <div class="blt-kv"><span class="k">面板服务</span><span class="v @ApiCls()">@ApiText()</span></div>
                 <div class="blt-kv"><span class="k">监听地址</span><span class="v">127.0.0.1:@Api.Port</span></div>
                 <div class="blt-kv"><span class="k">Edge TTS (8020)</span><span class="v">@(EdgeRunning ? "RUNNING" : "OFF")</span></div>
                 <div class="blt-kv"><span class="k">MOSS 引擎 (8021)</span><span class="v">@(MossRunning ? "RUNNING" : "按需")</span></div>
+            </div>
+        </div>
+
+        @* Auto like: POST /api/like/start|stop + GET /api/like/status (1 s poll). *@
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">👍 自动点赞</span><span class="en">AUTO LIKE</span>
+                <span class="right"><span class="blt-badge @LikeBadgeCls()">@LikeBadgeText()</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-master @LikeMasterCls()">
+                    <span class="st">已点赞 <b>@_likeLiked</b> 次</span>
+                    <span class="sub">@LikeSubText()</span>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="blt-btn primary" @onclick="StartLike" disabled="@(!LikeReady() || _likeRunning)">开始点赞</button>
+                    <button class="blt-btn" @onclick="StopLike" disabled="@(!_likeRunning)">停止</button>
+                </div>
+                @if (_likeError.Length > 0)
+                {
+                    <div class="blt-hint" style="color:var(--red);margin:0">@_likeError</div>
+                }
+                <p class="blt-hint">
+                    点赞为 B站「点赞」长按协议循环发送，用于提升直播间热度；仅在已连接且已配置 Cookie 时可用。
+                </p>
             </div>
         </div>
 
@@ -141,13 +169,27 @@
 </div>
 
 @code {
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
+
     private string _roomId = "";
     private string _autoConnectClass = "";
     private bool _autoConnectBool;
     private List<LiveEvent> _view = new();
 
+    // Auto-save status for the room settings written through Config.ReplaceFrom.
+    private DateTime? _savedAt;
+    private string _saveMsg = "";
+
+    // Auto like state, refreshed by the 1 s poll below.
+    private System.Threading.Timer? _likeTimer;
+    private bool _likeRunning;
+    private int _likeLiked;
+    private string _likeError = "";
+
     private bool EdgeRunning => GetProp(Tts.EdgeStatus(), "running");
     private bool MossRunning => GetProp(Tts.MossStatus(), "running");
+
+    private string Base => "http://127.0.0.1:" + Api.Port;
 
     private static bool GetProp(object o, string name)
         => Convert.ToBoolean(o.GetType().GetProperty(name)?.GetValue(o));
@@ -159,6 +201,9 @@
         _autoConnectClass = _autoConnectBool ? "on" : "";
         Hub.OnEvent += OnEvent;
         Hub.StatusChanged += OnStatus;
+        _likeTimer = new System.Threading.Timer(_ => _ = PollLikeStatus(), null,
+            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        _ = PollLikeStatus();   // first paint gets the current counters without waiting 1 s
     }
 
     private void OnEvent(LiveEvent ev) => InvokeAsync(() =>
@@ -191,10 +236,177 @@
     {
         _autoConnectBool = !_autoConnectBool;
         _autoConnectClass = _autoConnectBool ? "on" : "";
-        var doc = Config.Snapshot();
-        doc["autoConnect"] = _autoConnectBool;
-        Config.ReplaceFrom(doc);
+        SaveRoomConfigSoon(200);
     }
+
+    // ---- auto-save (debounced) ----
+    // The room settings live in the local config store, so the debounce only decides
+    // how often data/config.json is rewritten. The same "room-config" key is shared,
+    // which makes a newer edit cancel the pending write of an older one.
+
+    private void SaveRoomConfigSoon(int delayMs = 450)
+        => Saver.Run("room-config", () => InvokeAsync(async () => { SaveRoomConfig(); StateHasChanged(); }), delayMs);
+
+    private void SaveRoomIdSoon() => SaveRoomConfigSoon();
+
+    private void SaveRoomConfig()
+    {
+        try
+        {
+            var doc = Config.Snapshot();
+            doc["autoConnect"] = _autoConnectBool;
+            var rid = _roomId.Trim();
+            if (rid.Length > 0) doc["roomId"] = rid;   // never wipe a stored id from an empty box
+            Config.ReplaceFrom(doc);
+            _saveMsg = "";
+            _savedAt = DateTime.Now;
+        }
+        catch (Exception ex)
+        {
+            _saveMsg = ex.Message;
+        }
+    }
+
+    private string AutoSaveText()
+    {
+        if (_saveMsg.Length > 0) return "保存失败：" + _saveMsg;
+        return _savedAt.HasValue ? "已自动保存 " + _savedAt.Value.ToString("HH:mm:ss") : "改动即时自动保存";
+    }
+
+    // ---- auto like (B站「点赞」长按协议) ----
+
+    /// <summary>The like loop needs a room id (connected or configured) plus a captured cookie.</summary>
+    private bool LikeReady() => HasCookie() && (Hub.LastStatus.State == "connected" || Config.RoomId.Length > 0);
+
+    private string LikeMasterCls() => _likeRunning ? "on" : "";
+
+    private string LikeBadgeCls() => _likeRunning ? "green" : _likeError.Length > 0 ? "red" : "off";
+
+    private string LikeBadgeText() => _likeRunning ? "运行中" : "已停止";
+
+    private string LikeSubText()
+    {
+        if (_likeRunning) return "循环点赞中 · 300 ms/次";
+        if (!LikeReady()) return "需要已连接直播间且已配置 Cookie";
+        return "已停止 · 点「开始点赞」启动循环";
+    }
+
+    private async Task StartLike()
+    {
+        _likeError = "";
+        try
+        {
+            using var resp = await Http.PostAsync(Base + "/api/like/start",
+                new StringContent("{}", Encoding.UTF8, "application/json"));
+            var body = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _likeError = "HTTP " + (int)resp.StatusCode;
+                return;
+            }
+            var err = ApiError(body);
+            if (err.Length > 0)
+            {
+                _likeError = err;
+                return;
+            }
+            await PollLikeStatus();   // reflect the new running state at once
+        }
+        catch (Exception ex)
+        {
+            _likeError = ex.Message;
+        }
+    }
+
+    private async Task StopLike()
+    {
+        try
+        {
+            using var resp = await Http.PostAsync(Base + "/api/like/stop",
+                new StringContent("{}", Encoding.UTF8, "application/json"));
+            var body = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _likeError = "HTTP " + (int)resp.StatusCode;
+                return;
+            }
+            var err = ApiError(body);
+            if (err.Length > 0)
+            {
+                _likeError = err;
+                return;
+            }
+            await PollLikeStatus();
+        }
+        catch (Exception ex)
+        {
+            _likeError = ex.Message;
+        }
+    }
+
+    /// <summary>GET /api/like/status — called by the 1 s timer and after start/stop.</summary>
+    private async Task PollLikeStatus()
+    {
+        JsonObject? o;
+        try
+        {
+            o = await GetJsonAsync("/api/like/status");
+        }
+        catch
+        {
+            return;   // the panel API may be down; keep the last known counters
+        }
+        if (o == null) return;
+
+        var running = GetBool(o, "running", false);
+        var liked = (int)GetNum(o, "liked", 0);
+        var error = GetStr(o, "error", "");
+        if (running == _likeRunning && liked == _likeLiked && error == _likeError) return;
+
+        try
+        {
+            // The timer fires on a pool thread → hand the state update to the renderer.
+            await InvokeAsync(() =>
+            {
+                _likeRunning = running;
+                _likeLiked = liked;
+                _likeError = error;
+                StateHasChanged();
+            });
+        }
+        catch
+        {
+            // component disposed while the poll was in flight
+        }
+    }
+
+    private async Task<JsonObject?> GetJsonAsync(string path)
+    {
+        using var resp = await Http.GetAsync(Base + path);
+        var txt = await resp.Content.ReadAsStringAsync();
+        if (!resp.IsSuccessStatusCode) return null;
+        return JsonNode.Parse(txt) as JsonObject;
+    }
+
+    private static string ApiError(string body)
+    {
+        try
+        {
+            if (JsonNode.Parse(body) is JsonObject o && o["error"] is JsonValue v && v.TryGetValue<string>(out var e))
+                return e ?? "";
+        }
+        catch { }
+        return "";
+    }
+
+    private static bool GetBool(JsonObject o, string key, bool def)
+        => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<bool>(out var b) ? b : def;
+
+    private static string GetStr(JsonObject o, string key, string def)
+        => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<string>(out var s) && !string.IsNullOrEmpty(s) ? s : def;
+
+    private static double GetNum(JsonObject o, string key, double def)
+        => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<double>(out var d) ? d : def;
 
     private void OpenBiliBrowser()
     {
@@ -252,6 +464,16 @@
     }
 
     private bool HasCookie() => Config.Cookie.Contains("SESSDATA") || Config.Cookie.Contains("bili_jct");
+
+    private string CookieCls() => HasCookie() ? "green" : "red";
+
+    private string CookieText() => HasCookie() ? "VALID" : "NONE";
+
+    private string LoginText() => HasCookie() ? "已登录" : "未登录";
+
+    private string ApiCls() => Api.IsRunning ? "green" : "red";
+
+    private string ApiText() => Api.IsRunning ? "RUNNING" : "DOWN";
 
     private string StateClass() => Hub.LastStatus.State switch
     {
@@ -362,5 +584,7 @@
     {
         Hub.OnEvent -= OnEvent;
         Hub.StatusChanged -= OnStatus;
+        _likeTimer?.Dispose();
+        _likeTimer = null;
     }
 }

@@ -22,6 +22,7 @@ html[data-theme="neon"] .blt-btn.primary{box-shadow:0 4px 16px rgba(255,45,120,.
 
 /* B 清爽工作台 · 浅色扁平细边框（Linear/Notion 向） */
 html[data-theme="workbench"]{
+  color-scheme:light;
   --bg:#f7f8fa; --bg-2:#ffffff; --panel:#ffffff; --panel-2:#f2f4f8;
   --line:#e6e8ee; --line-2:#d8dce6;
   --ink:#1a1d24; --ink-2:#5b6472; --ink-3:#9aa3b0;
@@ -38,6 +39,7 @@ html[data-theme="workbench"] .blt-foot{color:#fff}
 
 /* D B站应援 · 白底大圆角 + 粉蓝双主色（B站主站向） */
 html[data-theme="bili"]{
+  color-scheme:light;
   --bg:#ffffff; --bg-2:#fff7fa; --panel:#ffffff; --panel-2:#fff0f4;
   --line:#ffd7e4; --line-2:#ffc2d6;
   --ink:#33333e; --ink-2:#6f7280; --ink-3:#a8abb8;
@@ -54,6 +56,7 @@ html[data-theme="bili"] .blt-log{background:#fffafc}
 
 /* E 灵动玻璃 · macOS 系统设置式（振动玻璃侧栏 + 系统蓝） */
 html[data-theme="vibrancy"]{
+  color-scheme:light;
   --bg:#f5f5f7; --bg-2:rgba(255,255,255,.72); --panel:#ffffff; --panel-2:#f2f2f7;
   --line:rgba(0,0,0,.08); --line-2:rgba(0,0,0,.14);
   --ink:#1d1d1f; --ink-2:#56565c; --ink-3:#86868b;
@@ -70,6 +73,7 @@ html[data-theme="vibrancy"] .blt-foot{color:#fff}
 
 /* F 新粗野主义 · 奶油纸底 + 粗黑描边 + 硬投影 + 撞色 */
 html[data-theme="brutal"]{
+  color-scheme:light;
   --bg:#f3eee2; --bg-2:#efe8d8; --panel:#fffdf7; --panel-2:#ffd02f;
   --line:#141414; --line-2:#141414;
   --ink:#141414; --ink-2:#4a4a4a; --ink-3:#8a8a8a;
@@ -106,6 +110,7 @@ html[data-theme="hud"] .blt-panel-head .t{letter-spacing:1px;text-transform:uppe
 
 /* H 杂志编辑风 · 米白纸感 + 衬线报头 + 铁锈红 */
 html[data-theme="editorial"]{
+  color-scheme:light;
   --bg:#f8f5ee; --bg-2:#f3efe4; --panel:#fdfbf6; --panel-2:#f1ecdf;
   --line:#ddd6c6; --line-2:#cec4ad;
   --ink:#22242a; --ink-2:#5d5849; --ink-3:#a39a86;

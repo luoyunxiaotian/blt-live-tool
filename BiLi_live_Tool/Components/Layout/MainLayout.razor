@@ -44,6 +44,17 @@
             <span class="seg">WS <b class="@WsClass()">@WsText()</b></span>
             <span class="seg">在线 <b class="green">@FmtPop()</b></span>
             <span class="seg">HTTP <b>127.0.0.1:@Api.Port</b> @ApiState()</span>
+            <span class="seg">
+                <span>B站浏览器</span>
+                @if (MainPage.Current?.IsBiliVisible == true)
+                {
+                    <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="HideBili">隐藏</button>
+                }
+                else
+                {
+                    <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="ShowBili">打开</button>
+                }
+            </span>
             <span class="seg amber">BUILD @KestrelHost.VersionText</span>
             <span class="seg" style="margin-left:auto">🕒 @DateTime.Now.ToString("HH:mm:ss")</span>
         </div>
@@ -99,6 +110,14 @@
     {
         var rec = Config.GetNode("recording") as System.Text.Json.Nodes.JsonObject;
         return rec?.TryGetPropertyValue(type, out var v) == true && v is System.Text.Json.Nodes.JsonValue val && val.TryGetValue<bool>(out var b) && b;
+    }
+
+    private void HideBili() => MainPage.Current?.HideBiliBrowser();
+
+    private void ShowBili()
+    {
+        var rid = string.IsNullOrEmpty(Hub.LastStatus.RealRoomId) ? Config.RoomId : Hub.LastStatus.RealRoomId;
+        MainPage.Current?.ShowBiliBrowser(long.TryParse(rid, out _) ? $"https://live.bilibili.com/{rid}" : "https://live.bilibili.com/");
     }
 
     public void Dispose()

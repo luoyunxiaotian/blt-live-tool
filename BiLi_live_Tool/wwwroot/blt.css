@@ -34,6 +34,13 @@ html,body{
 }
 #app{height:100vh}
 
+/* ===== scrollbars (theme-matched) ===== */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:var(--bg-2)}
+*::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:5px;border:2px solid var(--bg-2)}
+*::-webkit-scrollbar-thumb:hover{background:var(--ink-3)}
+*::-webkit-scrollbar-corner{background:var(--bg-2)}
+
 /* ===== app shell ===== */
 .blt-app{display:grid;grid-template-columns:200px 1fr;grid-template-rows:1fr 26px;
   grid-template-areas:"side main" "foot foot";height:100vh;overflow:hidden}

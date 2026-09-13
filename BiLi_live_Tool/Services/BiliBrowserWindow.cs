@@ -83,8 +83,22 @@ public sealed class BiliBrowserWindow
         RunOnUi(() =>
         {
             _visible = false;
+            _lastRect = 0;   // allow the next Show to re-dock at the same rect
             _pollCts?.Cancel();
+#if WINDOWS
+            // AppWindow.Hide() proved unreliable for owned windows — park the
+            // window off-screen instead (Show re-docks it via MoveAndResize).
+            try
+            {
+                if (_platformWindow != null)
+                {
+                    var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(_platformWindow);
+                    MoveWindow(hwnd, -32000, -32000, 400, 300, true);
+                }
+            }
+            catch { }
             try { _platformWindow?.AppWindow?.Hide(); } catch { }
+#endif
         });
     }
 
@@ -108,6 +122,9 @@ public sealed class BiliBrowserWindow
         };
         Microsoft.Maui.Controls.NavigationPage.SetHasNavigationBar(page, false);
         _window = new Window(page) { Title = "B站直播" };
+        // NOTE: the Window handler (and thus PlatformView/AppWindow) only exists
+        // AFTER OpenWindow — all native styling must run following that call.
+        Application.Current?.OpenWindow(_window);
 #if WINDOWS
         var platform = _window.Handler?.PlatformView;
         if (platform is Microsoft.UI.Xaml.Window winUi)
@@ -127,7 +144,6 @@ public sealed class BiliBrowserWindow
             _platformWindow = winUi;
         }
 #endif
-        Application.Current?.OpenWindow(_window);
         _pollCts = new CancellationTokenSource();
     }
 
@@ -247,6 +263,9 @@ public sealed class BiliBrowserWindow
 
     [DllImport("user32.dll")]
     private static extern bool ClientToScreen(nint hWnd, ref POINT lpPoint);
+
+    [DllImport("user32.dll")]
+    private static extern bool MoveWindow(nint hWnd, int x, int y, int w, int h, bool repaint);
 #endif
 }
 #endif

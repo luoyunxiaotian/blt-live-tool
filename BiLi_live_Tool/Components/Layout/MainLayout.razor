@@ -4,6 +4,7 @@
 @inject EventHub Hub
 @inject KestrelHost Api
 @inject AppConfig Config
+@inject IJSRuntime JS
 
 <div class="blt-app">
     <div class="blt-side">
@@ -49,6 +50,19 @@
             <span class="seg">WS <b class="@WsClass()">@WsText()</b></span>
             <span class="seg">在线 <b class="green">@FmtPop()</b></span>
             <span class="seg">HTTP <b>127.0.0.1:@Api.Port</b> @ApiState()</span>
+            <span class="seg">
+                🎨 主题
+                <select class="blt-input" style="width:138px;padding:1px 6px;font-size:11px" value="@_theme" @onchange="OnThemeChanged">
+                    <option value="console">C 专业控制台</option>
+                    <option value="neon">A 暗夜霓虹</option>
+                    <option value="workbench">B 清爽工作台</option>
+                    <option value="bili">D B站应援</option>
+                    <option value="vibrancy">E 灵动玻璃</option>
+                    <option value="brutal">F 新粗野主义</option>
+                    <option value="hud">G 电竞 HUD</option>
+                    <option value="editorial">H 杂志编辑风</option>
+                </select>
+            </span>
             <span class="seg amber">BUILD @KestrelHost.VersionText</span>
             <span class="seg" style="margin-left:auto">🕒 @DateTime.Now.ToString("HH:mm:ss")</span>
         </div>
@@ -67,13 +81,54 @@
 @code {
     private System.Threading.Timer? _timer;
     private long _eventCount;
+    private string _theme = "console";
+    private bool _themeApplied;
+
+    private static readonly string[] Themes =
+    {
+        "console", "neon", "workbench", "bili", "vibrancy", "brutal", "hud", "editorial",
+    };
 
     protected override void OnInitialized()
     {
         Hub.OnEvent += OnEvent;
         Hub.StatusChanged += OnStatus;
+        var skin = (Config.GetNode("skin") as System.Text.Json.Nodes.JsonValue)?.GetValue<string>() ?? "";
+        if (skin.Length == 0 || skin == "default") skin = "console";
+        if (Themes.Contains(skin)) _theme = skin;
         // 1s ticker: clock + API state refresh.
         _timer = new System.Threading.Timer(_ => InvokeAsync(StateHasChanged), null, 1000, 1000);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_themeApplied)
+        {
+            _themeApplied = true;
+            await ApplyThemeAsync(_theme);
+        }
+    }
+
+    private async Task OnThemeChanged(ChangeEventArgs e)
+    {
+        var t = e.Value?.ToString() ?? "console";
+        if (!Themes.Contains(t)) t = "console";
+        _theme = t;
+        await ApplyThemeAsync(t);
+        // Persist in the config document (same field the legacy panel used).
+        var doc = Config.Snapshot();
+        doc["skin"] = t;
+        Config.ReplaceFrom(doc);
+        StateHasChanged();
+    }
+
+    private async Task ApplyThemeAsync(string t)
+    {
+        try { await JS.InvokeVoidAsync("bltSetTheme", t); } catch { }
+#if WINDOWS
+        // Keep the native title bar in step with the theme.
+        App.ApplyTitleBarForTheme(t);
+#endif
     }
 
     private void OnEvent(LiveEvent ev) => InvokeAsync(() => { _eventCount++; StateHasChanged(); });

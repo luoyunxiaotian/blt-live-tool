@@ -22,6 +22,10 @@
   --blue-dim:rgba(87,166,255,.12);
   --r:4px;
   --mono:Consolas,"Cascadia Mono",monospace;
+  --accent-ink:#1a1300;          /* text on the accent color (footer, primary btn) */
+  --shadow:none;                 /* panel shadow (themes may add) */
+  --side-blur:none;              /* sidebar backdrop filter (themes may add) */
+  --heading-font:inherit;        /* page/brand heading font (editorial uses serif) */
 }
 
 html,body{
@@ -46,9 +50,9 @@ html,body{
   grid-template-areas:"side main" "foot foot";height:100vh;overflow:hidden}
 
 .blt-side{grid-area:side;background:var(--bg-2);border-right:1px solid var(--line);
-  overflow-y:auto;padding:10px 0 14px}
+  overflow-y:auto;padding:10px 0 14px;backdrop-filter:var(--side-blur)}
 .blt-brand{padding:6px 14px 14px;border-bottom:1px solid var(--line);margin-bottom:8px}
-.blt-brand b{display:block;font-size:15px;color:var(--ink);letter-spacing:.5px}
+.blt-brand b{display:block;font-family:var(--heading-font);font-size:15px;color:var(--ink);letter-spacing:.5px}
 .blt-brand span{font-size:9px;color:var(--ink-3);letter-spacing:2.5px;font-family:var(--mono)}
 .blt-navgroup{padding:12px 14px 4px;font-size:10px;color:var(--ink-3);letter-spacing:1.5px}
 .blt-navitem{display:flex;align-items:center;gap:8px;padding:7px 14px;color:var(--ink-2);
@@ -65,13 +69,13 @@ html,body{
 .blt-topstrip b{color:var(--ink);font-weight:600}
 .blt-topstrip .amber{color:var(--amber)} .blt-topstrip .green{color:var(--green)}
 
-.blt-foot{grid-area:foot;background:var(--amber);color:#1a1300;font-family:var(--mono);
+.blt-foot{grid-area:foot;background:var(--amber);color:var(--accent-ink);font-family:var(--mono);
   font-size:11px;font-weight:600;display:flex;align-items:center;gap:18px;padding:0 14px;
   white-space:nowrap;overflow:hidden}
 .blt-foot .sep{opacity:.45}
 
 /* ===== panels ===== */
-.blt-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px}
+.blt-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px;box-shadow:var(--shadow)}
 .blt-panel-head{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line)}
 .blt-panel-head .t{font-weight:600;font-size:12.5px}
 .blt-panel-head .en{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:1px}
@@ -86,7 +90,7 @@ html,body{
 .blt-btn{background:var(--panel-2);border:1px solid var(--line-2);color:var(--ink);
   padding:6px 16px;border-radius:var(--r);cursor:pointer;font-size:12.5px;font-family:inherit}
 .blt-btn:hover{border-color:var(--amber);color:var(--amber)}
-.blt-btn.primary{background:var(--amber);border-color:var(--amber);color:#1a1300;font-weight:700}
+.blt-btn.primary{background:var(--amber);border-color:var(--amber);color:var(--accent-ink);font-weight:700}
 .blt-btn.primary:hover{filter:brightness(1.08)}
 .blt-btn:disabled{opacity:.4;cursor:not-allowed}
 .blt-input{background:var(--bg-2);border:1px solid var(--line-2);color:var(--ink);
@@ -150,5 +154,5 @@ label.blt-label{display:block;font-size:10px;color:var(--ink-3);letter-spacing:1
 
 .blt-empty{color:var(--ink-3);text-align:center;padding:26px 10px;font-size:12px}
 .blt-pagehead{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
-.blt-pagehead h1{font-size:16px;font-weight:700;margin:0;color:var(--ink)}
+.blt-pagehead h1{font-family:var(--heading-font);font-size:16px;font-weight:700;margin:0;color:var(--ink)}
 .blt-pagehead .en{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:1.5px}

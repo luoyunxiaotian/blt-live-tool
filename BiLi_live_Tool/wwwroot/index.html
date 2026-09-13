@@ -8,11 +8,24 @@
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="blt.css" />
+    <link rel="stylesheet" href="themes.css" />
     <link rel="stylesheet" href="BiLi_live_Tool.styles.css" />
     <link rel="icon" href="data:,">
 </head>
 
 <body>
+    <script>
+      // Apply the saved theme before first paint; Blazor reconciles with config.skin later.
+      (function () {
+        var t = 'console';
+        try { t = localStorage.getItem('blt_theme') || 'console'; } catch (e) {}
+        document.documentElement.dataset.theme = t;
+        window.bltSetTheme = function (name) {
+          document.documentElement.dataset.theme = name;
+          try { localStorage.setItem('blt_theme', name); } catch (e) {}
+        };
+      })();
+    </script>
 
     <div class="status-bar-safe-area"></div>
 

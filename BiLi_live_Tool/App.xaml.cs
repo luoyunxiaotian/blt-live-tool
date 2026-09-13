@@ -102,8 +102,8 @@ namespace BiLi_live_Tool
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(nint hWnd);
 
-        private static Windows.UI.Color Tc(byte r, byte g, byte b)
-            => new() { A = 255, R = r, G = g, B = b };
+        private static Windows.UI.Color Tc(int r, int g, int b)
+            => new() { A = 255, R = (byte)r, G = (byte)g, B = (byte)b };
 
         /// <summary>
         /// Paints the native title bar in the console theme — colors mirror
@@ -116,6 +116,46 @@ namespace BiLi_live_Tool
         internal static void StyleTitleBar(Window window)
         {
             StyleTitleBarOnce(window, 0);
+        }
+
+        /// <summary>Re-themes the title bar when the UI theme changes (called from Blazor).</summary>
+        internal static void ApplyTitleBarForTheme(string theme)
+        {
+            try
+            {
+                var win = Current?.Windows?.FirstOrDefault();
+                if (win?.Handler?.PlatformView is not Microsoft.UI.Xaml.Window winUi
+                    || winUi.AppWindow is not { } appWindow) return;
+                var (bgRgb, fgRgb, btnFgRgb) = theme switch
+                {
+                    "workbench" => ((0xF7, 0xF8, 0xFA), (0x1A, 0x1D, 0x24), (0x5B, 0x64, 0x72)),
+                    "bili" => ((0xFF, 0xFF, 0xFF), (0x33, 0x33, 0x3E), (0x6F, 0x72, 0x80)),
+                    "vibrancy" => ((0xF5, 0xF5, 0xF7), (0x1D, 0x1D, 0x1F), (0x56, 0x56, 0x5C)),
+                    "brutal" => ((0xF3, 0xEE, 0xE2), (0x14, 0x14, 0x14), (0x4A, 0x4A, 0x4A)),
+                    "editorial" => ((0xF8, 0xF5, 0xEE), (0x22, 0x24, 0x2A), (0x5D, 0x58, 0x49)),
+                    "neon" => ((0x0A, 0x06, 0x14), (0xF4, 0xEF, 0xFF), (0xE9, 0xE0, 0xFF)),
+                    "hud" => ((0x05, 0x07, 0x0B), (0xDF, 0xE7, 0xF2), (0x7C, 0x8B, 0xA1)),
+                    _ => ((0x0B, 0x0F, 0x14), (0xD7, 0xDE, 0xE8), (0x8B, 0x97, 0xA7)),
+                };
+                var tb = appWindow.TitleBar;
+                var bg = Tc(bgRgb.Item1, bgRgb.Item2, bgRgb.Item3);
+                var fg = Tc(fgRgb.Item1, fgRgb.Item2, fgRgb.Item3);
+                var btnFg = Tc(btnFgRgb.Item1, btnFgRgb.Item2, btnFgRgb.Item3);
+                tb.BackgroundColor = bg;
+                tb.ForegroundColor = fg;
+                tb.InactiveBackgroundColor = bg;
+                tb.InactiveForegroundColor = btnFg;
+                tb.ButtonBackgroundColor = bg;
+                tb.ButtonForegroundColor = btnFg;
+                tb.ButtonHoverBackgroundColor = Tc(0x1A, 0x22, 0x2D);
+                tb.ButtonHoverForegroundColor = Tc(0xFF, 0xB2, 0x24);
+                tb.ButtonPressedBackgroundColor = Tc(0x24, 0x2F, 0x3C);
+                tb.ButtonPressedForegroundColor = fg;
+                tb.ButtonInactiveBackgroundColor = bg;
+                tb.ButtonInactiveForegroundColor = btnFg;
+                TitleBarDebug += " theme=" + theme;
+            }
+            catch { }
         }
 
         private static void StyleTitleBarOnce(Window window, int attempt)

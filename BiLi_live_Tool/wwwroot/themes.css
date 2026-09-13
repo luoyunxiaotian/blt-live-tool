@@ -1,0 +1,123 @@
+/* ===========================================================================
+   BLT 主题包 — 8 套风格（源自 UI新设计 A–H 稿），通过 html[data-theme] 覆盖
+   blt.css 的设计 tokens。默认 = console（C 专业控制台，blt.css 内置）。
+   =========================================================================== */
+
+/* A 暗夜霓虹 · 深紫黑 + 玻璃拟态 + 粉紫青渐变 */
+html[data-theme="neon"]{
+  --bg:#0a0614; --bg-2:rgba(255,255,255,.03); --panel:rgba(255,255,255,.045);
+  --panel-2:rgba(255,255,255,.07); --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.16);
+  --ink:#f4efff; --ink-2:rgba(233,224,255,.62); --ink-3:rgba(226,215,255,.38);
+  --amber:#ff2d78; --amber-dim:rgba(255,45,120,.14);
+  --green:#34e3a1; --green-dim:rgba(52,227,161,.12);
+  --red:#ff5c7a; --red-dim:rgba(255,92,122,.12);
+  --blue:#22d3ee; --blue-dim:rgba(34,211,238,.12);
+  --r:14px; --accent-ink:#ffffff;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+}
+html[data-theme="neon"] .blt-foot{background:linear-gradient(135deg,#ff2d78,#8b5cf6 55%,#22d3ee);color:#fff}
+html[data-theme="neon"] .blt-side{background:rgba(20,10,40,.55);backdrop-filter:blur(18px)}
+html[data-theme="neon"] .blt-panel{backdrop-filter:blur(14px)}
+html[data-theme="neon"] .blt-btn.primary{box-shadow:0 4px 16px rgba(255,45,120,.35)}
+
+/* B 清爽工作台 · 浅色扁平细边框（Linear/Notion 向） */
+html[data-theme="workbench"]{
+  --bg:#f7f8fa; --bg-2:#ffffff; --panel:#ffffff; --panel-2:#f2f4f8;
+  --line:#e6e8ee; --line-2:#d8dce6;
+  --ink:#1a1d24; --ink-2:#5b6472; --ink-3:#9aa3b0;
+  --amber:#2f6bff; --amber-dim:#eef3ff;
+  --green:#18a058; --green-dim:#e9f7ef;
+  --red:#d03050; --red-dim:#fdecef;
+  --blue:#2f6bff; --blue-dim:#eef3ff;
+  --r:10px; --accent-ink:#ffffff;
+  --shadow:0 1px 3px rgba(20,24,40,.06);
+}
+html[data-theme="workbench"] .blt-log{background:#fbfcfe}
+html[data-theme="workbench"] .blt-navitem.active{background:#eef3ff}
+html[data-theme="workbench"] .blt-foot{color:#fff}
+
+/* D B站应援 · 白底大圆角 + 粉蓝双主色（B站主站向） */
+html[data-theme="bili"]{
+  --bg:#ffffff; --bg-2:#fff7fa; --panel:#ffffff; --panel-2:#fff0f4;
+  --line:#ffd7e4; --line-2:#ffc2d6;
+  --ink:#33333e; --ink-2:#6f7280; --ink-3:#a8abb8;
+  --amber:#fb7299; --amber-dim:#fff0f4;
+  --green:#00a1d6; --green-dim:#e7f6fc;
+  --red:#e8507e; --red-dim:#fff0f4;
+  --blue:#00a1d6; --blue-dim:#e7f6fc;
+  --r:14px; --accent-ink:#ffffff;
+  --shadow:0 2px 10px rgba(251,114,153,.10);
+}
+html[data-theme="bili"] .blt-navitem.active{background:#fff0f4}
+html[data-theme="bili"] .blt-foot{color:#fff}
+html[data-theme="bili"] .blt-log{background:#fffafc}
+
+/* E 灵动玻璃 · macOS 系统设置式（振动玻璃侧栏 + 系统蓝） */
+html[data-theme="vibrancy"]{
+  --bg:#f5f5f7; --bg-2:rgba(255,255,255,.72); --panel:#ffffff; --panel-2:#f2f2f7;
+  --line:rgba(0,0,0,.08); --line-2:rgba(0,0,0,.14);
+  --ink:#1d1d1f; --ink-2:#56565c; --ink-3:#86868b;
+  --amber:#0a84ff; --amber-dim:rgba(10,132,255,.10);
+  --green:#34c759; --green-dim:rgba(52,199,89,.12);
+  --red:#ff3b30; --red-dim:rgba(255,59,48,.10);
+  --blue:#0a84ff; --blue-dim:rgba(10,132,255,.10);
+  --r:12px; --accent-ink:#ffffff;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 8px 24px rgba(0,0,0,.05);
+  --side-blur:blur(20px);
+}
+html[data-theme="vibrancy"] .blt-side{border-right:1px solid rgba(0,0,0,.06)}
+html[data-theme="vibrancy"] .blt-foot{color:#fff}
+
+/* F 新粗野主义 · 奶油纸底 + 粗黑描边 + 硬投影 + 撞色 */
+html[data-theme="brutal"]{
+  --bg:#f3eee2; --bg-2:#efe8d8; --panel:#fffdf7; --panel-2:#ffd02f;
+  --line:#141414; --line-2:#141414;
+  --ink:#141414; --ink-2:#4a4a4a; --ink-3:#8a8a8a;
+  --amber:#ffd02f; --amber-dim:rgba(255,208,47,.35);
+  --green:#b8f135; --green-dim:rgba(184,241,53,.35);
+  --red:#ff5c5c; --red-dim:rgba(255,92,92,.25);
+  --blue:#90d5ff; --blue-dim:rgba(144,213,255,.35);
+  --r:4px; --accent-ink:#141414;
+  --shadow:6px 6px 0 #141414;
+}
+html[data-theme="brutal"] .blt-panel{border-width:2.5px}
+html[data-theme="brutal"] .blt-btn{border-width:2.5px;font-weight:700}
+html[data-theme="brutal"] .blt-btn.primary{box-shadow:3px 3px 0 #141414}
+html[data-theme="brutal"] .blt-btn:hover{box-shadow:3px 3px 0 #141414;transform:translate(-1px,-1px)}
+html[data-theme="brutal"] .blt-foot{border-top:2.5px solid #141414;font-weight:800}
+html[data-theme="brutal"] .blt-badge{border:1.5px solid #141414;font-weight:700}
+html[data-theme="brutal"] .blt-pagehead h1{text-transform:uppercase;letter-spacing:.5px}
+
+/* G 电竞 HUD · 近黑网格底 + 切角面板 + 警示红 */
+html[data-theme="hud"]{
+  --bg:#05070b; --bg-2:#080c12; --panel:#0a0f16; --panel-2:#101823;
+  --line:#1b2735; --line-2:#22303f;
+  --ink:#dfe7f2; --ink-2:#7c8ba1; --ink-3:#465567;
+  --amber:#ff4655; --amber-dim:rgba(255,70,85,.12);
+  --green:#3fd68f; --green-dim:rgba(63,214,143,.12);
+  --red:#ff4655; --red-dim:rgba(255,70,85,.12);
+  --blue:#37d5d0; --blue-dim:rgba(55,213,208,.12);
+  --r:2px; --accent-ink:#ffffff;
+}
+html[data-theme="hud"] .blt-panel{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px))}
+html[data-theme="hud"] .blt-navitem.active{box-shadow:inset 0 0 0 1px rgba(255,70,85,.35)}
+html[data-theme="hud"] .blt-pagehead h1{letter-spacing:1px;text-transform:uppercase}
+html[data-theme="hud"] .blt-panel-head .t{letter-spacing:1px;text-transform:uppercase;font-size:11.5px}
+
+/* H 杂志编辑风 · 米白纸感 + 衬线报头 + 铁锈红 */
+html[data-theme="editorial"]{
+  --bg:#f8f5ee; --bg-2:#f3efe4; --panel:#fdfbf6; --panel-2:#f1ecdf;
+  --line:#ddd6c6; --line-2:#cec4ad;
+  --ink:#22242a; --ink-2:#5d5849; --ink-3:#a39a86;
+  --amber:#bf4d28; --amber-dim:rgba(191,77,40,.10);
+  --green:#3c7a4e; --green-dim:rgba(60,122,78,.10);
+  --red:#b03a2e; --red-dim:rgba(176,58,46,.10);
+  --blue:#2e4a68; --blue-dim:rgba(46,74,104,.10);
+  --r:2px; --accent-ink:#fdfbf6;
+  --heading-font:Georgia,"Times New Roman","Songti SC","SimSun",serif;
+}
+html[data-theme="editorial"] .blt-pagehead h1{font-size:20px;font-weight:600}
+html[data-theme="editorial"] .blt-brand b{font-size:17px;letter-spacing:0}
+html[data-theme="editorial"] .blt-panel-head{border-bottom:2px solid var(--line)}
+html[data-theme="editorial"] .blt-log{background:#fffdf8}
+html[data-theme="editorial"] .blt-foot{letter-spacing:1px}

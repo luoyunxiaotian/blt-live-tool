@@ -72,11 +72,21 @@
   }
 
   // ---- 点歌播放器 ----
+  // Manual stop detaches the source, which makes the media element fire
+  // 'error'/'ended'. Those must not reach the panel or the player would treat
+  // the stop as a broken track and auto-advance to the next one.
+  var songStopped = false;
+
   function ensureSong() {
     if (song) return song;
     song = new Audio();
     song.preload = 'auto';
-    var emit = function (kind) { return function () { songEvent(kind); }; };
+    var emit = function (kind) {
+      return function () {
+        if (songStopped && (kind === 'ended' || kind === 'error' || kind === 'pause')) return;
+        songEvent(kind);
+      };
+    };
     song.addEventListener('loadedmetadata', emit('loaded'));
     song.addEventListener('playing', emit('playing'));
     song.addEventListener('pause', emit('pause'));
@@ -103,15 +113,22 @@
 
   function songLoad(url, volume) {
     var s = ensureSong();
+    songStopped = false;
     s.volume = clamp01(volume);
     s.src = url;
     try { s.load(); } catch (e) { }
   }
-  function songPlay() { var s = ensureSong(); var p = s.play(); if (p && p.catch) p.catch(function () { songEvent('error'); }); }
+  function songPlay() { songStopped = false; var s = ensureSong(); var p = s.play(); if (p && p.catch) p.catch(function () { songEvent('error'); }); }
   function songPause() { if (song) { try { song.pause(); } catch (e) { } } }
   function songSeek(t) { if (song) { try { song.currentTime = Math.max(0, Number(t) || 0); } catch (e) { } } }
   function songSetVolume(v) { if (song) song.volume = clamp01(v); }
-  function songStop() { if (song) { try { song.pause(); } catch (e) { } try { song.src = ''; } catch (e) { } } }
+  function songStop() {
+    if (!song) return;
+    songStopped = true;
+    try { song.pause(); } catch (e) { }
+    // Detach the source so the decoder releases the URL; events stay suppressed.
+    try { song.removeAttribute('src'); song.load(); } catch (e) { }
+  }
 
   window.bltAudio = {
     playBytes: playBytes,

@@ -1,4 +1,5 @@
 @page "/alert"
+@using System.Globalization
 @using System.Text
 @using System.Text.Json
 @using System.Text.Json.Nodes
@@ -82,8 +83,26 @@
         </div>
     </div>
 
-    @* ── 右列：提醒配置 ── *@
+    @* ── 右列：管理面板提示音 / 提醒配置 ── *@
     <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🔔 管理面板提示音</span><span class="en">PANEL SOUND</span>
+                <span class="right"><span>alert.panelSound / panelVolume</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-kv">
+                    <span class="k">启用面板提示音 <span style="color:var(--ink-3)">panelSound</span></span>
+                    <span class="blt-switch @(_panelSound ? "on" : "")" @onclick="TogglePanelSound"><span class="track"></span>@(_panelSound ? "ON" : "OFF")</span>
+                </div>
+                <label class="blt-label" style="margin-top:10px">面板音效音量 panelVolume · @PanelVolumePct()</label>
+                <input type="range" min="0" max="1" step="0.05" value="@PanelVolumeValue"
+                       style="width:100%;accent-color:var(--amber)" @onchange="OnPanelVolumeChanged" />
+                <p style="color:var(--ink-3);font-size:11.5px;margin:10px 0 0">
+                    控制面板本身播放的提示音（独立于 TTS 与 OBS 浮层），音效选择在下方各事件类型行内配置。修改后点「保存配置」生效。
+                </p>
+            </div>
+        </div>
+
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">⚙ 提醒配置</span><span class="en">ALERT CONFIG</span>
                 <span class="right"><span>alert{theme,durationMs,types}</span>
@@ -165,6 +184,8 @@
     private bool _enabled = true;
     private string _theme = "pink";
     private double _duration = 5000;
+    private bool _panelSound = true;      // alert.panelSound (default true)
+    private double _panelVolume = 0.6;    // alert.panelVolume (0-1, default 0.6)
     private List<string> _sounds = new();
     private bool _cfgMissing;
     private bool _loadFailed;
@@ -212,6 +233,10 @@
             // The overlay reads durationMs; "duration" is accepted as a legacy alias.
             _duration = GetNum(a, "durationMs", GetNum(a, "duration", 5000));
             _duration = Math.Clamp(_duration, 3000, 15000);
+
+            // Panel sounds play inside the control panel window (independent of overlay + TTS).
+            _panelSound = GetBool(a, "panelSound", true);
+            _panelVolume = Math.Clamp(GetNum(a, "panelVolume", 0.6), 0, 1);
 
             var types = a["types"] as JsonObject;
             foreach (var t in _types)
@@ -272,6 +297,24 @@
         Notify($"{t.Name}：{(t.On ? "ON" : "OFF")}（记得保存）", true);
     }
 
+    // Panel sound (this window) — independent of the OBS overlay and TTS.
+    private void TogglePanelSound()
+    {
+        _panelSound = !_panelSound;
+        Notify(_panelSound ? "面板提示音：已启用（记得保存）" : "面板提示音：已关闭（记得保存）", true);
+    }
+
+    private void OnPanelVolumeChanged(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
+            _panelVolume = Math.Clamp(v, 0, 1);
+        Notify("面板音效音量：" + PanelVolumePct() + "（记得保存）", true);
+    }
+
+    private string PanelVolumePct() => ((int)Math.Round(_panelVolume * 100)) + "%";
+
+    private string PanelVolumeValue => _panelVolume.ToString("0.##", CultureInfo.InvariantCulture);
+
     private async Task Save()
     {
         try
@@ -287,6 +330,9 @@
             a["enabled"] = _enabled;
             a["theme"] = _theme;
             a["durationMs"] = (int)Math.Round(_duration);
+            // Only these two panel-sound fields are added; every other alert field stays as loaded.
+            a["panelSound"] = _panelSound;
+            a["panelVolume"] = Math.Round(_panelVolume, 2);
 
             // Keep unknown sub-fields (volume / panelSound / minAmount …) untouched;
             // only the "on" flag is written back per type.

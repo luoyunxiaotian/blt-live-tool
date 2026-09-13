@@ -40,6 +40,7 @@ public sealed class PanelSoundPlayer
             var alert = _config.GetNode("alert") as JsonObject;
             if (alert == null) return;
             if (!Flag(alert, "enabled", true)) return;
+            if (!Flag(alert, "panelSound", true)) return;   // 面板提示音总开关（原版语义）
             var key = MapKey(ev.Type, ev.MsgType);
             if (key == null) return;
             if (alert["types"] is not JsonObject types) return;
@@ -68,7 +69,7 @@ public sealed class PanelSoundPlayer
             if (sound.Length == 0)
                 sound = key switch { "gift" => "gift.wav", "guard" => "guard.wav", "superchat" => "superchat.wav", _ => "" };
             if (sound.Length == 0) return;
-            var volume = Num(alert, "panelVolume", 0.6);
+            var volume = alert is null ? 0.6 : Num(alert, "panelVolume", 0.6);
             Play(sound, volume);
         }
         catch { }
@@ -85,7 +86,7 @@ public sealed class PanelSoundPlayer
 
     private void Play(string fileName, double volume)
     {
-        var url = $"http://127.0.0.1:{_config.Port}/sounds/{Uri.EscapeDataString(fileName)}";
+        var url = $"http://127.0.0.1:{_config.Port}/sounds/{Uri.EscapeDataString(fileName ?? "")}";
         _ = _audio.PlayUrlAsync(url, volume);
     }
 

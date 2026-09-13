@@ -22,6 +22,7 @@ public sealed class SongPlayer
     private IJSRuntime? _js;
     private long _lastReportTicks;
     private int _failCount;
+    private volatile bool _stoppedByUser;
 
     public string CurrentName { get; private set; } = "";
     public string CurrentArtist { get; private set; } = "";
@@ -63,6 +64,8 @@ public sealed class SongPlayer
             var url = resp["url"]?.GetValue<string>() ?? "";
             if (!ok || url.Length == 0)
             {
+                IsPlaying = false;   // 失败必须复位，否则 UI 停在“暂停/播放中”错觉态
+                Changed?.Invoke();
                 Note("无法播放：" + (resp["msg"]?.GetValue<string>() is var m && !string.IsNullOrEmpty(m) ? m : "VIP/版权限制"));
                 await AutoNextAfterFailureAsync();
                 return;
@@ -75,6 +78,7 @@ public sealed class SongPlayer
             CurrentPlatform = song?["platform"]?.GetValue<string>() ?? "";
             PlayingIndex = index;
             _failCount = 0;
+            _stoppedByUser = false;
             var volume = SongVolume();
             if (_js != null)
             {
@@ -118,6 +122,7 @@ public sealed class SongPlayer
 
     public void Resume()
     {
+        _stoppedByUser = false;
         _ = _js?.InvokeVoidAsync("bltAudio.songPlay");
         IsPlaying = true;
         Changed?.Invoke();
@@ -133,12 +138,21 @@ public sealed class SongPlayer
 
     public void StopPlayback()
     {
+        // Stops are user intent, not a failed track: mark them so the media
+        // element's teardown events can't trigger auto-advance, and reset the
+        // failure streak so a later bad track starts from a clean count.
+        _stoppedByUser = true;
+        _failCount = 0;
         _ = _js?.InvokeVoidAsync("bltAudio.songStop");
         IsPlaying = false;
         PlayingIndex = -1;
         CurrentName = "";
+        CurrentArtist = "";
+        CurrentRequester = "";
+        CurrentPlatform = "";
         Current = 0;
         Duration = 0;
+        LastNote = "";   // card falls back to its own "未在播放" hint
         Changed?.Invoke();
         _ = ReportProgressAsync(force: true);
     }
@@ -191,9 +205,11 @@ public sealed class SongPlayer
                 case "ended":
                     IsPlaying = false;
                     Changed?.Invoke();
+                    if (_stoppedByUser) return;   // teardown after a manual stop
                     _ = OnEndedAsync();
                     return;
                 case "error":
+                    if (_stoppedByUser) { IsPlaying = false; break; }
                     Note("播放中断");
                     _ = AutoNextAfterFailureAsync();
                     break;

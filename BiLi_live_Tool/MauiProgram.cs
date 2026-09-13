@@ -32,6 +32,7 @@ namespace BiLi_live_Tool
             builder.Services.AddSingleton<TtsSpeaker>();
             builder.Services.AddSingleton<PanelSoundPlayer>();
             builder.Services.AddSingleton<SongPlayer>();
+            builder.Services.AddSingleton<UiBridge>();
             builder.Services.AddSingleton<KestrelHost>();
 
 #if DEBUG

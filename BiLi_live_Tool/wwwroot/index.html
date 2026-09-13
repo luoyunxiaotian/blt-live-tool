@@ -25,6 +25,20 @@
           try { localStorage.setItem('blt_theme', name); } catch (e) {}
         };
       })();
+
+      // Verification hook used by the loopback debug bridge
+      // (POST /api/maui/debug/eval). Returns a string for primitives, JSON
+      // for objects, and an "ERR: ..." marker instead of throwing.
+      window.bltEval = function (code) {
+        try {
+          var r = (0, eval)(code);
+          if (typeof r === 'string') return r;
+          if (r === undefined) return 'undefined';
+          return JSON.stringify(r);
+        } catch (e) {
+          return 'ERR: ' + (e && e.message ? e.message : String(e));
+        }
+      };
     </script>
 
     <div class="status-bar-safe-area"></div>

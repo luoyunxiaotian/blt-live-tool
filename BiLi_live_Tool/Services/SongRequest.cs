@@ -751,9 +751,12 @@ public sealed class SongRequestService
             Directory.CreateDirectory(AppConfig.DataDir);
             object payload;
             lock (_lock) payload = new { playlist = _playlist, currentIndex = _currentIndex };
+            // camelCase: the loader below and Bin/server.js both read camelCase, so
+            // PascalCase here silently blanked every entry on the next start.
             File.WriteAllText(PlaylistPath, JsonSerializer.Serialize(payload, new JsonSerializerOptions
             {
                 WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             }));
         }
@@ -773,16 +776,37 @@ public sealed class SongRequestService
                 {
                     if (node is not JsonObject o) continue;
                     _playlist.Add(new PlaylistEntry(
-                        S(o, "id"), S(o, "name"), S(o, "artist"), S(o, "album"), S(o, "platform"),
-                        B(o, "vip"), S(o, "requester"), N(o, "addedAt"),
-                        S(o, "mid") is var m && m.Length > 0 ? m : null,
-                        S(o, "hash") is var h && h.Length > 0 ? h : null,
-                        S(o, "bvid") is var bv && bv.Length > 0 ? bv : null,
-                        S(o, "duration") is var du && du.Length > 0 ? du : null));
+                        Sv(o, "id"), Sv(o, "name"), Sv(o, "artist"), Sv(o, "album"), Sv(o, "platform"),
+                        Bv(o, "vip"), Sv(o, "requester"), Nv(o, "addedAt"),
+                        Sv(o, "mid") is var m && m.Length > 0 ? m : null,
+                        Sv(o, "hash") is var h && h.Length > 0 ? h : null,
+                        Sv(o, "bvid") is var bv && bv.Length > 0 ? bv : null,
+                        Sv(o, "duration") is var du && du.Length > 0 ? du : null));
                 }
             }
-            _currentIndex = (int)N(data, "currentIndex", -1);
+            _currentIndex = (int)Nv(data, "currentIndex", -1);
         }
         catch { }
     }
+
+    /// <summary>
+    /// Case-tolerant reads: the file is camelCase (legacy Bin/server.js format),
+    /// but builds before the naming-policy fix wrote PascalCase — tolerate both
+    /// instead of loading those entries as blank.
+    /// </summary>
+    private static bool TryNode(JsonObject o, string key, out JsonNode? node)
+    {
+        if (o.TryGetPropertyValue(key, out node)) return true;
+        var pascal = char.ToUpperInvariant(key[0]) + key.Substring(1);
+        return o.TryGetPropertyValue(pascal, out node);
+    }
+
+    private static string Sv(JsonObject o, string key, string def = "")
+        => TryNode(o, key, out var n) && n is JsonValue v && v.TryGetValue<string>(out var s) ? s ?? def : def;
+
+    private static bool Bv(JsonObject o, string key, bool def = false)
+        => TryNode(o, key, out var n) && n is JsonValue v && v.TryGetValue<bool>(out var b) ? b : def;
+
+    private static long Nv(JsonObject o, string key, long def = 0)
+        => TryNode(o, key, out var n) && n is JsonValue v && v.TryGetValue<long>(out var l) ? l : def;
 }

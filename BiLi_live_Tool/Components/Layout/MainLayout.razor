@@ -9,6 +9,7 @@
 @inject TtsSpeaker Speaker
 @inject PanelSoundPlayer Sounds
 @inject SongPlayer Song
+@inject UiBridge Ui
 
 <div class="blt-app">
     <div class="blt-side">
@@ -125,6 +126,8 @@
                 Sounds.Start();
             }
             catch { }
+            // Debug/verification bridge: lets the loopback API run JS here.
+            Ui.Register(js => JS.InvokeAsync<string>("bltEval", js).AsTask());
         }
     }
 
@@ -199,5 +202,6 @@
         Speaker.Stop();
         Sounds.Stop();
         _timer?.Dispose();
+        Ui.Unregister();
     }
 }

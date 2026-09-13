@@ -6,6 +6,7 @@
 @inject AppConfig Config
 @inject TtsHost TtsEngine
 @inject LivePipeline Pipeline
+@inject TtsSpeaker Speaker
 @implements IDisposable
 @* TTS page: engine panel, master switch, per-type switches, tone presets and voice preview.
    Config is read from GET /api/config and written back as the whole document via POST /api/config
@@ -99,8 +100,17 @@
                 <input class="blt-input mono" placeholder="如 zh-CN / xiaoxiao / 女声" @bind="_voiceFilter" @bind:event="oninput" />
 
                 <div style="margin-top:10px">
-                    <label class="blt-label">edge 音色（前 50 条 / 共 @_voices.Count 条）</label>
+                    <label class="blt-label">edge 音色（前 50 条 / 共 @_voices.Count 条 · 常用 @_favorites.Count / 20）</label>
                     <select class="blt-input mono" style="cursor:pointer" @bind="_voice">
+                        @if (_favorites.Count > 0)
+                        {
+                            <optgroup label="⭐ 常用音色">
+                                @foreach (var f in _favorites)
+                                {
+                                    <option value="@f">@FavoriteLabel(f)</option>
+                                }
+                            </optgroup>
+                        }
                         @foreach (var v in ShownVoices())
                         {
                             <option value="@v.Name">@v.Label</option>
@@ -109,6 +119,7 @@
                 </div>
 
                 <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+                    <button class="blt-btn" @onclick="ToggleFavorite" disabled="@_busy">@FavoriteBtnText()</button>
                     <button class="blt-btn" @onclick="Preview" disabled="@_busy">试听</button>
                     <button class="blt-btn primary" @onclick="SaveVoice" disabled="@_busy">保存音色</button>
                     <span style="font-family:var(--mono);font-size:11px;color:var(--ink-2)">@_previewMsg</span>
@@ -157,19 +168,61 @@
                     }
                 </div>
 
-                <div style="margin-top:12px;padding-top:8px;border-top:1px dashed var(--line)">
-                    <label class="blt-label">分类语气（tone.byType · 只读，空 = 跟随全局）</label>
-                    @foreach (var t in _toneByType)
-                    {
-                        <div class="blt-kv"><span class="k">@t.Label</span><span class="v">@t.Value</span></div>
-                    }
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🎭 按事件语气</span><span class="en">TONE BY TYPE</span>
+                <span class="right"><span>tone.byType</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <label class="blt-label">各事件类型专属语气 · 「跟随全局」= 空值</label>
+                @if (_tonePresets.Count == 0)
+                {
+                    <div class="blt-empty">配置中未找到 tonePresets · 仅能跟随全局</div>
+                }
+                @foreach (var row in _toneByType)
+                {
+                    <div style="display:flex;align-items:center;gap:10px;padding:5px 0">
+                        <span style="width:88px;flex:none;color:var(--ink-2)">@row.Label</span>
+                        <select class="blt-input" style="flex:1;cursor:pointer" @bind="row.Selected">
+                            <option value="">跟随全局</option>
+                            @foreach (var t in _tonePresets)
+                            {
+                                <option value="@t.Key">@t.Label</option>
+                            }
+                        </select>
+                    </div>
+                }
+                <div style="display:flex;gap:8px;margin-top:12px">
+                    <button class="blt-btn primary" @onclick="SaveToneByType" disabled="@_busy">保存分类语气</button>
+                    <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);align-self:center">下次播报即生效</span>
                 </div>
             </div>
         </div>
     </div>
 
-    @* ── 右列：总开关 / 分类开关 / 只读参数 ── *@
+    @* ── 右列：播报队列 / 总开关 / 分类开关 / 只读参数 ── *@
     <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">📢 播报队列</span><span class="en">SPEAK QUEUE</span>
+                <span class="right"><span>待念 @Speaker.QueueCount · 上限 @_queueMax</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-kv">
+                    <span class="k">待念条数</span>
+                    <span class="v @(Speaker.QueueCount > 0 ? "amber" : "")">@Speaker.QueueCount 条</span>
+                </div>
+                <div class="blt-kv">
+                    <span class="k">当前状态</span>
+                    <span class="v @(Speaker.Speaking ? "green" : "")">@SpeakerStateText()</span>
+                </div>
+                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
+                    播报链路已在新版内建，无需打开旧面板：命中的事件直接进入队列，按「队列上限 / 舰长优先 / 队列间隔」依次念出。
+                </div>
+            </div>
+        </div>
+
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">🔊 总开关与语速</span><span class="en">MASTER</span>
                 <span class="right"><span>enabled / rate / volume</span></span>
@@ -265,6 +318,7 @@
 
     // voices
     private readonly List<VoiceItem> _voices = new();
+    private readonly List<string> _favorites = new();   // tts.favoriteVoices (max 20, oldest dropped)
     private string _voice = "zh-CN-XiaoxiaoNeural";
     private string _voiceFilter = "";
     private string _previewMsg = "", _previewUrl = "";
@@ -288,7 +342,13 @@
 
     private sealed record TonePreset(string Key, string Label, string Desc);
 
-    private sealed record ToneRow(string Label, string Value);
+    /// <summary>Editable row of tts.tone.byType; Selected == "" means 「跟随全局」.</summary>
+    private sealed class ToneRow
+    {
+        public string Key = "";
+        public string Label = "";
+        public string Selected = "";
+    }
 
     // ---- Chinese display names for the common zh voices (same map as the legacy panel) ----
     private static readonly Dictionary<string, string> ZhVoices = new()
@@ -313,6 +373,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Speaker.Changed += OnSpeakerChanged;
         await LoadConfigAsync();
         await RefreshAll();
         // Keep the engine lamps fresh without hammering the API.
@@ -326,7 +387,14 @@
         await FetchEdgeVoicesAsync();
     }
 
-    public void Dispose() => _tick?.Dispose();
+    /// <summary>Queue changes come from the pipeline thread → marshal to the renderer.</summary>
+    private void OnSpeakerChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Speaker.Changed -= OnSpeakerChanged;
+        _tick?.Dispose();
+    }
 
     // ---- config load / save ----
 
@@ -376,7 +444,13 @@
         _gap = NumText(tts, "gap", 0);
         _queueMax = NumText(tts, "queueMax", 8);
         _guardPriority = Flag(tts, "guardPriority", false);
-        _favoriteCount = (tts?["favoriteVoices"] as JsonArray)?.Count ?? 0;
+        _favorites.Clear();
+        if (tts?["favoriteVoices"] is JsonArray favs)
+            foreach (var n in favs)
+                if (n is JsonValue fv && fv.TryGetValue<string>(out var fs)
+                    && !string.IsNullOrEmpty(fs) && !_favorites.Contains(fs))
+                    _favorites.Add(fs);
+        _favoriteCount = _favorites.Count;
         _blacklistCount = SplitList(Str(tts, "blacklistUids")).Count;
         _bannedCount = SplitList(Str(tts, "bannedWords")).Count;
 
@@ -430,8 +504,7 @@
         var byType = tone?["byType"] as JsonObject;
         foreach (var (key, label) in new[] { ("danmu", "弹幕"), ("gift", "礼物"), ("superchat", "醒目留言"), ("welcome", "欢迎进房") })
         {
-            var v = Str(byType, key);
-            _toneByType.Add(new ToneRow(label, v.Length > 0 ? v : "跟随全局"));
+            _toneByType.Add(new ToneRow { Key = key, Label = label, Selected = Str(byType, key) });
         }
     }
 
@@ -450,6 +523,10 @@
         tts["rate"] = ParseD(_rateText, 1);
         tts["volume"] = ParseD(_volumeText, 1);
 
+        var favArr = new JsonArray();
+        foreach (var f in _favorites) favArr.Add(f);
+        tts["favoriteVoices"] = favArr;
+
         foreach (var row in _cats)
         {
             if (tts[row.Key] is not JsonObject sec)
@@ -467,6 +544,9 @@
             tts["tone"] = tone;
         }
         tone["global"] = _toneGlobal;
+        var byType = tone["byType"] as JsonObject ?? new JsonObject();
+        foreach (var row in _toneByType) byType[row.Key] = row.Selected;   // "" = follow global
+        tone["byType"] = byType;
     }
 
     private async Task SaveAll()
@@ -505,6 +585,45 @@
         ApplyToDoc();
         await SaveAsync("语气已保存（" + _toneGlobal + "）");
     }
+
+    private async Task SaveToneByType()
+    {
+        ApplyToDoc();
+        await SaveAsync("按事件语气已保存");
+    }
+
+    // ---- favorite voices (tts.favoriteVoices, max 20) ----
+
+    private async Task ToggleFavorite()
+    {
+        var name = _voice;
+        if (name.Length == 0 || _busy) return;
+        if (_favorites.Contains(name))
+        {
+            _favorites.Remove(name);
+        }
+        else
+        {
+            _favorites.Add(name);
+            while (_favorites.Count > 20) _favorites.RemoveAt(0);   // cap 20 → drop the oldest
+        }
+        ApplyToDoc();
+        _favoriteCount = _favorites.Count;
+        await SaveAsync("常用音色已更新（" + _favorites.Count + " / 20）");
+    }
+
+    private string FavoriteBtnText() => _favorites.Contains(_voice) ? "★ 已收藏" : "☆ 收藏";
+
+    private string FavoriteLabel(string name)
+    {
+        var hit = _voices.FirstOrDefault(v => v.Name == name);
+        var label = hit != null && hit.Label.Length > 0 ? hit.Label : name;
+        return name == _voice ? label + "（当前）" : label;
+    }
+
+    // ---- speak queue ----
+
+    private string SpeakerStateText() => Speaker.Speaking ? "正在念：" + Speaker.CurrentText : "空闲";
 
     /// <summary>POSTs the whole document; falls back to a direct in-process write when the API is down.</summary>
     private async Task SaveAsync(string label)
@@ -734,8 +853,9 @@
         if (filter.Length > 0)
             src = src.Where(v => v.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
                               || v.Label.Contains(filter, StringComparison.OrdinalIgnoreCase));
-        var list = src.Take(50).ToList();
-        if (_voice.Length > 0 && !list.Any(v => v.Name == _voice))
+        // Favorites are rendered in their own optgroup → keep them out of the main list.
+        var list = src.Where(v => !_favorites.Contains(v.Name)).Take(50).ToList();
+        if (_voice.Length > 0 && !_favorites.Contains(_voice) && !list.Any(v => v.Name == _voice))
             list.Insert(0, new VoiceItem(_voice, _voice + "（当前配置）", false));
         return list;
     }

@@ -36,6 +36,8 @@ public sealed class KestrelHost
     private readonly MusicLoginService _musicLogin;
     private readonly KeyViewService _keyview;
     private readonly TtsSpeaker _speaker;
+    private readonly SongPlayer _songPlayer;
+    private readonly UiBridge _ui;
     private readonly UpdateChecker _updateChecker = new(VersionText);
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
     private readonly ConcurrentDictionary<Guid, WebSocket> _keyviewClients = new();
@@ -49,7 +51,7 @@ public sealed class KestrelHost
     public string? LastError { get; private set; }
     public int Port => _config.Port;
 
-    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker)
+    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui)
     {
         _config = config;
         _hub = hub;
@@ -60,6 +62,8 @@ public sealed class KestrelHost
         _musicLogin = musicLogin;
         _keyview = keyview;
         _speaker = speaker;
+        _songPlayer = songPlayer;
+        _ui = ui;
     }
 
     public void StartInBackground()
@@ -920,7 +924,25 @@ public sealed class KestrelHost
                             last = _speaker.LastResult,
                             lastError = _speaker.LastEngineError,
                         },
+                        song = new
+                        {
+                            index = _songPlayer.PlayingIndex,
+                            name = _songPlayer.CurrentName,
+                            playing = _songPlayer.IsPlaying,
+                            current = _songPlayer.Current,
+                            duration = _songPlayer.Duration,
+                            note = _songPlayer.LastNote,
+                        },
                     }, JsonWeb);
+                case "debug/eval":
+                {
+                    // Verification hook: runs JS in the hosted Blazor web view and
+                    // returns the result (raw string for primitives, JSON otherwise).
+                    var js = SafeStr(body["js"]);
+                    if (js.Length == 0) return Results.Json(new { error = "缺少 js" }, JsonWeb, statusCode: 400);
+                    var result = await _ui.EvalAsync(js).WaitAsync(TimeSpan.FromSeconds(20));
+                    return Results.Json(new { ok = !result.StartsWith("ERR:", StringComparison.Ordinal), result }, JsonWeb);
+                }
                 case "keyview/start":
                     _keyview.Start();
                     return Results.Json(new { ok = true, overlayUrl = $"http://127.0.0.1:{Port}/keyview/overlay.html" }, JsonWeb);

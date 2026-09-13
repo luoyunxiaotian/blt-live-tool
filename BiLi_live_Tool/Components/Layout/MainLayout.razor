@@ -17,17 +17,16 @@
 
         <div class="blt-navgroup @Fold("live")" @onclick="ToggleLive">直播控制</div>
         <div class="blt-navfold @FoldHide("live")">
-            <NavLink class="blt-navitem" href="/" Match="NavLinkMatch.All">🎛 房间管理</NavLink>
             <NavLink class="blt-navitem" href="/tts">🎙 语音念弹幕</NavLink>
             <NavLink class="blt-navitem" href="/autodanmu">💬 自动弹幕</NavLink>
-            <NavLink class="blt-navitem" href="/pk">⚔ PK 连线</NavLink>
+            <NavLink class="blt-navitem" href="/pk">⚔ PK/连线</NavLink>
             <NavLink class="blt-navitem" href="/song">🎵 点歌功能</NavLink>
         </div>
 
         <div class="blt-navgroup @Fold("show")" @onclick="ToggleShow">实时与展示</div>
         <div class="blt-navfold @FoldHide("show")">
             <NavLink class="blt-navitem" href="/realtime">⚡ 实时展示</NavLink>
-            <NavLink class="blt-navitem" href="/gifts">🎁 礼物数据生成</NavLink>
+            <NavLink class="blt-navitem" href="/gifts">🎁 礼物截图生成</NavLink>
         </div>
 
         <div class="blt-navgroup @Fold("logs")" @onclick="ToggleLogs">日志记录</div>
@@ -48,9 +47,9 @@
 
         <div class="blt-navgroup @Fold("sys")" @onclick="ToggleSys">设置</div>
         <div class="blt-navfold @FoldHide("sys")">
-            <NavLink class="blt-navitem" href="/diagnostics">🩺 网络诊断</NavLink>
-            <NavLink class="blt-navitem" href="/">🏠 房间管理</NavLink>
+            <NavLink class="blt-navitem" href="/" Match="NavLinkMatch.All">🎛 房间管理</NavLink>
             <NavLink class="blt-navitem" href="/help">📘 使用教程</NavLink>
+            <NavLink class="blt-navitem" href="/diagnostics">🩺 网络诊断</NavLink>
         </div>
     </div>
 
@@ -68,6 +67,7 @@
             <span class="seg">
                 🎨 主题
                 <select class="blt-input" style="width:138px;padding:1px 6px;font-size:11px" value="@_theme" @onchange="OnThemeChanged">
+                    <option value="classic">★ 经典默认（旧版）</option>
                     <option value="console">C 专业控制台</option>
                     <option value="neon">A 暗夜霓虹</option>
                     <option value="workbench">B 清爽工作台</option>
@@ -155,7 +155,7 @@
 
     private static readonly string[] Themes =
     {
-        "console", "neon", "workbench", "bili", "vibrancy", "brutal", "hud", "editorial",
+        "classic", "console", "neon", "workbench", "bili", "vibrancy", "brutal", "hud", "editorial",
     };
 
     protected override void OnInitialized()

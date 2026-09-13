@@ -332,9 +332,12 @@ public sealed class LivePipeline : IDisposable
 
     public object LikeStart()
     {
+        // Require a real connection: falling back to the configured room id let the
+        // loop hammer the like API for a room that was never connected (that is how
+        // the earlier "点赞频率限制(-352)" came about, with 0 likes reported).
         var ridStr = _hub.LastStatus.RealRoomId;
-        if (string.IsNullOrEmpty(ridStr) || ridStr == "0") ridStr = _config.RoomId;
-        if (string.IsNullOrEmpty(ridStr)) return new { error = "未连接直播间" };
+        if (string.IsNullOrEmpty(ridStr) || ridStr == "0")
+            return new { error = "未连接直播间：请先在「直播间连接」连上开播中的房间" };
         if (string.IsNullOrEmpty(_config.Cookie)) return new { error = "未配置 Cookie" };
         lock (_likeLock)
         {
@@ -353,6 +356,17 @@ public sealed class LivePipeline : IDisposable
                 var ctx = await BiliApi.InitLikeContextAsync(roomId, _config.Cookie, _cts.Token);
                 if (ctx.Uid == 0) throw new Exception("无法获取用户uid，请检查Cookie是否有效");
                 if (ctx.AnchorId == 0) throw new Exception("无法获取主播uid");
+                // Liking an offline room is what trips B站 risk control (-352); tell the
+                // user instead of retrying into a wall.
+                bool roomLive;
+                try
+                {
+                    var st = await BiliApi.GetRoomLiveStatusAsync(roomId, _config.Cookie, _cts.Token);
+                    roomLive = st.LiveStatus == 1;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch { roomLive = true; }   // probe failed: let the like call report its own error
+                if (!roomLive) throw new Exception("房间未开播：点赞需要直播间在线");
                 while (true)
                 {
                     bool stop;
@@ -366,14 +380,20 @@ public sealed class LivePipeline : IDisposable
                     }
                     else if (code == -352 && retry352 < 3)
                     {
+                        // B站风控(-352)：连续快速点击会触发，越急越容易加深限制。
+                        // 退避 5s → 15s → 30s，仍失败就停，不要继续探。
                         retry352++;
-                        lock (_likeLock) _likeError = $"点赞频率限制(-352)，等待5秒后重试({retry352}/3)";
-                        await Task.Delay(5000, _cts.Token);
+                        var wait = retry352 switch { 1 => 5, 2 => 15, _ => 30 };
+                        lock (_likeLock)
+                            _likeError = $"B站风控限制了点赞(-352)，{wait} 秒后重试（{retry352}/3）";
+                        await Task.Delay(wait * 1000, _cts.Token);
                         continue;
                     }
                     else
                     {
-                        lock (_likeLock) _likeError = message.Length > 0 ? message : "code:" + code;
+                        lock (_likeLock)
+                            _likeError = (message.Length > 0 ? message : "code:" + code) +
+                                (code == -352 ? "：多为 B站风控（该接口对同一账号有节奏限制），稍后重试或降低频率" : "");
                         break;
                     }
                     await Task.Delay(300, _cts.Token);

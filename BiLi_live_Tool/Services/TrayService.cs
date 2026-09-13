@@ -21,6 +21,7 @@
 
 #if WINDOWS
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace BiLi_live_Tool.Services;
@@ -37,6 +38,33 @@ public static class TrayService
     // Tray callback message. WM_APP (0x8000) is the recommended base for private
     // window messages (the task brief calls it "WM_USER+1 style, e.g. 0x8000").
     private const uint WmTrayCallback = 0x8000;
+
+    // Brand icon shipped next to the exe (Assets/tray.ico). Without it the tray
+    // falls back to the generic application icon, which looked like a blank sheet.
+    private static IntPtr _icon;
+    private static bool _iconTried;
+
+    private static IntPtr LoadTrayIcon()
+    {
+        if (_iconTried) return _icon != IntPtr.Zero ? _icon : LoadIcon(IntPtr.Zero, IdiApplication);
+        _iconTried = true;
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "tray.ico");
+            if (File.Exists(path))
+                _icon = LoadImage(IntPtr.Zero, path, ImageIcon, 0, 0, LrLoadFromFile | LrDefaultSize);
+        }
+        catch { }
+        if (_icon == IntPtr.Zero) _icon = LoadIcon(IntPtr.Zero, IdiApplication);
+        return _icon;
+    }
+
+    private const uint ImageIcon = 1;
+    private const uint LrLoadFromFile = 0x0010;
+    private const uint LrDefaultSize = 0x0040;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern IntPtr LoadImage(IntPtr hinst, string name, uint type, int cx, int cy, uint fuLoad);
 
     private const uint TrayIconId = 1;
 
@@ -140,9 +168,11 @@ public static class TrayService
                 uID = TrayIconId,
                 uFlags = NifMessage | NifIcon | NifTip,
                 uCallbackMessage = WmTrayCallback,
-                hIcon = LoadIcon(IntPtr.Zero, IdiApplication),
+                hIcon = LoadTrayIcon(),
                 szTip = TruncateForTip(title),
             };
+            LastDebug = (LastDebug == "ok" || LastDebug.StartsWith("ok ")) ? LastDebug : LastDebug;
+            LastDebug += (nid.hIcon != IntPtr.Zero && _icon != IntPtr.Zero ? " icon=brand" : " icon=fallback");
 
             // NIM_ADD can fail when a stale icon from a crashed previous run is still
             // parked in the tray; NIM_MODIFY re-attaches to the existing entry then.

@@ -9,6 +9,8 @@
 @inject KestrelHost Api
 @inject TtsHost Tts
 @inject DebouncedSaver Saver
+@inject IJSRuntime JS
+@inject NavigationManager Nav
 @implements IDisposable
 
 <div class="blt-pagehead"><h1>房间管理</h1><span class="en">ROOM MANAGE</span></div>
@@ -21,148 +23,242 @@
     }
 </div>
 
-<div class="blt-grid blt-cols-2">
-    @* ── 左列：直播间连接 + 事件流 ── *@
-    <div>
-        <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🔗 直播间连接</span><span class="en">ROOM LINK</span>
-                <span class="right"><span>status:</span><b class="@StateClass()">@StateText()</b></span>
-            </div>
-            <div class="blt-panel-body">
-                <label class="blt-label">room_id</label>
-                <div style="display:flex;gap:10px">
-                    <input class="blt-input mono" @bind="_roomId" @bind:after="SaveRoomIdSoon" placeholder="直播间号（支持短号）" @onkeydown="OnRoomKey" />
-                    <button class="blt-btn primary" @onclick="Connect" disabled="@Live.IsRunning">连接</button>
-                    <button class="blt-btn" @onclick="Disconnect" disabled="@(!Live.IsRunning)">断开</button>
-                </div>
-
-                <div class="blt-steps">
-                    <div class="blt-step @StepClass(0)">
-                        <div class="s1"><span class="blt-dot @StepDot(0)"></span>解析房间</div>
-                        <div class="s2">@StepText(0)</div>
-                    </div>
-                    <div class="blt-step @StepClass(1)">
-                        <div class="s1"><span class="blt-dot @StepDot(1)"></span>检查开播</div>
-                        <div class="s2">@StepText(1)</div>
-                    </div>
-                    <div class="blt-step @StepClass(2)">
-                        <div class="s1"><span class="blt-dot @StepDot(2)"></span>连接服务器</div>
-                        <div class="s2">@StepText(2)</div>
-                    </div>
-                    <div class="blt-step @StepClass(3)">
-                        <div class="s1"><span class="blt-dot @StepDot(3)"></span>实时连接</div>
-                        <div class="s2">@StepText(3)</div>
-                    </div>
-                </div>
-
-                <div style="display:flex;gap:26px;margin-top:14px;flex-wrap:wrap">
-                    <span class="blt-switch @_autoConnectClass" @onclick="ToggleAutoConnect">
-                        <span class="track"></span>自动连接 <span class="blt-hint" style="margin:0">启动时连上次房间</span>
-                    </span>
-                    <span class="blt-switch on"><span class="track"></span>断线重连 <span class="blt-hint" style="margin:0">15s 间隔</span></span>
-                </div>
-                <div class="blt-hint">房间号与自动连接改动即时保存 · @AutoSaveText()</div>
-
-                @* B站浏览器控制条 —— 固定三键，隐藏/关闭在最左（停靠时左栏 38% 可见区必可点） *@
-                <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center">
-                    <button class="blt-btn" @onclick="HideBiliBrowser" data-tip="挪到屏幕外，内存保留">隐藏浏览器</button>
-                    <button class="blt-btn" @onclick="CloseBiliBrowser" data-tip="销毁窗口释放内存，再打开自动重建">关闭浏览器</button>
-                    <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
-                </div>
-            </div>
+@* Card order mirrors the legacy Electron「房间管理（设置）」page: connection → login →
+   manual cookie import → auto like → record folders → blindbox map → skin. The three
+   MAUI-only diagnostics cards (server / event log / quick ops) stay at the end. *@
+<div class="blt-grid">
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">🔗 直播间连接</span><span class="en">ROOM LINK</span>
+            <span class="right"><span>status:</span><b class="@StateClass()">@StateText()</b></span>
         </div>
-
-        <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">📜 事件流</span><span class="en">EVENT LOG</span>
-                <span class="right"><span>tail -f · 缓存 @Hub.GetRecent("danmu").Count + 最近</span>
-                <button class="blt-btn" style="padding:2px 10px" @onclick="ClearView">清空显示</button></span>
+        <div class="blt-panel-body">
+            <label class="blt-label">room_id</label>
+            <div style="display:flex;gap:10px">
+                <input class="blt-input mono" @bind="_roomId" @bind:after="SaveRoomIdSoon" placeholder="直播间号（支持短号）" @onkeydown="OnRoomKey" />
+                <button class="blt-btn primary" @onclick="Connect" disabled="@Live.IsRunning">连接</button>
+                <button class="blt-btn" @onclick="Disconnect" disabled="@(!Live.IsRunning)">断开</button>
             </div>
-            <div class="blt-panel-body" style="padding:6px 0">
-                @if (_view.Count == 0)
-                {
-                    <div class="blt-empty">等待事件… 连接后实时滚动显示 弹幕 / 礼物 / 舰长 / SC，也可用右侧快捷操作模拟</div>
-                }
-                else
-                {
-                    <div class="blt-log">
-                        @foreach (var ev in _view)
-                        {
-                            <div class="blt-logrow">
-                                <span class="t">@ev.Time</span>
-                                <span class="tag @TagClass(ev.Type)">@TagText(ev.Type)</span>
-                                <span class="txt"><span class="u">@(string.IsNullOrEmpty(ev.Uname) ? "—" : ev.Uname)</span> @EventText(ev)</span>
-                            </div>
-                        }
-                    </div>
-                }
+
+            <div class="blt-steps">
+                <div class="blt-step @StepClass(0)">
+                    <div class="s1"><span class="blt-dot @StepDot(0)"></span>解析房间</div>
+                    <div class="s2">@StepText(0)</div>
+                </div>
+                <div class="blt-step @StepClass(1)">
+                    <div class="s1"><span class="blt-dot @StepDot(1)"></span>检查开播</div>
+                    <div class="s2">@StepText(1)</div>
+                </div>
+                <div class="blt-step @StepClass(2)">
+                    <div class="s1"><span class="blt-dot @StepDot(2)"></span>连接服务器</div>
+                    <div class="s2">@StepText(2)</div>
+                </div>
+                <div class="blt-step @StepClass(3)">
+                    <div class="s1"><span class="blt-dot @StepDot(3)"></span>实时连接</div>
+                    <div class="s2">@StepText(3)</div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:26px;margin-top:14px;flex-wrap:wrap">
+                <span class="blt-switch @_autoConnectClass" @onclick="ToggleAutoConnect">
+                    <span class="track"></span>自动连接 <span class="blt-hint" style="margin:0">启动时连上次房间</span>
+                </span>
+                <span class="blt-switch on"><span class="track"></span>断线重连 <span class="blt-hint" style="margin:0">15s 间隔</span></span>
+            </div>
+            <div class="blt-hint">房间号与自动连接改动即时保存 · @AutoSaveText()</div>
+
+            @* B站浏览器控制条 —— 固定三键，隐藏/关闭在最左（停靠时左栏 38% 可见区必可点） *@
+            <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center">
+                <button class="blt-btn" @onclick="HideBiliBrowser" data-tip="挪到屏幕外，内存保留">隐藏浏览器</button>
+                <button class="blt-btn" @onclick="CloseBiliBrowser" data-tip="销毁窗口释放内存，再打开自动重建">关闭浏览器</button>
+                <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
             </div>
         </div>
     </div>
 
-    @* ── 右列：B站账号 + 服务端 + 快捷操作 ── *@
-    <div>
-        <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🔑 B站账号</span><span class="en">AUTH</span>
-                <span class="right"><span>cookie:</span><b class="@CookieCls()">@CookieText()</b></span>
-            </div>
-            <div class="blt-panel-body">
-                <div class="blt-kv"><span class="k">登录状态</span><span class="v @CookieCls()">@LoginText()</span></div>
-                <div class="blt-kv"><span class="k">UID</span><span class="v">@(string.IsNullOrEmpty(Config.Uid) ? "—" : Config.Uid)</span></div>
-                <div class="blt-kv"><span class="k">Cookie</span><span class="v">@(HasCookie() ? "已捕获（SESSDATA/bili_jct）" : "未捕获")</span></div>
-                <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-                    <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
-                    <button class="blt-btn" @onclick="ClearLogin">清除登录态</button>
-                </div>
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">🔐 B站登录</span><span class="en">AUTH</span>
+            <span class="right"><span>cookie:</span><b class="@CookieCls()">@CookieText()</b></span>
+        </div>
+        <div class="blt-panel-body">
+            <div class="blt-kv"><span class="k">登录状态</span><span class="v @CookieCls()">@LoginText()</span></div>
+            <div class="blt-kv"><span class="k">UID</span><span class="v">@(string.IsNullOrEmpty(Config.Uid) ? "—" : Config.Uid)</span></div>
+            <div class="blt-kv"><span class="k">Cookie</span><span class="v">@(HasCookie() ? "已捕获（SESSDATA/bili_jct）" : "未捕获")</span></div>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
+                <button class="blt-btn" @onclick="ClearLogin">清除登录态</button>
             </div>
         </div>
+    </div>
 
-        <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🖥 服务端</span><span class="en">SERVER</span></div>
-            <div class="blt-panel-body">
-                <div class="blt-kv"><span class="k">面板服务</span><span class="v @ApiCls()">@ApiText()</span></div>
-                <div class="blt-kv"><span class="k">监听地址</span><span class="v">127.0.0.1:@Api.Port</span></div>
-                <div class="blt-kv"><span class="k">Edge TTS (8020)</span><span class="v">@(EdgeRunning ? "RUNNING" : "OFF")</span></div>
-                <div class="blt-kv"><span class="k">MOSS 引擎 (8021)</span><span class="v">@(MossRunning ? "RUNNING" : "按需")</span></div>
-            </div>
+    @* 📋 手动导入 Cookie — fallback when QR login is unavailable: paste the whole
+       cookie string, parse the key=value pairs and write config.cookie. *@
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">📋 手动导入 Cookie</span><span class="en">COOKIE IMPORT</span>
+            <span class="right"><span>备用方式 · 没有扫码条件时使用</span></span>
         </div>
-
-        @* Auto like: POST /api/like/start|stop + GET /api/like/status (1 s poll). *@
-        <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">👍 自动点赞</span><span class="en">AUTO LIKE</span>
-                <span class="right"><span class="blt-badge @LikeBadgeCls()">@LikeBadgeText()</span></span>
+        <div class="blt-panel-body">
+            <p class="blt-hint" style="margin-top:0">
+                推荐用上方「B站登录」扫码。无法扫码时：按 F12 → 网络(Network) → 筛选 Fetch/XHR →
+                点一个 web-room 开头的请求 → 复制「请求标头」里的整段 Cookie，粘贴到下面，会自动解析并保存。
+            </p>
+            <textarea class="blt-input mono" rows="4" style="min-height:76px"
+                      placeholder="粘贴整段 Cookie，例如：enable_web_push=DISABLE; ...; SESSDATA=xxx; bili_jct=xxx"
+                      @bind="_cookieInput" @bind:event="oninput"></textarea>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                <button class="blt-btn primary" @onclick="ImportCookie">解析并保存</button>
             </div>
-            <div class="blt-panel-body">
-                <div class="blt-master @LikeMasterCls()">
-                    <span class="st">已点赞 <b>@_likeLiked</b> 次</span>
-                    <span class="sub">@LikeSubText()</span>
-                </div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <button class="blt-btn primary" @onclick="StartLike" disabled="@(!LikeReady() || _likeRunning)">开始点赞</button>
-                    <button class="blt-btn" @onclick="StopLike" disabled="@(!_likeRunning)">停止</button>
-                </div>
-                @if (_likeError.Length > 0)
+            @if (_cookieInfo.Length > 0)
+            {
+                <div class="blt-hint" style="color:var(--green);margin:8px 0 0">@_cookieInfo</div>
+            }
+            @if (_cookieWarn.Length > 0)
+            {
+                <div class="blt-hint" style="color:var(--amber);margin:8px 0 0">@_cookieWarn</div>
+            }
+            @if (_cookieError.Length > 0)
+            {
+                <div class="blt-hint" style="color:var(--red);margin:8px 0 0">@_cookieError</div>
+            }
+            <div class="blt-kv"><span class="k">当前 Cookie</span><span class="v @CookieCls()">@CookieText()</span></div>
+        </div>
+    </div>
+
+    @* Auto like: POST /api/like/start|stop + GET /api/like/status (1 s poll). *@
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">👍 自动点赞</span><span class="en">AUTO LIKE</span>
+            <span class="right"><span class="blt-badge @LikeBadgeCls()">@LikeBadgeText()</span></span>
+        </div>
+        <div class="blt-panel-body">
+            <div class="blt-master @LikeMasterCls()">
+                <span class="st">已点赞 <b>@_likeLiked</b> 次</span>
+                <span class="sub">@LikeSubText()</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="blt-btn primary" @onclick="StartLike" disabled="@(!LikeReady() || _likeRunning)">开始点赞</button>
+                <button class="blt-btn" @onclick="StopLike" disabled="@(!_likeRunning)">停止</button>
+            </div>
+            @if (_likeError.Length > 0)
+            {
+                <div class="blt-hint" style="color:var(--red);margin:0">@_likeError</div>
+            }
+            <p class="blt-hint">
+                点赞为 B站「点赞」长按协议循环发送，用于提升直播间热度；仅在已连接且已配置 Cookie 时可用。
+            </p>
+        </div>
+    </div>
+
+    @* 📁 记录文件夹 — absolute paths served by GET /api/status → folders. *@
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">📁 记录文件夹</span><span class="en">RECORD FOLDERS</span>
+            <span class="right"><button class="blt-btn" style="padding:2px 10px" @onclick="OpenDataFolder">打开数据目录</button></span>
+        </div>
+        <div class="blt-panel-body">
+            @if (_folders.Count == 0)
+            {
+                <div class="blt-hint" style="margin-top:0">未获取到记录目录（面板服务未运行，或尚未产生记录）。</div>
+            }
+            else
+            {
+                @foreach (var f in _folders)
                 {
-                    <div class="blt-hint" style="color:var(--red);margin:0">@_likeError</div>
+                    <div class="blt-kv">
+                        <span class="k" style="min-width:66px">@f.Label</span>
+                        <span class="v" style="flex:1;margin-left:8px;font-size:12px;word-break:break-all;text-align:left">@f.Path</span>
+                        <button class="blt-btn" style="padding:1px 10px;margin-left:10px" @onclick="() => OpenRowFolder(f)">打开</button>
+                    </div>
                 }
-                <p class="blt-hint">
-                    点赞为 B站「点赞」长按协议循环发送，用于提升直播间热度；仅在已连接且已配置 Cookie 时可用。
-                </p>
+            }
+            <div class="blt-hint">弹幕/礼物等记录文件的保存位置，点「打开」在资源管理器中定位；目录来自 GET /api/status 的 folders 字段。</div>
+        </div>
+    </div>
+
+    @* 🎁 盲盒收入映射 is maintained on the gifts page in the MAUI rewrite. *@
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">🎁 盲盒收入映射</span><span class="en">BLINDBOX MAP</span></div>
+        <div class="blt-panel-body">
+            <div class="blt-hint" style="margin-top:0">
+                盲盒收入映射（礼物名 → 单个盲盒开出收入）在「礼物截图生成」页维护，用于计算盲盒盈亏，不影响记录。
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                <button class="blt-btn primary" @onclick="GoGiftPage">前往「礼物截图生成」</button>
             </div>
         </div>
+    </div>
 
-        <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">⚡ 快捷操作</span><span class="en">QUICK OPS</span>
-                <span class="right"><span>dev · 走完整事件管线</span></span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                    <button class="blt-btn" @onclick="SimDanmu">模拟弹幕</button>
-                    <button class="blt-btn" @onclick="SimGifts">模拟礼物</button>
-                    <button class="blt-btn" @onclick="SimGuard">模拟舰长</button>
-                    <button class="blt-btn" @onclick="SimSc">模拟 SC</button>
-                    <button class="blt-btn" @onclick="SimFollow">模拟关注</button>
-                    <button class="blt-btn" @onclick="SimWelcome">模拟进房</button>
+    @* 🎨 界面皮肤 — same theme ids / names / order as the MainLayout top strip picker. *@
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">🎨 界面皮肤</span><span class="en">THEME</span>
+            <span class="right"><button class="blt-btn" style="padding:2px 10px" @onclick="ResetFoldMemory">重置卡片折叠记忆</button></span>
+        </div>
+        <div class="blt-panel-body">
+            <label class="blt-label">skin</label>
+            <select class="blt-input" value="@_skin" @onchange="OnSkinChanged">
+                <option value="classic">★ 经典默认（旧版）</option>
+                    <option value="console">C 专业控制台</option>
+                <option value="neon">A 暗夜霓虹</option>
+                <option value="workbench">B 清爽工作台</option>
+                <option value="bili">D B站应援</option>
+                <option value="vibrancy">E 灵动玻璃</option>
+                <option value="brutal">F 新粗野主义</option>
+                <option value="hud">G 电竞 HUD</option>
+                <option value="editorial">H 杂志编辑风</option>
+            </select>
+            <div class="blt-hint">即时生效 · 全部页面换装 · 自动保存</div>
+            @if (_foldMsg.Length > 0)
+            {
+                <div class="blt-hint" style="color:var(--green);margin:8px 0 0">@_foldMsg</div>
+            }
+        </div>
+    </div>
+
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">🖥 服务端</span><span class="en">SERVER</span></div>
+        <div class="blt-panel-body">
+            <div class="blt-kv"><span class="k">面板服务</span><span class="v @ApiCls()">@ApiText()</span></div>
+            <div class="blt-kv"><span class="k">监听地址</span><span class="v">127.0.0.1:@Api.Port</span></div>
+            <div class="blt-kv"><span class="k">Edge TTS (8020)</span><span class="v">@(EdgeRunning ? "RUNNING" : "OFF")</span></div>
+            <div class="blt-kv"><span class="k">MOSS 引擎 (8021)</span><span class="v">@(MossRunning ? "RUNNING" : "按需")</span></div>
+        </div>
+    </div>
+
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">📜 事件日志</span><span class="en">EVENT LOG</span>
+            <span class="right"><span>tail -f · 缓存 @Hub.GetRecent("danmu").Count + 最近</span>
+            <button class="blt-btn" style="padding:2px 10px" @onclick="ClearView">清空显示</button></span>
+        </div>
+        <div class="blt-panel-body" style="padding:6px 0">
+            @if (_view.Count == 0)
+            {
+                <div class="blt-empty">等待事件… 连接后实时滚动显示 弹幕 / 礼物 / 舰长 / SC，也可用下方快捷操作模拟</div>
+            }
+            else
+            {
+                <div class="blt-log">
+                    @foreach (var ev in _view)
+                    {
+                        <div class="blt-logrow">
+                            <span class="t">@ev.Time</span>
+                            <span class="tag @TagClass(ev.Type)">@TagText(ev.Type)</span>
+                            <span class="txt"><span class="u">@(string.IsNullOrEmpty(ev.Uname) ? "—" : ev.Uname)</span> @EventText(ev)</span>
+                        </div>
+                    }
                 </div>
+            }
+        </div>
+    </div>
+
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">⚡ 快捷操作</span><span class="en">QUICK OPS</span>
+            <span class="right"><span>dev · 走完整事件管线</span></span>
+        </div>
+        <div class="blt-panel-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button class="blt-btn" @onclick="SimDanmu">模拟弹幕</button>
+                <button class="blt-btn" @onclick="SimGifts">模拟礼物</button>
+                <button class="blt-btn" @onclick="SimGuard">模拟舰长</button>
+                <button class="blt-btn" @onclick="SimSc">模拟 SC</button>
+                <button class="blt-btn" @onclick="SimFollow">模拟关注</button>
+                <button class="blt-btn" @onclick="SimWelcome">模拟进房</button>
             </div>
         </div>
     </div>
@@ -186,6 +282,31 @@
     private int _likeLiked;
     private string _likeError = "";
 
+    // Manual cookie import (📋 手动导入 Cookie).
+    private string _cookieInput = "";
+    private string _cookieInfo = "";
+    private string _cookieWarn = "";
+    private string _cookieError = "";
+
+    // Record folder rows (📁 记录文件夹), loaded from GET /api/status → folders.
+    private static readonly (string Key, string Label)[] FolderDefs =
+    {
+        ("danmu", "弹幕记录"),
+        ("gifts", "礼物记录"),
+        ("blindbox", "盲盒记录"),
+        ("guard", "舰长记录"),
+        ("superchat", "SC 记录"),
+    };
+    private readonly List<(string Label, string Path)> _folders = new();
+
+    // Skin picker (🎨 界面皮肤): ids/order copied from the MainLayout top strip.
+    private static readonly string[] Themes =
+    {
+        "classic", "console", "neon", "workbench", "bili", "vibrancy", "brutal", "hud", "editorial",
+    };
+    private string _skin = "console";
+    private string _foldMsg = "";
+
     private bool EdgeRunning => GetProp(Tts.EdgeStatus(), "running");
     private bool MossRunning => GetProp(Tts.MossStatus(), "running");
 
@@ -199,11 +320,15 @@
         _roomId = Config.RoomId;
         _autoConnectBool = Config.AutoConnect;
         _autoConnectClass = _autoConnectBool ? "on" : "";
+        var skin = (Config.GetNode("skin") as JsonValue)?.GetValue<string>() ?? "";
+        if (skin.Length == 0 || skin == "default") skin = "console";
+        if (Themes.Contains(skin)) _skin = skin;
         Hub.OnEvent += OnEvent;
         Hub.StatusChanged += OnStatus;
         _likeTimer = new System.Threading.Timer(_ => _ = PollLikeStatus(), null,
             TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         _ = PollLikeStatus();   // first paint gets the current counters without waiting 1 s
+        _ = LoadFoldersAsync();
     }
 
     private void OnEvent(LiveEvent ev) => InvokeAsync(() =>
@@ -273,10 +398,184 @@
         return _savedAt.HasValue ? "已自动保存 " + _savedAt.Value.ToString("HH:mm:ss") : "改动即时自动保存";
     }
 
+    // ---- manual cookie import (📋 手动导入 Cookie) ----
+
+    /// <summary>
+    /// Parses "k=v; k2=v2" (also one pair per line, plus a pasted "Cookie: k=v" header)
+    /// into an ordered dictionary; key/value order follows the paste.
+    /// </summary>
+    private static Dictionary<string, string> ParseCookiePairs(string raw)
+    {
+        var pairs = new Dictionary<string, string>(StringComparer.Ordinal);
+        var text = (raw ?? "").Replace("\r", "\n");
+        foreach (var chunk in text.Split(new[] { ';', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var item = chunk.Trim();
+            var eq = item.IndexOf('=');
+            if (eq <= 0) continue;
+            var key = item[..eq].Trim();
+            var colon = key.LastIndexOf(':');           // tolerate a pasted "Cookie: SESSDATA" header
+            if (colon >= 0) key = key[(colon + 1)..].Trim();
+            var val = item[(eq + 1)..].Trim();
+            if (key.Length == 0 || val.Length == 0) continue;
+            if (val is "undefined" or "null" or "NaN") continue;
+            pairs[key] = val;   // later duplicates win
+        }
+        return pairs;
+    }
+
+    /// <summary>Parses the pasted cookie and writes it through the same config path as SaveRoomConfig.</summary>
+    private void ImportCookie()
+    {
+        _cookieInfo = "";
+        _cookieWarn = "";
+        _cookieError = "";
+
+        var pairs = ParseCookiePairs(_cookieInput);
+        if (pairs.Count == 0)
+        {
+            _cookieError = "未识别到有效 Cookie";
+            return;
+        }
+
+        var hasSession = pairs.ContainsKey("SESSDATA");
+        var hasJct = pairs.ContainsKey("bili_jct");
+        var cookie = string.Join("; ", pairs.Select(kv => kv.Key + "=" + kv.Value));
+
+        try
+        {
+            // Snapshot → mutate config.cookie → replace, exactly like SaveRoomConfig.
+            var doc = Config.Snapshot();
+            doc["cookie"] = cookie;
+            if (pairs.TryGetValue("DedeUserID", out var uid) && uid.Length > 0) doc["uid"] = uid;
+            Config.ReplaceFrom(doc);
+        }
+        catch (Exception ex)
+        {
+            _cookieError = "保存失败：" + ex.Message;
+            return;
+        }
+
+        _cookieInfo = hasSession
+            ? $"✅ 已识别 SESSDATA（共 {pairs.Count} 项，已保存）"
+            : $"已保存 {pairs.Count} 项 Cookie";
+        var warns = new List<string>();
+        if (!hasSession) warns.Add("缺少 SESSDATA：登录态可能无效");
+        if (!hasJct) warns.Add("缺少 bili_jct：发言/点赞等写操作会失败");
+        _cookieWarn = warns.Count > 0 ? "⚠ " + string.Join("；", warns) : "";
+
+        Hub.PublishStatus(Hub.LastStatus);   // refresh the login rows above
+        StateHasChanged();
+    }
+
+    // ---- record folders (📁 记录文件夹) ----
+
+    /// <summary>GET /api/status → folders, retried while the panel API finishes booting.</summary>
+    private async Task LoadFoldersAsync()
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var rows = await FetchFoldersAsync();
+            if (rows.Count > 0)
+            {
+                try
+                {
+                    await InvokeAsync(() =>
+                    {
+                        _folders.Clear();
+                        _folders.AddRange(rows);
+                        StateHasChanged();
+                    });
+                }
+                catch
+                {
+                    // component disposed while the request was in flight
+                }
+                return;
+            }
+            await Task.Delay(700 * (attempt + 1));
+        }
+    }
+
+    /// <summary>One row per record type (absolute paths); empty when the API is unreachable.</summary>
+    private async Task<List<(string Label, string Path)>> FetchFoldersAsync()
+    {
+        var rows = new List<(string Label, string Path)>();
+        try
+        {
+            var o = await GetJsonAsync("/api/status");
+            var folders = o?["folders"] as JsonObject;
+            if (folders == null) return rows;
+            foreach (var (key, label) in FolderDefs)
+                if (folders[key] is JsonValue v && v.TryGetValue<string>(out var p) && !string.IsNullOrEmpty(p))
+                    rows.Add((label, p));
+        }
+        catch
+        {
+            // the panel API may still be starting up
+        }
+        return rows;
+    }
+
+    private Task OpenDataFolder() => PostJsonAsync("/api/maui/shell/open-data-folder", new JsonObject());
+
+    private Task OpenRowFolder((string Label, string Path) row)
+        => PostJsonAsync("/api/maui/shell/open-path", new JsonObject { ["path"] = row.Path });
+
+    private async Task PostJsonAsync(string path, JsonObject body)
+    {
+        try
+        {
+            using var resp = await Http.PostAsync(Base + path,
+                new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"));
+        }
+        catch
+        {
+            // panel API down → the click is a no-op
+        }
+    }
+
+    // ---- misc new cards ----
+
+    private void GoGiftPage() => Nav.NavigateTo("/gifts");
+
+    /// <summary>Applies + persists the skin, mirroring MainLayout.OnThemeChanged.</summary>
+    private async Task OnSkinChanged(ChangeEventArgs e)
+    {
+        var t = e.Value?.ToString() ?? "console";
+        if (!Themes.Contains(t)) t = "console";
+        _skin = t;
+        try
+        {
+            var doc = Config.Snapshot();
+            doc["skin"] = t;
+            Config.ReplaceFrom(doc);
+        }
+        catch { }
+        try { await JS.InvokeVoidAsync("bltSetTheme", t); } catch { }
+#if WINDOWS
+        App.ApplyTitleBarForTheme(t);   // keep the native title bar in step with the theme
+#endif
+        StateHasChanged();
+    }
+
+    /// <summary>Forgets the per-card fold state stored by blt-panels.js and expands all cards again.</summary>
+    private async Task ResetFoldMemory()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("bltFold.clear");
+            await JS.InvokeVoidAsync("bltFold.apply");
+        }
+        catch { }
+        _foldMsg = "已重置折叠状态";
+        StateHasChanged();
+    }
+
     // ---- auto like (B站「点赞」长按协议) ----
 
     /// <summary>The like loop needs a room id (connected or configured) plus a captured cookie.</summary>
-    private bool LikeReady() => HasCookie() && (Hub.LastStatus.State == "connected" || Config.RoomId.Length > 0);
+    private bool LikeReady() => HasCookie() && Hub.LastStatus.State == "connected";
 
     private string LikeMasterCls() => _likeRunning ? "on" : "";
 
@@ -287,7 +586,7 @@
     private string LikeSubText()
     {
         if (_likeRunning) return "循环点赞中 · 300 ms/次";
-        if (!LikeReady()) return "需要已连接直播间且已配置 Cookie";
+        if (!LikeReady()) return "需要先连上直播间（并已配置 Cookie）";
         return "已停止 · 点「开始点赞」启动循环";
     }
 

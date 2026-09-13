@@ -41,10 +41,10 @@
 </div>
 
 <div class="blt-grid blt-cols-2">
-    @* ── 左列：引擎 / 音色 / 语气 ── *@
+    @* ── 左列：语音引擎（含音色）/ 总开关与语音 ── *@
     <div>
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🎛 语音引擎</span><span class="en">ENGINE</span>
+            <div class="blt-panel-head"><span class="t">🔈 语音引擎</span><span class="en">ENGINE</span>
                 <span class="right"><span>tts.engine</span><b class="amber">@_engine</b></span>
             </div>
             <div class="blt-panel-body">
@@ -91,14 +91,12 @@
                 {
                     <div class="blt-hint">sys 引擎不依赖本地服务；edge 未运行时自动回退到系统语音</div>
                 }
-            </div>
-        </div>
 
-        <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🗣 音色与试听</span><span class="en">VOICE</span>
-                <span class="right"><span>tts.voice</span><b class="amber">@_voice</b></span>
-            </div>
-            <div class="blt-panel-body">
+                @* Voice picker stays inside the engine card (legacy 「🔈 语音引擎」 groups engine + voice). *@
+                <div class="blt-kv" style="margin-top:14px;border-top:1px solid var(--line)">
+                    <span class="k">voice · 音色与试听</span>
+                    <span class="v amber">@_voice</span>
+                </div>
                 @if (_engine != "edge")
                 {
                     <div class="blt-hint" style="color:var(--amber);margin:0 0 8px">
@@ -142,8 +140,38 @@
         </div>
 
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🎚 语气预设</span><span class="en">TONE</span>
-                <span class="right"><span>tone.global</span><b class="amber">@_toneGlobal</b></span>
+            <div class="blt-panel-head"><span class="t">总开关 &amp; 语音</span><span class="en">MASTER</span>
+                <span class="right"><span>enabled / rate / volume</span></span>
+            </div>
+            <div class="blt-panel-body">
+                @* The master toggle itself sits in the page-level bar above (kept prominent on purpose). *@
+                <div class="blt-kv">
+                    <span class="k">启用语音念弹幕（页面顶部主控条）</span>
+                    <span class="v @OnOff(_enabled)">@OnOffText(_enabled)</span>
+                </div>
+                <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px">
+                    <div style="flex:1;min-width:110px">
+                        <label class="blt-label">rate · 语速</label>
+                        <input class="blt-input mono" type="number" step="0.05" min="0.5" max="2.5"
+                               @bind="_rateText" @bind:after="SaveMasterSoon" />
+                    </div>
+                    <div style="flex:1;min-width:110px">
+                        <label class="blt-label">volume · 音量</label>
+                        <input class="blt-input mono" type="number" step="0.05" min="0" max="1"
+                               @bind="_volumeText" @bind:after="SaveMasterSoon" />
+                    </div>
+                </div>
+                <div class="blt-hint">rate 0.5–2.5（1 = 原速）· volume 0–1 · 总开关在页面顶部主控条</div>
+                <div class="blt-hint">改动即时生效并自动保存 · @AutoSaveText()</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：语气 / 念哪些事件 / 队列与过滤 / 只读参数 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🎭 语气</span><span class="en">TONE</span>
+                <span class="right"><span>tone.global / byType</span><b class="amber">@_toneGlobal</b></span>
             </div>
             <div class="blt-panel-body">
                 <label class="blt-label">全局语气（tone.global）</label>
@@ -173,15 +201,8 @@
                     }
                 </div>
 
-            </div>
-        </div>
-
-        <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🎭 按事件语气</span><span class="en">TONE BY TYPE</span>
-                <span class="right"><span>tone.byType</span></span>
-            </div>
-            <div class="blt-panel-body">
-                <label class="blt-label">各事件类型专属语气 · 「跟随全局」= 空值</label>
+                @* Per-event tone binding lives in the same card (legacy 「🎭 语气」 covers global + byType). *@
+                <label class="blt-label" style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">各事件类型专属语气（「跟随全局」= 空值）</label>
                 @if (_tonePresets.Count == 0)
                 {
                     <div class="blt-empty">配置中未找到 tonePresets · 仅能跟随全局</div>
@@ -200,85 +221,11 @@
                         </select>
                     </div>
                 }
-                <div class="blt-hint">下次播报即生效 · @AutoSaveText()</div>
+                <div class="blt-hint">tone.byType · 下次播报即生效 · @AutoSaveText()</div>
             </div>
         </div>
-    </div>
-
-    @* ── 右列：播报队列 / 语速音量 / 分类开关（含念昵称）/ 黑名单 / 只读参数 ── *@
-    <div>
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">📢 播报队列</span><span class="en">SPEAK QUEUE</span>
-                <span class="right"><span>待念 @Speaker.QueueCount · 上限 @_queueMax</span></span>
-            </div>
-            <div class="blt-panel-body">
-                <div class="blt-kv">
-                    <span class="k">待念条数</span>
-                    <span class="v @(Speaker.QueueCount > 0 ? "amber" : "")">@Speaker.QueueCount 条</span>
-                </div>
-                <div class="blt-kv">
-                    <span class="k">当前状态</span>
-                    <span class="v @(Speaker.Speaking ? "green" : "")">@SpeakerStateText()</span>
-                </div>
-                <div style="display:flex;gap:8px;align-items:flex-end;margin-top:12px;flex-wrap:wrap">
-                    <div style="width:94px">
-                        <label class="blt-label">队列上限</label>
-                        <input class="blt-input mono" type="number" min="1" max="50" value="@_queueMax"
-                               @onchange="OnQueueMaxChanged" />
-                    </div>
-                    <button class="blt-btn" @onclick="SkipSpeech" disabled="@(!Speaker.Speaking)">⏭ 跳过本条</button>
-                    <button class="blt-btn" @onclick="ClearSpeechQueue" disabled="@(Speaker.QueueCount == 0)">🗑 清空队列</button>
-                    <span class="@SwitchClass(_guardPriority)" style="margin-left:auto" @onclick="ToggleGuardPriority">
-                        <span class="track"></span>舰长弹幕优先
-                    </span>
-                </div>
-                @{ var q = Speaker.QueueSnapshot(); }
-                @if (q.Count == 0)
-                {
-                    <div class="blt-empty" style="padding:14px 6px">队列为空 · 命中事件后在这里排队</div>
-                }
-                else
-                {
-                    <div class="blt-log" style="max-height:186px;margin-top:10px">
-                        @foreach (var row in q)
-                        {
-                            <div class="blt-logrow">
-                                <span class="tag @QueueTagClass(row)">@QueueTagText(row)</span>
-                                <span class="txt">@(row.Guard ? "⭐ " : "")@row.Text</span>
-                            </div>
-                        }
-                    </div>
-                }
-                <div class="blt-hint">
-                    「跳过本条」立刻停掉正在念的这条、接着念下一条；「清空队列」只丢弃排队中的，正在念的不受影响。上限 1~50，达到上限后新事件被忽略（舰长优先开启时舰长弹幕插队到第 2 位之后）。
-                </div>
-            </div>
-        </div>
-
-        <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🔊 语速与音量</span><span class="en">RATE / VOLUME</span>
-                <span class="right"><span>rate / volume</span></span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:flex;gap:14px;flex-wrap:wrap">
-                    <div style="flex:1;min-width:110px">
-                        <label class="blt-label">rate · 语速</label>
-                        <input class="blt-input mono" type="number" step="0.05" min="0.5" max="2.5"
-                               @bind="_rateText" @bind:after="SaveMasterSoon" />
-                    </div>
-                    <div style="flex:1;min-width:110px">
-                        <label class="blt-label">volume · 音量</label>
-                        <input class="blt-input mono" type="number" step="0.05" min="0" max="1"
-                               @bind="_volumeText" @bind:after="SaveMasterSoon" />
-                    </div>
-                </div>
-                <div class="blt-hint">rate 0.5–2.5（1 = 原速）· volume 0–1 · 总开关已移到页面顶部主控条</div>
-                <div class="blt-hint">改动即时生效并自动保存 · @AutoSaveText()</div>
-            </div>
-        </div>
-
-        <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🧩 分类开关</span><span class="en">BY TYPE</span>
+            <div class="blt-panel-head"><span class="t">念哪些事件</span><span class="en">EVENTS</span>
                 <span class="right"><span>enabled + sayUid + volume</span></span>
             </div>
             <div class="blt-panel-body">
@@ -308,13 +255,63 @@
             </div>
         </div>
 
-        @* Blacklist: same semantics as the legacy 队列 / 过滤 panel (tts.blacklistUids + tts.bannedWords). *@
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t">🚫 黑名单</span><span class="en">BLACKLIST</span>
-                <span class="right"><span>blacklistUids / bannedWords</span></span>
+            <div class="blt-panel-head"><span class="t">队列 / 过滤</span><span class="en">QUEUE</span>
+                <span class="right"><span>待念 @Speaker.QueueCount · 上限 @_queueMax</span></span>
             </div>
             <div class="blt-panel-body">
-                <label class="blt-label">黑名单 UID（blacklistUids）</label>
+                @* 1) queue cap + guard priority *@
+                <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+                    <div style="width:94px">
+                        <label class="blt-label">队列上限</label>
+                        <input class="blt-input mono" type="number" min="1" max="50" value="@_queueMax"
+                               @onchange="OnQueueMaxChanged" />
+                    </div>
+                    <span class="@SwitchClass(_guardPriority)" style="margin-left:auto" @onclick="ToggleGuardPriority">
+                        <span class="track"></span>舰长弹幕优先
+                    </span>
+                </div>
+
+                @* 2) pending count + current state *@
+                <div class="blt-kv" style="margin-top:10px">
+                    <span class="k">待念条数</span>
+                    <span class="v @(Speaker.QueueCount > 0 ? "amber" : "")">@Speaker.QueueCount 条</span>
+                </div>
+                <div class="blt-kv">
+                    <span class="k">当前状态</span>
+                    <span class="v @(Speaker.Speaking ? "green" : "")">@SpeakerStateText()</span>
+                </div>
+
+                @* 3) live queue list *@
+                @{ var q = Speaker.QueueSnapshot(); }
+                @if (q.Count == 0)
+                {
+                    <div class="blt-empty" style="padding:14px 6px">队列为空 · 命中事件后在这里排队</div>
+                }
+                else
+                {
+                    <div class="blt-log" style="max-height:186px;margin-top:10px">
+                        @foreach (var row in q)
+                        {
+                            <div class="blt-logrow">
+                                <span class="tag @QueueTagClass(row)">@QueueTagText(row)</span>
+                                <span class="txt">@(row.Guard ? "⭐ " : "")@row.Text</span>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @* 4) skip / clear *@
+                <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
+                    <button class="blt-btn" @onclick="SkipSpeech" disabled="@(!Speaker.Speaking)">⏭ 跳过本条</button>
+                    <button class="blt-btn" @onclick="ClearSpeechQueue" disabled="@(Speaker.QueueCount == 0)">🗑 清空队列</button>
+                </div>
+                <div class="blt-hint">
+                    「跳过本条」立刻停掉正在念的这条、接着念下一条；「清空队列」只丢弃排队中的，正在念的不受影响。上限 1~50，达到上限后新事件被忽略（舰长优先开启时舰长弹幕插队到第 2 位之后）。
+                </div>
+
+                @* 5) filters: blacklist UID + banned words (legacy 队列 / 过滤 panel) *@
+                <label class="blt-label" style="margin-top:12px">黑名单 UID（blacklistUids）</label>
                 <textarea class="blt-input mono" rows="2" placeholder="123456,789012"
                           title="这些 UID 的用户发的内容不朗读，逗号分隔（填数字 UID，不是昵称）"
                           @bind="_blacklistUids" @bind:event="oninput" @bind:after="SaveFiltersSoon"></textarea>

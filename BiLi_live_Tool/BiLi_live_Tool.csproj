@@ -68,6 +68,8 @@
         <Copy SourceFiles="Assets\viewer-template.html" DestinationFiles="$(OutputPath)\viewer-template.html" SkipUnchangedFiles="true" />
         <Copy SourceFiles="Assets\maui-bridge.js" DestinationFiles="$(OutputPath)\wwwroot\legacy\maui-bridge.js" SkipUnchangedFiles="true" Condition="Exists('$(OutputPath)\wwwroot\legacy')" />
         <Copy SourceFiles="Assets\keyview-default.json" DestinationFiles="$(OutputPath)\keyview-default.json" SkipUnchangedFiles="true" />
+        <!-- Brand icon for the tray + window chrome (Assets/tray.ico). -->
+        <Copy SourceFiles="Assets\tray.ico" DestinationFiles="$(OutputPath)\tray.ico" SkipUnchangedFiles="true" />
     </Target>
 
     <ItemGroup>

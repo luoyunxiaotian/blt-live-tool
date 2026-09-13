@@ -126,3 +126,21 @@ html[data-theme="editorial"] .blt-brand b{font-size:17px;letter-spacing:0}
 html[data-theme="editorial"] .blt-panel-head{border-bottom:2px solid var(--line)}
 html[data-theme="editorial"] .blt-log{background:#fffdf8}
 html[data-theme="editorial"] .blt-foot{letter-spacing:1px}
+
+/* ── V 经典默认（旧版默认皮肤，Bin/public/style.css：石墨黑 + B站粉）──────── */
+html[data-theme="classic"]{
+  --bg:#0e0f13; --bg-2:#0a0b0e; --panel:#17181d; --panel-2:#1e2026;
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --ink:rgba(255,255,255,.92); --ink-2:rgba(255,255,255,.56); --ink-3:rgba(255,255,255,.42);
+  --amber:#fb7299; --amber-dim:rgba(251,114,153,.14);
+  --green:#63e2b7; --green-dim:rgba(99,226,183,.14);
+  --red:#e88080; --red-dim:rgba(232,128,128,.14);
+  --blue:#63a6ff; --blue-dim:rgba(99,166,255,.14);
+  --r:6px;
+  --accent-ink:#ffffff;
+  --shadow:0 1px 3px rgba(0,0,0,.24),0 2px 8px rgba(0,0,0,.18);
+}
+html[data-theme="classic"] .blt-foot{color:#fff}
+html[data-theme="classic"] .blt-btn.primary{box-shadow:0 0 12px rgba(251,114,153,.22)}
+html[data-theme="classic"] .blt-navitem.active{background:var(--amber-dim)}
+html[data-theme="classic"] .blt-panel{box-shadow:var(--shadow)}

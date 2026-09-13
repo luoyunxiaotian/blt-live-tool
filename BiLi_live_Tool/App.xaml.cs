@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json.Nodes;
 using BiLi_live_Tool.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,6 +56,7 @@ namespace BiLi_live_Tool
             window.HandlerChanged += (_, _) =>
             {
                 StyleTitleBar(window);
+                ApplyWindowIcon(window);
                 HookCloseToTray(window);
             };
             window.Destroying += async (_, _) =>
@@ -72,6 +74,26 @@ namespace BiLi_live_Tool
 #endif
             };
             return window;
+        }
+
+        /// <summary>
+        /// Taskbar/Alt-Tab icon from the branded Assets/tray.ico (the MAUI icon is
+        /// generated from Resources/AppIcon at build time; this covers window chrome
+        /// on unpackaged runs too).
+        /// </summary>
+        private static void ApplyWindowIcon(Window window)
+        {
+            try
+            {
+#if WINDOWS
+                if (window.Handler?.PlatformView is Microsoft.UI.Xaml.Window winUi && winUi.AppWindow is { } appWindow)
+                {
+                    var path = Path.Combine(AppContext.BaseDirectory, "tray.ico");
+                    if (File.Exists(path)) appWindow.SetIcon(path);
+                }
+#endif
+            }
+            catch { }
         }
 
         /// <summary>True only for the real exit path (tray menu / API) — otherwise X hides to tray.</summary>
@@ -224,6 +246,7 @@ namespace BiLi_live_Tool
             "editorial" => ("#F8F5EE", "#22242A"),
             "neon" => ("#0A0614", "#F4EFFF"),
             "hud" => ("#05070B", "#DFE7F2"),
+            "classic" => ("#0E0F13", "#EAEAEE"),   // 旧版默认皮肤（石墨黑 + B站粉）
             _ => ("#0B0F14", "#D7DEE8"),
         };
 

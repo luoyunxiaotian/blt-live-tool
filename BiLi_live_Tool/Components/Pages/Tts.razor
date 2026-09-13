@@ -88,18 +88,13 @@
                         <button class="blt-btn" @onclick="RestartMoss" disabled="@_busy">重启</button>
                     </div>
 
-                    @* Engine body is on-demand (package-size optimization): no exe in the bundle. *@
+                    @* MOSS engine ships with the package (44.5MB is not worth an
+                       on-demand download); this hint covers a broken install. *@
                     @if (!_mossInstalled)
                     {
                         <div class="blt-hint" style="color:var(--amber)">
-                            MOSS 引擎未安装（约 44.5 MB，下载后模型仍按需下载）
+                            未找到 moss_tts_server.exe：请重新安装本程序，或把它放到 @_mossPath 同级目录
                         </div>
-                        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
-                            <button class="blt-btn" @onclick="InstallMossEngine" disabled="@_mossDownloading">⬇ 下载 MOSS 引擎</button>
-                            <span class="blt-hint" style="margin:0">@MossInstallText()</span>
-                        </div>
-                        <div class="blt-hint">下载源：@MossEngineInstaller.SourceUrl</div>
-                        <div class="blt-hint">下载失败可手动把 moss_tts_server.exe 放到 @MossEngineInstaller.TargetPath</div>
                     }
                     else
                     {
@@ -379,8 +374,6 @@
 
     // moss engine installer (on-demand 44.5 MB exe; model stays lazy)
     private bool _mossInstalled;              // engineInstalled from MossStatus: exe present on disk
-    private bool _mossDownloading;            // click guard so the button can't be fired twice
-    private MossEngineStatus? _mossInstall;   // installer snapshot (progress + hint text)
 
     // master
     private bool _enabled;
@@ -457,8 +450,6 @@
     protected override async Task OnInitializedAsync()
     {
         Speaker.Changed += OnSpeakerChanged;
-        MossEngineInstaller.Changed += OnMossInstallChanged;
-        _mossInstall = MossEngineInstaller.Status();
         await LoadConfigAsync();
         await RefreshAll();
         // Keep the engine lamps fresh without hammering the API.
@@ -478,13 +469,10 @@
     public void Dispose()
     {
         Speaker.Changed -= OnSpeakerChanged;
-        MossEngineInstaller.Changed -= OnMossInstallChanged;
         _tick?.Dispose();
     }
 
     /// <summary>Download progress arrives from a background thread → marshal to the renderer.</summary>
-    private void OnMossInstallChanged()
-        => InvokeAsync(() => { _mossInstall = MossEngineInstaller.Status(); StateHasChanged(); });
 
     // ---- config load / save ----
 
@@ -865,7 +853,6 @@
             if (mp.Length > 0) _mossPath = mp;
             var md = PropStr(m, "modelDir");
             if (md.Length > 0) _mossModelDir = md;
-            _mossInstall = MossEngineInstaller.Status();
         }
         catch { /* status probe must never break rendering */ }
     }
@@ -982,40 +969,8 @@
 
     // ---- on-demand moss engine download (44.5 MB exe is no longer in the package) ----
 
-    private async Task InstallMossEngine()
-    {
-        if (_mossDownloading) return;   // second click while the first one is still running
-        _mossDownloading = true;
-        _mossInstall = MossEngineInstaller.Status();
-        _status = "MOSS 引擎下载中…（约 44.5 MB）";
-        try
-        {
-            var ok = await MossEngineInstaller.EnsureInstalledAsync();
-            TtsEngine.RescanEngines();   // let the host pick up the freshly installed exe
-            _status = ok
-                ? "MOSS 引擎已安装，可点「启动」 · " + Stamp()
-                : "MOSS 引擎未安装：" + Short(MossEngineInstaller.Status().Message);
-        }
-        catch (Exception ex)
-        {
-            _status = "MOSS 引擎下载异常：" + Short(ex.Message);
-        }
-        finally
-        {
-            _mossDownloading = false;
-            RefreshEngineLocal();   // re-reads engineInstalled + the installer snapshot
-        }
-    }
 
     /// <summary>Installer hint line: "42% · 18.7 MB / 44.5 MB" while running, else the last message.</summary>
-    private string MossInstallText()
-    {
-        var st = _mossInstall;
-        if (st == null) return "";
-        if (st.Installing)
-            return st.Progress > 0 ? st.Progress + "% · " + st.Message : st.Message;
-        return st.Message;
-    }
 
     private string MossInstalledText() => _mossInstalled ? "已安装" : "未安装";
 

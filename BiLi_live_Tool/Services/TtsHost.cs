@@ -9,9 +9,8 @@ namespace BiLi_live_Tool.Services;
 /// forwards to whichever engine is running, so the untouched frontend keeps
 /// working. Exe search: %BLT_TTS_DIR% → &lt;app&gt;\tts → dev fallback Bin\bin.
 ///
-/// edge ships with the app; the 44.5 MB moss exe is installed on demand by
-/// <see cref="MossEngineInstaller"/> into &lt;app&gt;\tts, which <see cref="FindMossExe"/>
-/// picks up because the path is probed on every EnsureMoss() call.
+/// Both engines ship with the package; <see cref="FindMossExe"/> probes the path on
+/// every EnsureMoss() call, so a manually added exe is picked up without a restart.
 /// </summary>
 public sealed class TtsHost
 {
@@ -43,7 +42,7 @@ public sealed class TtsHost
 
     /// <summary>
     /// Full path of a usable moss_tts_server.exe, or null when the engine is not
-    /// installed (the app packages no moss exe any more — see MossEngineInstaller).
+    /// installed (the exe is shipped with the package; a missing file is reported in the UI).
     /// </summary>
     internal static string? FindMossExe() => FindExe("moss_tts_server.exe");
 
@@ -152,19 +151,11 @@ public sealed class TtsHost
 
     /// <summary>
     /// Re-probes the exe search paths after the on-demand engine download
-    /// (MossEngineInstaller). A running server keeps the path it was spawned from;
+    /// (engine shipped with the package). A running server keeps the path it was spawned from;
     /// only a dead / not-started cache entry is refreshed, so a freshly installed
     /// exe shows up in the status payload without restarting the app. Cheap (a few
     /// File.Exists probes) and safe to call from the UI thread.
     /// </summary>
-    public void RescanEngines()
-    {
-        lock (_lock)
-        {
-            if (_edge is not { HasExited: false } && !_edgeReused) _edgePath = FindExe("edge_tts_server.exe") ?? "";
-            if (_moss is not { HasExited: false } && !_mossReused) _mossPath = FindMossExe() ?? "";
-        }
-    }
 
     public object MossStatus()
     {

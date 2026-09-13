@@ -1,0 +1,557 @@
+@page "/keyview"
+@using System.Globalization
+@using System.Text
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@inject KestrelHost Api
+@inject IJSRuntime JS
+@implements IDisposable
+
+@* KeyView console. Talks to the embedded API on 127.0.0.1: POST
+   /api/maui/keyview/status|start|stop|open-overlay and the flat dotted-key
+   config pair config-get / config-set (whole-object replace, which the store
+   then broadcasts as {t:'cfg'} to every overlay client). *@
+
+<div class="blt-pagehead"><h1>键鼠手柄可视化</h1><span class="en">KEYVIEW</span></div>
+
+<div class="blt-topstrip">
+    <span class="seg">采集 <b class="@(_running ? "green" : "red")">@(_running ? "RUNNING" : "STOPPED")</b></span>
+    <span class="seg">浮层连接 <b class="@(_clients > 0 ? "green" : "")">@_clients</b></span>
+    <span class="seg">配置键 <b>@_rows.Count</b></span>
+    @if (_note.Length > 0)
+    {
+        <span class="seg"><b class="@(_noteOk ? "green" : "red")">@_note</b></span>
+    }
+</div>
+
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：状态 + 说明 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">📡 采集状态</span><span class="en">STATUS</span>
+                <span class="right"><span>keyview/overlay.html</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-kv"><span class="k">运行状态</span><span class="v @(_running ? "green" : "red")">@(_running ? "RUNNING" : "STOPPED")</span></div>
+                <div class="blt-kv"><span class="k">浮层客户端</span><span class="v">@_clients</span></div>
+                <div class="blt-kv"><span class="k">采集方式</span><span class="v">全局键鼠钩子 + 手柄轮询（Windows）</span></div>
+                <div class="blt-kv"><span class="k">按键高亮</span><span class="v">@((int)ValueOf("display.keyHoldMs")) ms</span></div>
+
+                <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+                    <button class="blt-btn primary" @onclick="StartKv" disabled="@_running">启动</button>
+                    <button class="blt-btn" @onclick="StopKv" disabled="@(!_running)">停止</button>
+                    <button class="blt-btn" @onclick="OpenOverlay">打开浮层</button>
+                    <button class="blt-btn" @onclick="RefreshStatus">刷新状态</button>
+                </div>
+
+                <label class="blt-label" style="margin-top:12px">keyview overlay url</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input class="blt-input mono" readonly value="@OverlayUrl" />
+                    <button class="blt-btn" @onclick="CopyOverlayUrl">复制地址</button>
+                </div>
+                <p style="color:var(--ink-3);font-size:11.5px;margin:8px 0 0">
+                    说明：在 OBS 中添加「浏览器源」并粘贴上方地址（建议竖屏比例，如 405×720 或 1080×1920）。
+                </p>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">⚠ 使用提醒</span><span class="en">NOTES</span></div>
+            <div class="blt-panel-body">
+                <div class="blt-kv"><span class="k">输入影响</span><span class="v green">只读采集 · 不拦截按键</span></div>
+                <div class="blt-kv"><span class="k">游戏兼容</span><span class="v amber">反作弊环境谨慎开启</span></div>
+                <div class="blt-kv"><span class="k">热更新</span><span class="v green">保存后广播 {t:'cfg'} 到浮层</span></div>
+                <p style="color:var(--ink-3);font-size:11.5px;margin:8px 0 0">
+                    说明：全局键鼠钩子为只读采集（不影响实际输入）；游戏反作弊环境请谨慎开启。
+                    OBS 中粘贴浮层地址（建议竖屏比例）。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：扁平点号键配置 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">⚙ 浮层配置</span><span class="en">CONFIG</span>
+                <span class="right"><span>kv · 整组替换保存</span>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="LoadConfig">重新读取</button>
+                </span>
+            </div>
+            <div class="blt-panel-body">
+                @foreach (var r in _rows)
+                {
+                    <div class="blt-kv">
+                        <span class="k">@r.Label
+                            @if (r.Tip.Length > 0)
+                            {
+                                <span style="color:var(--ink-3)">· @r.Tip</span>
+                            }
+                        </span>
+                        @if (r.Kind == "bool")
+                        {
+                            <span class="blt-switch @(r.Flag ? "on" : "")" @onclick="() => ToggleRow(r)"><span class="track"></span>@(r.Flag ? "ON" : "OFF")</span>
+                        }
+                        else if (r.Kind == "select")
+                        {
+                            <span style="display:flex;align-items:center;gap:8px">
+                                <select class="blt-input mono" style="width:200px" @bind="r.Text">
+                                    @foreach (var o in r.Options)
+                                    {
+                                        <option value="@o.Value">@o.Label</option>
+                                    }
+                                </select>
+                            </span>
+                        }
+                        else if (r.Kind == "number")
+                        {
+                            <span style="display:flex;align-items:center;gap:8px">
+                                <input class="blt-input mono" style="width:110px" type="number" min="@Fmt(r.Min)" max="@Fmt(r.Max)" step="@Fmt(r.Step)" disabled="@r.ReadOnly" @bind="r.Num" />
+                                @if (r.Unit.Length > 0)
+                                {
+                                    <span style="color:var(--ink-3);font-size:11px">@r.Unit</span>
+                                }
+                            </span>
+                        }
+                        else
+                        {
+                            <span style="display:flex;align-items:center;gap:8px">
+                                <input class="blt-input mono" style="width:200px" @bind="r.Text" />
+                            </span>
+                        }
+                    </div>
+                }
+
+                <div style="display:flex;gap:8px;margin-top:12px">
+                    <button class="blt-btn primary" @onclick="SaveConfig">保存配置</button>
+                    <button class="blt-btn" @onclick="LoadConfig">放弃修改</button>
+                </div>
+                <p style="color:var(--ink-3);font-size:11.5px;margin:10px 0 0">
+                    保存为整组替换（POST /api/maui/keyview/config-set，body 为 config:{…} 全量键），保存后浮层立即收到新配置。
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Shared client for the in-process API (same pattern as the other console pages).
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
+
+    private sealed class KeyOption
+    {
+        public string Value = "";
+        public string Label = "";
+    }
+
+    /// <summary>One editable row of the flat dotted-key config.</summary>
+    private sealed class KeyRow
+    {
+        public string Key = "";
+        public string Label = "";
+        public string Kind = "text";     // bool | number | select | text | json
+        public bool Flag;
+        public double Num;
+        public string Text = "";
+        public double Min;
+        public double Max;
+        public double Step;
+        public string Unit = "";
+        public string Tip = "";
+        public bool ReadOnly;
+        public JsonNode? Raw;
+        public List<KeyOption> Options = new();
+    }
+
+    private List<KeyRow> _rows = new();
+    private System.Threading.Timer? _timer;
+    private bool _disposed;
+    private bool _running;
+    private int _clients;
+    private string _overlayUrl = "";
+    private string _lastError = "";
+    private string _note = "";
+    private bool _noteOk = true;
+
+    private string Base => "http://127.0.0.1:" + Api.Port;
+    private string OverlayUrl => _overlayUrl.Length > 0 ? _overlayUrl : Base + "/keyview/overlay.html";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConfig();
+        await RefreshStatus();
+        // Poll the status endpoint so "浮层连接" tracks OBS previews.
+        _timer = new System.Threading.Timer(_ =>
+        {
+            try
+            {
+                if (_disposed) return;
+                _ = InvokeAsync(async () =>
+                {
+                    await RefreshStatus();
+                    StateHasChanged();
+                });
+            }
+            catch { /* renderer already gone */ }
+        }, null, 1500, 3000);
+    }
+
+    // ---------------- status / actions ----------------
+
+    private async Task RefreshStatus()
+    {
+        try
+        {
+            var o = await PostJsonAsync("/api/maui/keyview/status", new JsonObject()) as JsonObject;
+            if (o == null)
+            {
+                _running = false;
+                _clients = 0;
+                return;
+            }
+            _running = Flag(o, "running", _running);
+            _clients = (int)Num(o, "clients", _clients);
+            var url = o["overlayUrl"] is JsonValue uv && uv.TryGetValue<string>(out var s) ? s ?? "" : "";
+            if (url.Length > 0) _overlayUrl = url;
+        }
+        catch { /* status is best-effort */ }
+    }
+
+    private async Task StartKv()
+    {
+        try
+        {
+            var o = await PostJsonAsync("/api/maui/keyview/start", new JsonObject());
+            await RefreshStatus();
+            if (o == null)
+            {
+                Notify("启动失败" + ErrSuffix(), false);
+                return;
+            }
+            Notify("已启动全局键鼠/手柄采集（只读）", true);
+        }
+        catch (Exception ex)
+        {
+            Notify("启动失败：" + ex.Message, false);
+        }
+    }
+
+    private async Task StopKv()
+    {
+        try
+        {
+            var o = await PostJsonAsync("/api/maui/keyview/stop", new JsonObject());
+            await RefreshStatus();
+            if (o == null)
+            {
+                Notify("停止失败" + ErrSuffix(), false);
+                return;
+            }
+            Notify("已停止采集", true);
+        }
+        catch (Exception ex)
+        {
+            Notify("停止失败：" + ex.Message, false);
+        }
+    }
+
+    private async Task OpenOverlay()
+    {
+        try
+        {
+            var o = await PostJsonAsync("/api/maui/keyview/open-overlay", new JsonObject());
+            if (o == null)
+            {
+                Notify("打开浮层失败" + ErrSuffix(), false);
+                return;
+            }
+            Notify("已请求服务端用默认浏览器打开浮层", true);
+        }
+        catch (Exception ex)
+        {
+            Notify("打开浮层失败：" + ex.Message, false);
+        }
+    }
+
+    // ---------------- config ----------------
+
+    private static List<KeyRow> RowSpecs() => new()
+    {
+        new KeyRow
+        {
+            Key = "server.port", Label = "键鼠服务端口 server.port", Kind = "number", Min = 1, Max = 65535, Step = 1, ReadOnly = true,
+            Tip = "MAUI 版由主服务端口接管，此项仅保留兼容",
+        },
+        new KeyRow { Key = "overlay.theme", Label = "浮层主题 overlay.theme", Kind = "select", Tip = "themes 目录下的主题 id" },
+        new KeyRow { Key = "overlay.opacity", Label = "不透明度 overlay.opacity", Kind = "number", Min = 0, Max = 1, Step = 0.05 },
+        new KeyRow { Key = "overlay.scale", Label = "整体缩放 overlay.scale", Kind = "number", Min = 0.2, Max = 3, Step = 0.1, Unit = "x" },
+        new KeyRow
+        {
+            Key = "overlay.position", Label = "停靠位置 overlay.position", Kind = "select",
+            Options = new List<KeyOption>
+            {
+                new KeyOption { Value = "bottom-left", Label = "左下 bottom-left" },
+                new KeyOption { Value = "bottom-right", Label = "右下 bottom-right" },
+                new KeyOption { Value = "top-left", Label = "左上 top-left" },
+                new KeyOption { Value = "top-right", Label = "右上 top-right" },
+            },
+        },
+        new KeyRow { Key = "device.keyboard.enabled", Label = "键盘 device.keyboard.enabled", Kind = "bool" },
+        new KeyRow { Key = "device.mouse.enabled", Label = "鼠标 device.mouse.enabled", Kind = "bool" },
+        new KeyRow { Key = "device.gamepad.enabled", Label = "手柄 device.gamepad.enabled", Kind = "bool" },
+        new KeyRow { Key = "display.keyHoldMs", Label = "按键高亮时长 display.keyHoldMs", Kind = "number", Min = 200, Max = 3000, Step = 50, Unit = "ms" },
+        new KeyRow { Key = "display.animSpeed", Label = "动画速度 display.animSpeed", Kind = "number", Min = 0.2, Max = 3, Step = 0.1, Unit = "x" },
+        new KeyRow { Key = "display.maxRecentKeys", Label = "最近按键数 display.maxRecentKeys", Kind = "number", Min = 1, Max = 20, Step = 1 },
+        new KeyRow
+        {
+            Key = "display.kbLayout", Label = "键盘布局 display.kbLayout", Kind = "select",
+            Options = new List<KeyOption>
+            {
+                new KeyOption { Value = "full", Label = "全尺寸 full" },
+                new KeyOption { Value = "alpha", Label = "主键区 alpha" },
+                new KeyOption { Value = "compact", Label = "紧凑 compact" },
+                new KeyOption { Value = "minimal", Label = "极简 minimal" },
+            },
+        },
+        new KeyRow
+        {
+            Key = "display.gpLayout", Label = "手柄布局 display.gpLayout", Kind = "select",
+            Options = new List<KeyOption>
+            {
+                new KeyOption { Value = "xbox", Label = "Xbox xbox" },
+                new KeyOption { Value = "ps", Label = "PlayStation ps" },
+                new KeyOption { Value = "nintendo", Label = "Nintendo nintendo" },
+            },
+        },
+    };
+
+    private async Task LoadConfig()
+    {
+        try
+        {
+            var cfg = await PostJsonAsync("/api/maui/keyview/config-get", new JsonObject()) as JsonObject;
+            if (cfg == null)
+            {
+                Notify("读取配置失败" + ErrSuffix(), false);
+                return;
+            }
+
+            var themeOptions = await LoadThemes();
+            var rows = new List<KeyRow>();
+            foreach (var spec in RowSpecs())
+            {
+                cfg.TryGetPropertyValue(spec.Key, out var node);
+                if (spec.Key == "overlay.theme" && themeOptions.Count > 0) spec.Options = themeOptions;
+                ApplyValue(spec, node);
+                rows.Add(spec);
+            }
+
+            // Forward-compatible: unknown keys stay editable as plain text rows.
+            foreach (var (key, node) in cfg)
+            {
+                if (rows.Any(r => r.Key == key)) continue;
+                var extra = new KeyRow { Key = key, Label = key, Kind = node is JsonValue ? "text" : "json", Raw = node?.DeepClone() };
+                ApplyValue(extra, node);
+                rows.Add(extra);
+            }
+
+            _rows = rows;
+            Notify($"已读取 {rows.Count} 个配置键", true);
+        }
+        catch (Exception ex)
+        {
+            Notify("读取配置失败：" + ex.Message, false);
+        }
+    }
+
+    private static void ApplyValue(KeyRow r, JsonNode? node)
+    {
+        r.Raw = node?.DeepClone();
+        switch (r.Kind)
+        {
+            case "bool":
+                r.Flag = node is JsonValue bv && bv.TryGetValue<bool>(out var b) && b;
+                break;
+            case "number":
+                r.Num = node is JsonValue nv && nv.TryGetValue<double>(out var d) ? d : 0;
+                break;
+            case "select":
+            case "text":
+                r.Text = node is JsonValue sv && sv.TryGetValue<string>(out var s) ? s ?? "" : node?.ToJsonString() ?? "";
+                if (r.Kind == "select" && r.Text.Length > 0 && !r.Options.Any(o => o.Value == r.Text))
+                    r.Options.Insert(0, new KeyOption { Value = r.Text, Label = r.Text + "（当前值）" });
+                break;
+        }
+    }
+
+    private void ToggleRow(KeyRow r)
+    {
+        r.Flag = !r.Flag;
+        Notify($"{r.Key}：{(r.Flag ? "ON" : "OFF")}（记得保存）", true);
+    }
+
+    private async Task SaveConfig()
+    {
+        try
+        {
+            var cfg = new JsonObject();
+            foreach (var r in _rows)
+            {
+                switch (r.Kind)
+                {
+                    case "bool":
+                        cfg[r.Key] = r.Flag;
+                        break;
+                    case "number":
+                        cfg[r.Key] = r.Num;
+                        break;
+                    case "select":
+                    case "text":
+                        cfg[r.Key] = r.Text;
+                        break;
+                    default:
+                        cfg[r.Key] = r.Raw?.DeepClone();
+                        break;
+                }
+            }
+
+            var body = new JsonObject { ["config"] = cfg };
+            var o = await PostJsonAsync("/api/maui/keyview/config-set", body);
+            if (o == null)
+            {
+                Notify("保存失败" + ErrSuffix(), false);
+                return;
+            }
+            await LoadConfig();
+            Notify($"配置已保存 · {_rows.Count} 个键已广播到浮层", true);
+        }
+        catch (Exception ex)
+        {
+            Notify("保存失败：" + ex.Message, false);
+        }
+    }
+
+    private async Task<List<KeyOption>> LoadThemes()
+    {
+        var list = new List<KeyOption>();
+        try
+        {
+            var node = await PostJsonAsync("/api/maui/keyview/themes", new JsonObject());
+            var arr = node as JsonArray ?? (node as JsonObject)?["themes"] as JsonArray;
+            if (arr == null) return list;
+            foreach (var n in arr)
+            {
+                if (n is not JsonObject o) continue;
+                var id = o["id"] is JsonValue iv && iv.TryGetValue<string>(out var s) ? s ?? "" : "";
+                if (id.Length == 0) continue;
+                var name = o["name"] is JsonValue nv && nv.TryGetValue<string>(out var ns) ? ns ?? id : id;
+                list.Add(new KeyOption { Value = id, Label = name + " · " + id });
+            }
+        }
+        catch { /* manifest is optional; keep the stored value option only */ }
+        return list;
+    }
+
+    private double ValueOf(string key)
+    {
+        foreach (var r in _rows)
+            if (r.Key == key && r.Kind == "number") return r.Num;
+        return 0;
+    }
+
+    // ---------------- http ----------------
+
+    private async Task<JsonNode?> PostJsonAsync(string path, JsonNode body)
+    {
+        try
+        {
+            using var resp = await Http.PostAsync(Base + path, JsonBody(body));
+            var txt = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _lastError = "HTTP " + (int)resp.StatusCode;
+                return null;
+            }
+            var err = ApiError(txt);
+            if (err.Length > 0)
+            {
+                _lastError = err;
+                return null;
+            }
+            _lastError = "";
+            return JsonNode.Parse(txt);
+        }
+        catch (Exception ex)
+        {
+            _lastError = ex.Message;
+            return null;
+        }
+    }
+
+    private static StringContent JsonBody(JsonNode node)
+        => new(node.ToJsonString(), Encoding.UTF8, "application/json");
+
+    private static string ApiError(string body)
+    {
+        try
+        {
+            if (JsonNode.Parse(body) is JsonObject o && o["error"] is JsonValue v && v.TryGetValue<string>(out var e))
+                return e ?? "";
+        }
+        catch { }
+        return "";
+    }
+
+    private string ErrSuffix()
+        => _lastError.Length > 0
+            ? "（" + _lastError + "）"
+            : "（本机服务端 127.0.0.1:" + Api.Port + " 可能未启动）";
+
+    // ---------------- clipboard / feedback ----------------
+
+    private async Task CopyOverlayUrl() => await CopyText(OverlayUrl, "已复制浮层地址");
+
+    private async Task CopyText(string text, string okMsg)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            Notify(okMsg, true);
+        }
+        catch
+        {
+            try
+            {
+                var literal = JsonSerializer.Serialize(text);
+                await JS.InvokeVoidAsync("eval",
+                    "(function(){var t=document.createElement('textarea');t.value=" + literal +
+                    ";t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.focus();t.select();" +
+                    "document.execCommand('copy');document.body.removeChild(t);})()");
+                Notify(okMsg, true);
+            }
+            catch
+            {
+                Notify("复制失败，请手动复制输入框内容", false);
+            }
+        }
+    }
+
+    private void Notify(string msg, bool ok)
+    {
+        _note = msg;
+        _noteOk = ok;
+    }
+
+    private static bool Flag(JsonObject o, string key, bool def)
+        => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<bool>(out var b) ? b : def;
+
+    private static double Num(JsonObject o, string key, double def)
+        => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<double>(out var d) ? d : def;
+
+    private static string Fmt(double v) => v.ToString(CultureInfo.InvariantCulture);
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _timer?.Dispose();
+    }
+}

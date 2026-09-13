@@ -1,0 +1,413 @@
+@page "/gifts"
+@using System.Text.Json.Nodes
+@using BiLi_live_Tool.Services
+@inject EventHub Hub
+@inject KestrelHost Api
+@implements IDisposable
+
+<div class="blt-pagehead"><h1>礼物数据生成</h1><span class="en">GIFTS DATA</span></div>
+
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：盲盒检测 + 礼物流水 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🎁 盲盒检测</span><span class="en">BLINDBOX DETECT</span>
+                <span class="right">
+                    <span>@DetectTimeText()</span>
+                    <button class="blt-btn primary" style="padding:3px 12px" @onclick="DetectAsync" disabled="@_detecting">@(_detecting ? "检测中…" : "检测当前直播间盲盒")</button>
+                </span>
+            </div>
+            <div class="blt-panel-body">
+                @if (_detectError.Length > 0)
+                {
+                    <div style="color:var(--red);font-size:12px;padding:2px 0 8px">@_detectError</div>
+                }
+                @if (_boxes.Count == 0)
+                {
+                    <div class="blt-empty">尚未检测。连接直播间后点击右上角「检测当前直播间盲盒」，将扫描礼物列表中的盲盒礼物并计算期望收益。</div>
+                }
+                else
+                {
+                    @foreach (var b in _boxes)
+                    {
+                        <div style="background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
+                            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                                <b>@b.Name</b>
+                                <span class="blt-badge off">ID @b.GiftId</span>
+                                <span class="blt-badge @ProfitClass(b)">@ProfitText(b)</span>
+                                <span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-2)">成本 ¥@Fmt2(b.Cost) · 期望收益 ¥@Fmt2(b.ExpectIncome)</span>
+                            </div>
+                            @if (b.Gifts.Count > 0)
+                            {
+                                <div style="margin-top:8px">
+                                    @foreach (var g in b.Gifts)
+                                    {
+                                        <div class="blt-kv">
+                                            <span class="k">@g.Name</span>
+                                            <span class="v">@FmtPrice(g.Price) · 概率 @Fmt2(g.Chance)%</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    <div style="color:var(--ink-3);font-size:11px">奖池价格按 1000 电池 = ¥1 折算；期望收益 = Σ(价格 × 概率)。</div>
+                }
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">💝 礼物流水</span><span class="en">GIFT STREAM</span>
+                <span class="right">
+                    <span>本场合计 <b style="color:var(--green)">¥@Fmt2(_giftTotal)</b></span>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="ClearGiftRows">清空</button>
+                </span>
+            </div>
+            <div class="blt-panel-body" style="padding:6px 0">
+                @if (_giftRows.Count == 0)
+                {
+                    <div class="blt-empty">等待礼物事件… 连接直播间后实时显示 用户 / 礼物 / 数量 / 价值</div>
+                }
+                else
+                {
+                    <div class="blt-log" style="max-height:400px">
+                        @foreach (var ev in _giftRows)
+                        {
+                            <div class="blt-logrow">
+                                <span class="t">@ev.Time</span>
+                                <span class="tag @TagClass(ev.Type)">@TagText(ev.Type)</span>
+                                <span class="txt"><span class="u">@(string.IsNullOrEmpty(ev.Uname) ? "—" : ev.Uname)</span> @GiftRowText(ev)</span>
+                            </div>
+                        }
+                    </div>
+                }
+                <div style="padding:8px 12px 2px;color:var(--ink-3);font-size:11.5px">
+                    说明：盲盒盈亏按内置库期望收益估算；礼物聚合（GIFTΣ）行不重复计入合计。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：内置数据库 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🗄 内置数据库</span><span class="en">BUILTIN DB</span>
+                <span class="right">
+                    <span>@BuiltinMetaText()</span>
+                    <button class="blt-btn" style="padding:3px 12px" @onclick="SaveToRuntime" disabled="@(_boxes.Count == 0 || _saving)">@(_saving ? "保存中…" : "保存到运行时库")</button>
+                </span>
+            </div>
+            <div class="blt-panel-body">
+                @if (_builtinError.Length > 0)
+                {
+                    <div style="color:var(--red);font-size:12px;padding:2px 0 8px">@_builtinError</div>
+                }
+                @if (_saveMsg.Length > 0)
+                {
+                    <div style="color:var(--green);font-size:12px;padding:2px 0 8px">@_saveMsg</div>
+                }
+                @if (_builtinBoxes.Count == 0)
+                {
+                    <div class="blt-empty">内置库暂无数据（可先检测盲盒，再点「保存到运行时库」写入）。</div>
+                }
+                else
+                {
+                    @foreach (var b in _builtinBoxes)
+                    {
+                        <div class="blt-kv">
+                            <span class="k">@b.Name</span>
+                            <span class="v">ID @b.GiftId · 成本 ¥@Fmt2(b.Cost) · 期望 ¥@Fmt2(b.ExpectIncome)</span>
+                        </div>
+                        @if (b.Gifts.Count > 0)
+                        {
+                            <div style="padding:2px 0 8px 14px">
+                                @foreach (var g in b.Gifts)
+                                {
+                                    <div style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">└ @g.Name · @g.Price 电池 · @g.Chance</div>
+                                }
+                            </div>
+                        }
+                    }
+                }
+                <div class="blt-empty" style="padding:10px 4px 2px;text-align:left">
+                    「保存到运行时库」将本次检测结果整理为 名称 → expectIncome 写入 blindbox-data.json，供礼物事件实时估算盲盒盈亏。
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Shared static client: local API on 127.0.0.1.
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+
+    private List<BoxInfo> _boxes = new();
+    private List<DbBox> _builtinBoxes = new();
+    private List<LiveEvent> _giftRows = new();
+    private double _giftTotal;
+    private bool _detecting;
+    private bool _saving;
+    private string _detectError = "";
+    private string _detectTime = "";
+    private string _saveMsg = "";
+    private string _builtinError = "";
+    private string _builtinMeta = "";
+    private bool _disposed;
+
+    private sealed record BoxGift(string Name, long Price, double Chance);
+    private sealed record BoxInfo(long GiftId, string Name, double Cost, double ExpectIncome, List<BoxGift> Gifts);
+    private sealed record DbGift(string Name, long Price, string Chance);
+    private sealed record DbBox(string Name, long GiftId, double Cost, double ExpectIncome, List<DbGift> Gifts);
+
+    private string BaseUrl => "http://127.0.0.1:" + Api.Port;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Hub.OnEvent += OnEvent;
+        await LoadBuiltinAsync();
+    }
+
+    private void OnEvent(LiveEvent ev) => InvokeAsync(() =>
+    {
+        if (_disposed) return;
+        if (ev.Type == "gifts")
+        {
+            // Only individual gift events are summed; gifts_merged repeats the same value.
+            _giftTotal = Math.Round((_giftTotal + ev.Value) * 100) / 100;
+        }
+        else if (ev.Type != "gifts_merged")
+        {
+            return;
+        }
+        _giftRows.Insert(0, ev);
+        if (_giftRows.Count > 100) _giftRows.RemoveAt(_giftRows.Count - 1);
+        StateHasChanged();
+    });
+
+    // ----- blind-box detect -----
+
+    private async Task DetectAsync()
+    {
+        if (_detecting) return;
+        _detecting = true;
+        _detectError = "";
+        _saveMsg = "";
+        try
+        {
+            var j = await PostJsonAsync("/api/blindbox/detect", new JsonObject());
+            var err = GetStr(j?["error"]);
+            if (err.Length > 0)
+            {
+                _detectError = "检测失败：" + err;
+                return;
+            }
+            var boxes = new List<BoxInfo>();
+            if (j?["boxes"] is JsonArray arr)
+            {
+                foreach (var n in arr)
+                {
+                    if (n is not JsonObject o) continue;
+                    var gifts = new List<BoxGift>();
+                    if (o["gifts"] is JsonArray ga)
+                    {
+                        foreach (var gn in ga)
+                        {
+                            if (gn is not JsonObject go) continue;
+                            gifts.Add(new BoxGift(GetStr(go["name"]), GetLong(go["price"]), GetDouble(go["chance"])));
+                        }
+                    }
+                    boxes.Add(new BoxInfo(GetLong(o["giftId"]), GetStr(o["name"]), GetDouble(o["cost"]), GetDouble(o["expectIncome"]), gifts));
+                }
+            }
+            _boxes = boxes;
+            _detectTime = DateTime.Now.ToString("HH:mm:ss");
+            if (_boxes.Count == 0) _detectError = "未检测到盲盒礼物（需连接直播间，且房间礼物列表含盲盒）。";
+        }
+        catch (Exception e)
+        {
+            _detectError = "检测失败：" + e.Message;
+        }
+        finally
+        {
+            _detecting = false;
+        }
+    }
+
+    private async Task SaveToRuntime()
+    {
+        if (_boxes.Count == 0 || _saving) return;
+        _saving = true;
+        _saveMsg = "";
+        _builtinError = "";
+        try
+        {
+            var data = new JsonObject();
+            foreach (var b in _boxes)
+            {
+                var gifts = new JsonArray();
+                foreach (var g in b.Gifts)
+                {
+                    gifts.Add(new JsonObject
+                    {
+                        ["name"] = g.Name,
+                        ["price"] = g.Price,
+                        ["chance"] = g.Chance,
+                    });
+                }
+                data[b.Name] = new JsonObject
+                {
+                    ["giftId"] = b.GiftId,
+                    ["cost"] = b.Cost,
+                    ["expectIncome"] = b.ExpectIncome,
+                    ["gifts"] = gifts,
+                };
+            }
+            var body = new JsonObject { ["data"] = data };
+            var j = await PostJsonAsync("/api/blindbox/save", body);
+            var err = GetStr(j?["error"]);
+            if (err.Length > 0)
+            {
+                _saveMsg = "";
+                _builtinError = "保存失败：" + err;
+                return;
+            }
+            _saveMsg = $"已保存 {_boxes.Count} 个盲盒到运行时库";
+            await LoadBuiltinAsync();
+        }
+        catch (Exception e)
+        {
+            _builtinError = "保存失败：" + e.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    // ----- built-in db -----
+
+    private async Task LoadBuiltinAsync()
+    {
+        _builtinError = "";
+        try
+        {
+            var j = await GetJsonAsync("/api/blindbox/builtin");
+            var list = new List<DbBox>();
+            if (j is JsonObject o)
+            {
+                foreach (var (key, val) in o)
+                {
+                    if (key.StartsWith('_') || val is not JsonObject bo) continue;
+                    var gifts = new List<DbGift>();
+                    if (bo["gifts"] is JsonArray ga)
+                    {
+                        foreach (var gn in ga)
+                        {
+                            if (gn is not JsonObject go) continue;
+                            var chance = GetStr(go["chance"]);
+                            if (chance.Length == 0) chance = Fmt2(GetDouble(go["chance"])) + "%";
+                            gifts.Add(new DbGift(GetStr(go["name"]), GetLong(go["price"]), chance));
+                        }
+                    }
+                    list.Add(new DbBox(key, GetLong(bo["giftId"]), GetDouble(bo["cost"]), GetDouble(bo["expectIncome"]), gifts));
+                }
+                _builtinMeta = GetStr(o["_updatedAt"]);
+            }
+            _builtinBoxes = list;
+            if (_builtinMeta.Length > 0) _builtinMeta = "更新于 " + _builtinMeta;
+            else _builtinMeta = $"{_builtinBoxes.Count} 个盲盒";
+        }
+        catch (Exception e)
+        {
+            _builtinError = "读取内置库失败：" + e.Message;
+        }
+    }
+
+    // ----- gift stream helpers -----
+
+    private string GiftRowText(LiveEvent ev) => ev.Type switch
+    {
+        "gifts" => $"送出 {ev.GiftName} ×{ev.Num}" + (ev.Value > 0 ? $"（≈¥{Fmt2(ev.Value)}）" : ""),
+        "gifts_merged" => $"聚合 {ev.TotalNum} 件：{string.Join("、", (ev.Gifts ?? new()).Select(g => $"{g.GiftName}×{g.Num}"))}"
+            + (ev.Value > 0 ? $"（≈¥{Fmt2(ev.Value)}）" : ""),
+        _ => "",
+    };
+
+    private string TagClass(string type) => type switch
+    {
+        "gifts" or "gifts_merged" => "gifts",
+        _ => "info",
+    };
+
+    private string TagText(string type) => type switch
+    {
+        "gifts" => "GIFT",
+        "gifts_merged" => "GIFTΣ",
+        _ => type.ToUpperInvariant(),
+    };
+
+    private void ClearGiftRows()
+    {
+        _giftRows.Clear();
+        _giftTotal = 0;
+    }
+
+    // ----- display helpers -----
+
+    private string DetectTimeText() => _detectTime.Length > 0 ? "检测于 " + _detectTime : "扫描礼物列表";
+
+    private string BuiltinMetaText() => _builtinMeta.Length > 0 ? _builtinMeta : "blindbox-data.json";
+
+    private static string ProfitClass(BoxInfo b) => b.ExpectIncome >= b.Cost ? "green" : "red";
+
+    private static string ProfitText(BoxInfo b)
+    {
+        var profit = Math.Round((b.ExpectIncome - b.Cost) * 100) / 100;
+        return profit >= 0 ? $"预计净收益 +¥{Fmt2(profit)}" : $"预计净亏损 -¥{Fmt2(Math.Abs(profit))}";
+    }
+
+    private static string Fmt2(double v) => v.ToString("0.##");
+
+    private static string FmtPrice(long priceInCoin) => "¥" + (priceInCoin / 1000.0).ToString("0.###");
+
+    private async Task<JsonNode?> GetJsonAsync(string path)
+    {
+        var txt = await Http.GetStringAsync(BaseUrl + path);
+        return JsonNode.Parse(txt);
+    }
+
+    private async Task<JsonNode?> PostJsonAsync(string path, JsonObject body)
+    {
+        var content = new StringContent(body.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+        var resp = await Http.PostAsync(BaseUrl + path, content);
+        var txt = await resp.Content.ReadAsStringAsync();
+        try { return JsonNode.Parse(txt); } catch { return null; }
+    }
+
+    private static long GetLong(JsonNode? n)
+    {
+        if (n == null) return 0;
+        try { return n.GetValue<long>(); } catch { }
+        try { return (long)n.GetValue<double>(); } catch { }
+        try { return long.TryParse(n.ToString(), out var v) ? v : 0; } catch { return 0; }
+    }
+
+    private static double GetDouble(JsonNode? n)
+    {
+        if (n == null) return 0;
+        try { return n.GetValue<double>(); } catch { }
+        try { return n.GetValue<long>(); } catch { }
+        try { return double.TryParse(n.ToString(), out var v) ? v : 0; } catch { return 0; }
+    }
+
+    private static string GetStr(JsonNode? n)
+    {
+        try { return n?.GetValue<string>() ?? ""; } catch { return ""; }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Hub.OnEvent -= OnEvent;
+    }
+}

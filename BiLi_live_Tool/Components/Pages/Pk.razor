@@ -1,0 +1,350 @@
+@page "/pk"
+@using BiLi_live_Tool.Services
+@inject AppConfig Config
+@inject EventHub Hub
+@implements IDisposable
+
+<div class="blt-pagehead"><h1>PK 连线</h1><span class="en">PK &amp; ROOM MONITOR</span></div>
+
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：PK 状态与设置 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">⚔ PK 状态</span><span class="en">PK STATUS</span>
+                <span class="right"><b class="@(_pkActive ? "green" : "")">@(_pkActive ? "ACTIVE" : "IDLE")</b></span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-kv"><span class="k">对手房间</span><span class="v">@(_opponentRoom.Length > 0 ? _opponentRoom : "—")</span></div>
+                <div class="blt-kv"><span class="k">对手主播</span><span class="v">@(_opponentName.Length > 0 ? _opponentName : "—")</span></div>
+                <div class="blt-kv"><span class="k">对手在线</span><span class="v green">@(_opponentOnline > 0 ? _opponentOnline.ToString("N0") : "—")</span></div>
+                <div class="blt-kv"><span class="k">对手粉丝</span><span class="v">@(_opponentFollower > 0 ? _opponentFollower.ToString("N0") : "—")</span></div>
+                <div class="blt-kv"><span class="k">最后指令</span><span class="v">@(_pkCmd.Length > 0 ? _pkCmd : "—")</span></div>
+                <div class="blt-kv"><span class="k">开战时间</span><span class="v">@(_pkSince > 0 ? FormatTs(_pkSince) : "—")</span></div>
+
+                <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+                    <input class="blt-input mono" style="flex:1;min-width:140px" @bind="_targetRoom" placeholder="对手房间号" />
+                    <button class="blt-btn primary" @onclick="SetTarget">设为 PK 对手</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">⚙ PK 设置</span><span class="en">SETTINGS</span></div>
+            <div class="blt-panel-body">
+                <div style="display:flex;gap:26px;flex-wrap:wrap">
+                    <span class="blt-switch @_pkEnabledClass" @onclick="TogglePkEnabled">
+                        <span class="track"></span>开启 PK 抓取 <span style="color:var(--ink-3)">弹幕协议事件解析</span>
+                    </span>
+                    <span class="blt-switch @_pkFloatingClass" @onclick="TogglePkFloating">
+                        <span class="track"></span>浮层显示 <span style="color:var(--ink-3)">showOnFloating</span>
+                    </span>
+                </div>
+                <div class="blt-kv" style="margin-top:10px"><span class="k">对手刷新间隔</span><span class="v">@_pkRefreshMs ms</span></div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                    <input class="blt-input mono" type="number" style="width:140px" @bind="_editRefreshMs" />
+                    <button class="blt-btn" @onclick="SaveRefresh">保存间隔</button>
+                </div>
+                <div class="blt-empty" style="padding:14px 4px 4px;text-align:left">
+                    提示：开启 PK 抓取后，直播间出现 PK 对局时自动识别对手并每 N 秒刷新对手数据。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：多房间监控 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">👁 多房间监控</span><span class="en">ROOM MONITOR</span>
+                <span class="right"><span>上限 8 房 · 间隔 @_monitorIntervalSec s</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                    <input class="blt-input mono" style="flex:1;min-width:130px" @bind="_addRoomId" placeholder="房间号" />
+                    <button class="blt-btn primary" @onclick="AddRoom">添加监控</button>
+                    <input class="blt-input mono" type="number" style="width:110px" @bind="_editInterval" />
+                    <button class="blt-btn" @onclick="SaveInterval">保存间隔</button>
+                </div>
+
+                @if (_rooms.Count == 0)
+                {
+                    <div class="blt-empty">暂无监控房间</div>
+                }
+                else
+                {
+                    @foreach (var r in _rooms)
+                    {
+                        <div class="blt-kv">
+                            <span class="k">
+                                <span class="blt-dot @(r.Online > 0 ? "green" : "gray")"></span>
+                                <b style="color:var(--ink)">@r.RoomId</b>
+                                @if (r.Unames.Length > 0)
+                                {
+                                    <span style="color:var(--ink-3)"> · @r.Unames</span>
+                                }
+                            </span>
+                            <span class="v">
+                                @if (r.StateText.Length > 0)
+                                {
+                                    <span style="color:var(--ink-3)">@r.StateText</span>
+                                }
+                                @if (r.Online > 0)
+                                {
+                                    <span class="green"> ON @r.Online.ToString("N0")</span>
+                                }
+                                <button class="blt-btn" style="padding:1px 8px;font-size:10.5px;margin-left:8px" @onclick="() => RemoveRoom(r.RoomId)">移除</button>
+                            </span>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">📡 对局事件</span><span class="en">PK EVENTS</span></div>
+            <div class="blt-panel-body" style="padding:6px 0">
+                @if (_events.Count == 0)
+                {
+                    <div class="blt-empty">暂无 PK 事件（关注 PK 状态面板）</div>
+                }
+                else
+                {
+                    <div class="blt-log">
+                        @foreach (var e in _events)
+                        {
+                            <div class="blt-logrow">
+                                <span class="t">@e.Time</span>
+                                <span class="tag info">PK</span>
+                                <span class="txt">@e.Text</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private sealed record RoomRow(string RoomId, long Online, string Unames, string StateText);
+    private sealed record PkEvent(string Time, string Text);
+
+    private bool _pkActive;
+    private string _opponentRoom = "";
+    private string _opponentName = "";
+    private long _opponentOnline;
+    private long _opponentFollower;
+    private string _pkCmd = "";
+    private long _pkSince;
+    private string _pkEnabledClass = "";
+    private string _pkFloatingClass = "";
+    private long _pkRefreshMs = 8000;
+    private string _editRefreshMs = "8000";
+    private string _targetRoom = "";
+    private string _addRoomId = "";
+    private long _monitorIntervalSec = 30;
+    private string _editInterval = "30";
+    private List<RoomRow> _rooms = new();
+    private List<PkEvent> _events = new();
+    private System.Threading.Timer? _timer;
+
+    protected override void OnInitialized()
+    {
+        LoadPkConfig();
+        _ = RefreshAllAsync();
+        _timer = new System.Threading.Timer(_ => InvokeAsync(async () =>
+        {
+            await RefreshPkStatusAsync();
+            await RefreshMonitorAsync();
+        }), null, 3000, 5000);
+    }
+
+    private void LoadPkConfig()
+    {
+        var pk = Config.GetNode("pk") as System.Text.Json.Nodes.JsonObject;
+        var enabled = pk?.TryGetPropertyValue("enabled", out var e) == true && e is System.Text.Json.Nodes.JsonValue ev && ev.TryGetValue<bool>(out var eb) && eb;
+        var floating = pk?.TryGetPropertyValue("showOnFloating", out var f) == true && f is System.Text.Json.Nodes.JsonValue fv && fv.TryGetValue<bool>(out var fb) && fb;
+        _pkEnabledClass = enabled ? "on" : "";
+        _pkFloatingClass = floating ? "on" : "";
+        if (pk?.TryGetPropertyValue("refreshMs", out var rm) == true && rm is System.Text.Json.Nodes.JsonValue rv && rv.TryGetValue<long>(out var rmv)) _pkRefreshMs = rmv;
+        _editRefreshMs = _pkRefreshMs.ToString();
+        var iv = Config.GetNode("monitorIntervalSec");
+        if (iv is System.Text.Json.Nodes.JsonValue ivv && ivv.TryGetValue<long>(out var ivl)) _monitorIntervalSec = ivl;
+        _editInterval = _monitorIntervalSec.ToString();
+    }
+
+    private async Task RefreshAllAsync()
+    {
+        await RefreshPkStatusAsync();
+        await RefreshMonitorAsync();
+    }
+
+    private async Task RefreshPkStatusAsync()
+    {
+        try
+        {
+            var json = await GetJsonAsync("/api/pk-status");
+            if (json == null) return;
+            _pkActive = json["active"]?.GetValue<bool>() ?? false;
+            var opp = json["opponent"] as System.Text.Json.Nodes.JsonObject;
+            _opponentRoom = opp?["roomId"]?.GetValue<string>() ?? "";
+            _opponentName = opp?["uname"]?.GetValue<string>() ?? "";
+            _opponentOnline = opp?["online"]?.GetValue<long?>() ?? 0;
+            _opponentFollower = opp?["follower"]?.GetValue<long?>() ?? 0;
+            _pkCmd = json["cmd"]?.GetValue<string>() ?? "";
+            _pkSince = json["since"]?.GetValue<long?>() ?? 0;
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private async Task RefreshMonitorAsync()
+    {
+        try
+        {
+            var json = await GetJsonAsync("/api/rooms/monitor");
+            if (json == null) return;
+            var rows = new List<RoomRow>();
+            if (json["rooms"] is System.Text.Json.Nodes.JsonArray arr)
+            {
+                foreach (var r in arr)
+                {
+                    if (r is not System.Text.Json.Nodes.JsonObject o) continue;
+                    var rid = o["roomId"]?.GetValue<string>() ?? "";
+                    var st = o["state"] as System.Text.Json.Nodes.JsonObject;
+                    var online = st?["online"]?.GetValue<long?>() ?? 0;
+                    var uname = st?["uname"]?.GetValue<string>() ?? "";
+                    var title = st?["title"]?.GetValue<string>() ?? "";
+                    var err = st?["lastErr"]?.GetValue<string>() ?? "";
+                    var stateText = !string.IsNullOrEmpty(err) ? err : title;
+                    rows.Add(new RoomRow(rid, online, uname, stateText));
+                }
+            }
+            _rooms = rows;
+            _monitorIntervalSec = json["intervalSec"]?.GetValue<long?>() ?? _monitorIntervalSec;
+            _editInterval = _monitorIntervalSec.ToString();
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private void TogglePkEnabled()
+    {
+        var doc = Config.Snapshot();
+        if (doc["pk"] is not System.Text.Json.Nodes.JsonObject pk) { pk = new System.Text.Json.Nodes.JsonObject(); }
+        var cur = pk.TryGetPropertyValue("enabled", out var e) == true && e is System.Text.Json.Nodes.JsonValue ev && ev.TryGetValue<bool>(out var eb) && eb;
+        pk["enabled"] = !cur;
+        doc["pk"] = pk;
+        Config.ReplaceFrom(doc);
+        LoadPkConfig();
+    }
+
+    private void TogglePkFloating()
+    {
+        var doc = Config.Snapshot();
+        if (doc["pk"] is not System.Text.Json.Nodes.JsonObject pk) { pk = new System.Text.Json.Nodes.JsonObject(); }
+        var cur = pk.TryGetPropertyValue("showOnFloating", out var f) == true && f is System.Text.Json.Nodes.JsonValue fv && fv.TryGetValue<bool>(out var fb) && fb;
+        pk["showOnFloating"] = !cur;
+        doc["pk"] = pk;
+        Config.ReplaceFrom(doc);
+        LoadPkConfig();
+    }
+
+    private void SaveRefresh()
+    {
+        if (!long.TryParse(_editRefreshMs, out var v) || v < 2000) v = 2000;
+        var doc = Config.Snapshot();
+        if (doc["pk"] is not System.Text.Json.Nodes.JsonObject pk) { pk = new System.Text.Json.Nodes.JsonObject(); }
+        pk["refreshMs"] = v;
+        doc["pk"] = pk;
+        Config.ReplaceFrom(doc);
+        _pkRefreshMs = v;
+        AddEvent("对手刷新间隔已保存：" + v + " ms");
+    }
+
+    private async Task SetTarget()
+    {
+        var rid = _targetRoom.Trim();
+        if (rid.Length == 0) { AddEvent("请输入对手房间号"); return; }
+        try
+        {
+            var payload = new System.Text.Json.Nodes.JsonObject { ["roomId"] = rid };
+            await PostJsonAsync("/api/pk-target", payload);
+            AddEvent("已设置 PK 对手房间：" + rid);
+            await RefreshPkStatusAsync();
+        }
+        catch (Exception ex) { AddEvent("设置失败：" + ex.Message); }
+    }
+
+    private async Task AddRoom()
+    {
+        var rid = _addRoomId.Trim();
+        if (rid.Length == 0) { AddEvent("请输入房间号"); return; }
+        try
+        {
+            var payload = new System.Text.Json.Nodes.JsonObject { ["action"] = "add", ["roomId"] = rid };
+            var resp = await PostJsonAsync("/api/rooms/monitor", payload);
+            var err = resp?["error"]?.GetValue<string>();
+            if (!string.IsNullOrEmpty(err)) AddEvent("添加失败：" + err);
+            else { AddEvent("已添加监控房间：" + rid); _addRoomId = ""; }
+            await RefreshMonitorAsync();
+        }
+        catch (Exception ex) { AddEvent("添加失败：" + ex.Message); }
+    }
+
+    private async Task RemoveRoom(string rid)
+    {
+        try
+        {
+            var payload = new System.Text.Json.Nodes.JsonObject { ["action"] = "remove", ["roomId"] = rid };
+            await PostJsonAsync("/api/rooms/monitor", payload);
+            AddEvent("已移除监控房间：" + rid);
+            await RefreshMonitorAsync();
+        }
+        catch { }
+    }
+
+    private async Task SaveInterval()
+    {
+        if (!long.TryParse(_editInterval, out var v) || v < 15) v = 15;
+        if (v > 120) v = 120;
+        try
+        {
+            var payload = new System.Text.Json.Nodes.JsonObject { ["action"] = "interval", ["intervalSec"] = v };
+            await PostJsonAsync("/api/rooms/monitor", payload);
+            _monitorIntervalSec = v;
+            AddEvent("监控间隔已保存：" + v + " s");
+            await RefreshMonitorAsync();
+        }
+        catch { }
+    }
+
+    private void AddEvent(string text)
+    {
+        _events.Insert(0, new PkEvent(DateTime.Now.ToString("HH:mm:ss"), text));
+        if (_events.Count > 50) _events.RemoveAt(_events.Count - 1);
+    }
+
+    private static string FormatTs(long ms)
+        => DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime.ToString("HH:mm:ss");
+
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
+
+    private static async Task<System.Text.Json.Nodes.JsonNode?> GetJsonAsync(string path)
+    {
+        var txt = await Http.GetStringAsync("http://127.0.0.1:7460" + path);
+        return System.Text.Json.Nodes.JsonNode.Parse(txt);
+    }
+
+    private static async Task<System.Text.Json.Nodes.JsonNode?> PostJsonAsync(string path, System.Text.Json.Nodes.JsonObject body)
+    {
+        var content = new System.Net.Http.StringContent(body.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+        var resp = await Http.PostAsync("http://127.0.0.1:7460" + path, content);
+        var txt = await resp.Content.ReadAsStringAsync();
+        try { return System.Text.Json.Nodes.JsonNode.Parse(txt); } catch { return null; }
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

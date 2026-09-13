@@ -1,0 +1,540 @@
+@page "/widgets"
+@using System.Text
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@inject KestrelHost Api
+@inject IJSRuntime JS
+
+@* Text widgets console. GET /api/widgets lists them, POST /api/widgets replaces
+   the whole array (max 10) and the server broadcasts {type:'widgets'} so every
+   OBS overlay page hot-reloads without a manual refresh. *@
+
+<div class="blt-pagehead"><h1>文字挂件</h1><span class="en">WIDGETS</span></div>
+
+<div class="blt-topstrip">
+    <span class="seg">挂件 <b class="@(_widgets.Count >= 10 ? "amber" : "green")">@_widgets.Count / 10</b></span>
+    <span class="seg">浮层 <b class="green">AUTO RELOAD</b></span>
+    @if (_editingId.Length > 0)
+    {
+        <span class="seg">编辑中 <b class="amber">@_editingId</b></span>
+    }
+    @if (_note.Length > 0)
+    {
+        <span class="seg"><b class="@(_noteOk ? "green" : "red")">@_note</b></span>
+    }
+</div>
+
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：挂件列表 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">📋 挂件列表</span><span class="en">LIST</span>
+                <span class="right"><span>widgets/overlay.html?id=&lt;id&gt;</span>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="Load">重新加载</button>
+                </span>
+            </div>
+            <div class="blt-panel-body">
+                @if (_widgets.Count == 0)
+                {
+                    <div class="blt-empty">还没有挂件 · 在右侧填写表单后点「保存挂件」</div>
+                }
+                else
+                {
+                    @foreach (var w in _widgets)
+                    {
+                        <div style="background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);padding:10px;margin-bottom:10px">
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                                <b style="font-size:12.5px">@w.Name</b>
+                                <span class="blt-badge @EffectBadge(w.Effect)">@EffectName(w.Effect)</span>
+                                <span style="margin-left:auto;color:var(--ink-3);font-family:var(--mono);font-size:10.5px">@((int)w.FontSize)px · @AlignName(w.Align)</span>
+                            </div>
+                            <div style="margin-top:6px;color:var(--ink-2);font-size:12px;white-space:pre-wrap;word-break:break-all;max-height:46px;overflow:hidden">@Preview(w.Text)</div>
+                            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+                                <input class="blt-input mono" readonly value="@WidgetUrl(w.Id)" style="flex:1;min-width:210px;font-size:11px" />
+                                <button class="blt-btn" style="padding:4px 10px" @onclick="() => CopyWidgetUrl(w)">复制</button>
+                                <a class="blt-btn" href="@WidgetUrl(w.Id)" target="_blank" rel="noopener" style="text-decoration:none;padding:4px 10px">打开</a>
+                                <button class="blt-btn" style="padding:4px 10px" @onclick="() => Edit(w)">编辑</button>
+                                <button class="blt-btn" style="padding:4px 10px" @onclick="() => Delete(w)">删除</button>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：新增 / 编辑表单 + 说明 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">@(_editingId.Length == 0 ? "➕ 新增挂件" : "✏ 编辑挂件")</span><span class="en">EDITOR</span>
+                <span class="right"><span>@(_editingId.Length == 0 ? "new" : _editingId)</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <label class="blt-label">名称 name</label>
+                <input class="blt-input" maxlength="20" @bind="_form.Name" placeholder="挂件名称（≤20 字）" />
+
+                <label class="blt-label" style="margin-top:8px">文本 text</label>
+                <textarea class="blt-input" rows="3" maxlength="2000" @bind="_form.Text" placeholder="显示在浮层上的文字"></textarea>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+                    <div>
+                        <label class="blt-label">效果 effect</label>
+                        <select class="blt-input" @bind="_form.Effect">
+                            @foreach (var e in Effects)
+                            {
+                                <option value="@e.Id">@e.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="blt-label">速度 speed（秒）</label>
+                        <input class="blt-input" type="number" min="0.5" max="120" step="0.5" @bind="_form.Speed" />
+                    </div>
+                    <div>
+                        <label class="blt-label">对齐 align</label>
+                        <select class="blt-input" @bind="_form.Align">
+                            <option value="left">左对齐 left</option>
+                            <option value="center">居中 center</option>
+                            <option value="right">右对齐 right</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="blt-label">字号 fontSize（px）</label>
+                        <input class="blt-input" type="number" min="12" max="120" step="1" @bind="_form.FontSize" />
+                    </div>
+                    <div>
+                        <label class="blt-label">字体 font</label>
+                        <input class="blt-input" @bind="_form.Font" placeholder="微软雅黑" />
+                    </div>
+                    <div>
+                        <label class="blt-label">文字色 color</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="color" style="@ColorInputStyle" @bind="_form.Color" />
+                            <input class="blt-input mono" @bind="_form.Color" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">描边 outline</label>
+                        <select class="blt-input" @bind="_form.Outline">
+                            <option value="none">无描边 none</option>
+                            <option value="black">黑色 black</option>
+                            <option value="white">白色 white</option>
+                            <option value="custom">自定义 custom</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="blt-label">描边宽度 outlineWidth</label>
+                        <input class="blt-input" type="number" min="0" max="8" step="1" @bind="_form.OutlineWidth" />
+                    </div>
+                    <div>
+                        <label class="blt-label">描边色 outlineColor</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="color" style="@ColorInputStyle" @bind="_form.OutlineColor" />
+                            <input class="blt-input mono" @bind="_form.OutlineColor" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">背景色 bgColor</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="color" style="@ColorInputStyle" @bind="_form.BgColor" />
+                            <input class="blt-input mono" @bind="_form.BgColor" />
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:12px">
+                    <button class="blt-btn primary" @onclick="SaveForm">@(_editingId.Length == 0 ? "保存挂件" : "保存修改")</button>
+                    <button class="blt-btn" @onclick="ResetForm">新建 / 重置</button>
+                </div>
+                <p style="color:var(--ink-3);font-size:11.5px;margin:10px 0 0">
+                    保存为整组替换（POST /api/widgets，body 为 widgets:[…全部挂件]）：新增=追加、删除=过滤后提交；服务端会做长度与范围校验。
+                </p>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">💡 说明</span><span class="en">NOTES</span></div>
+            <div class="blt-panel-body">
+                <div class="blt-kv"><span class="k">数量上限</span><span class="v">10 个</span></div>
+                <div class="blt-kv"><span class="k">热更新</span><span class="v green">保存后自动广播，OBS 无需刷新</span></div>
+                <div class="blt-kv"><span class="k">速度单位</span><span class="v">秒</span></div>
+                <p style="color:var(--ink-3);font-size:11.5px;margin:8px 0 0">
+                    说明：最多 10 个挂件；浮层页会自动热更新。speed（秒）含义：滚动=一圈秒数 / 跳字=每字间隔 / 翻页=每页停留 / 闪烁=周期。
+                    OBS 中为每个挂件添加「浏览器源」并粘贴卡片里的地址。
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private const string ColorInputStyle = "width:46px;height:30px;padding:2px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:var(--r);flex:none";
+
+    // Shared client for the in-process API (same pattern as the other console pages).
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
+
+    private static readonly (string Id, string Name)[] Effects =
+    {
+        ("static", "静态 static"),
+        ("marquee", "横向滚动 marquee"),
+        ("typewriter", "打字机 typewriter"),
+        ("flipX", "左右翻页 flipX"),
+        ("flipY", "上下翻页 flipY"),
+        ("blink", "闪烁 blink"),
+    };
+
+    /// <summary>Mirror of the widget schema in POST /api/widgets.</summary>
+    private sealed class Widget
+    {
+        public string Id = "";
+        public string Name = "新挂件";
+        public string Text = "欢迎来到直播间 ~";
+        public string Effect = "static";
+        public double Speed = 10;
+        public string Align = "center";
+        public double FontSize = 28;
+        public string Font = "微软雅黑";
+        public string Color = "#ffffff";
+        public double TextOpacity = 1;
+        public string Outline = "black";
+        public string OutlineColor = "#000000";
+        public double OutlineOpacity = 1;
+        public double OutlineWidth = 2;
+        public string BgColor = "#fb7299";
+        public double BgOpacity = 0.6;
+        public double Rounded = 8;
+
+        /// <summary>Raw values only — the receiving endpoint clamps and sanitizes.</summary>
+        public JsonObject ToJson() => new()
+        {
+            ["id"] = Id,
+            ["name"] = Name,
+            ["text"] = Text,
+            ["effect"] = Effect,
+            ["speed"] = Speed,
+            ["align"] = Align,
+            ["fontSize"] = FontSize,
+            ["font"] = Font,
+            ["color"] = Color,
+            ["textOpacity"] = TextOpacity,
+            ["outline"] = Outline,
+            ["outlineColor"] = OutlineColor,
+            ["outlineOpacity"] = OutlineOpacity,
+            ["outlineWidth"] = OutlineWidth,
+            ["bgColor"] = BgColor,
+            ["bgOpacity"] = BgOpacity,
+            ["rounded"] = Rounded,
+        };
+    }
+
+    private List<Widget> _widgets = new();
+    private Widget _form = new();
+    private string _editingId = "";
+    private string _lastError = "";
+    private string _note = "";
+    private bool _noteOk = true;
+
+    private string Base => "http://127.0.0.1:" + Api.Port;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    // ---------------- load / save ----------------
+
+    private async Task Load()
+    {
+        try
+        {
+            var o = await GetJsonAsync("/api/widgets") as JsonObject;
+            if (o == null)
+            {
+                Notify("读取挂件失败" + ErrSuffix(), false);
+                return;
+            }
+            _widgets = ReadList(o);
+            Notify($"已加载 {_widgets.Count} / 10 个挂件", true);
+        }
+        catch (Exception ex)
+        {
+            Notify("读取挂件失败：" + ex.Message, false);
+        }
+    }
+
+    private static List<Widget> ReadList(JsonObject o)
+    {
+        var list = new List<Widget>();
+        if (o["widgets"] is JsonArray arr)
+            foreach (var n in arr)
+                if (n is JsonObject wo) list.Add(FromJson(wo));
+        return list;
+    }
+
+    private static Widget FromJson(JsonObject o) => new()
+    {
+        Id = Str(o, "id", ""),
+        Name = Str(o, "name", "挂件"),
+        Text = Str(o, "text", ""),
+        Effect = Str(o, "effect", "static"),
+        Speed = Num(o, "speed", 10),
+        Align = Str(o, "align", "left"),
+        FontSize = Num(o, "fontSize", 28),
+        Font = Str(o, "font", "微软雅黑"),
+        Color = Str(o, "color", "#ffffff"),
+        TextOpacity = Num(o, "textOpacity", 1),
+        Outline = Str(o, "outline", "none"),
+        OutlineColor = Str(o, "outlineColor", "#000000"),
+        OutlineOpacity = Num(o, "outlineOpacity", 1),
+        OutlineWidth = Num(o, "outlineWidth", 2),
+        BgColor = Str(o, "bgColor", "#fb7299"),
+        BgOpacity = Num(o, "bgOpacity", 0.6),
+        Rounded = Num(o, "rounded", 8),
+    };
+
+    /// <summary>Raw values only — the receiving endpoint clamps and sanitizes.</summary>
+    private static JsonObject ToJson(Widget w) => w.ToJson();
+
+    // ---------------- actions ----------------
+
+    private async Task SaveForm()
+    {
+        try
+        {
+            var list = new List<Widget>(_widgets);
+            if (_editingId.Length == 0)
+            {
+                if (list.Count >= 10)
+                {
+                    Notify("最多 10 个挂件，请先删除一个", false);
+                    return;
+                }
+                _form.Id = "";   // the server assigns the id
+                list.Add(_form);
+            }
+            else
+            {
+                _form.Id = _editingId;
+                var idx = list.FindIndex(w => w.Id == _editingId);
+                if (idx >= 0) list[idx] = _form;
+                else list.Add(_form);
+            }
+            await Commit(list, _editingId.Length == 0 ? "已新增挂件" : "已保存修改");
+        }
+        catch (Exception ex)
+        {
+            Notify("保存失败：" + ex.Message, false);
+        }
+    }
+
+    private async Task Delete(Widget w)
+    {
+        try
+        {
+            var list = _widgets.Where(x => x.Id != w.Id).ToList();
+            if (_editingId == w.Id) ResetForm();
+            await Commit(list, "已删除挂件 " + w.Name);
+        }
+        catch (Exception ex)
+        {
+            Notify("删除失败：" + ex.Message, false);
+        }
+    }
+
+    private void Edit(Widget w)
+    {
+        _form = Clone(w);
+        _editingId = w.Id;
+        Notify("正在编辑：" + w.Name + "（改完点保存修改）", true);
+    }
+
+    private void ResetForm()
+    {
+        _form = new Widget();
+        _editingId = "";
+    }
+
+    /// <summary>Whole-array replace; the response carries the sanitized list back.</summary>
+    private async Task Commit(List<Widget> list, string okMsg)
+    {
+        try
+        {
+            var arr = new JsonArray();
+            foreach (var w in list) arr.Add(w.ToJson());
+            var body = new JsonObject { ["widgets"] = arr };
+
+            var o = await PostJsonAsync("/api/widgets", body) as JsonObject;
+            if (o == null)
+            {
+                Notify("保存失败" + ErrSuffix(), false);
+                return;
+            }
+            if (o["widgets"] is JsonArray) _widgets = ReadList(o);
+            else await Load();
+
+            ResetForm();
+            Notify($"{okMsg} · 共 {_widgets.Count} 个（浮层已热更新）", true);
+        }
+        catch (Exception ex)
+        {
+            Notify("保存失败：" + ex.Message, false);
+        }
+    }
+
+    private static Widget Clone(Widget w) => new()
+    {
+        Id = w.Id, Name = w.Name, Text = w.Text, Effect = w.Effect, Speed = w.Speed, Align = w.Align,
+        FontSize = w.FontSize, Font = w.Font, Color = w.Color, TextOpacity = w.TextOpacity,
+        Outline = w.Outline, OutlineColor = w.OutlineColor, OutlineOpacity = w.OutlineOpacity,
+        OutlineWidth = w.OutlineWidth, BgColor = w.BgColor, BgOpacity = w.BgOpacity, Rounded = w.Rounded,
+    };
+
+    // ---------------- display helpers ----------------
+
+    private string WidgetUrl(string id) => Base + "/widgets/overlay.html?id=" + Uri.EscapeDataString(id);
+
+    private static string EffectName(string effect) => effect switch
+    {
+        "marquee" => "横向滚动",
+        "typewriter" => "打字机",
+        "flipX" => "左右翻页",
+        "flipY" => "上下翻页",
+        "blink" => "闪烁",
+        _ => "静态",
+    };
+
+    private static string EffectBadge(string effect) => effect switch
+    {
+        "marquee" => "blue",
+        "typewriter" => "green",
+        "flipX" => "amber",
+        "flipY" => "amber",
+        "blink" => "red",
+        _ => "off",
+    };
+
+    private static string AlignName(string align) => align switch
+    {
+        "center" => "居中",
+        "right" => "右对齐",
+        _ => "左对齐",
+    };
+
+    private static string Preview(string text)
+        => string.IsNullOrEmpty(text) ? "（空文本）" : text.Length > 80 ? text[..80] + "…" : text;
+
+    // ---------------- http ----------------
+
+    private async Task<JsonNode?> GetJsonAsync(string path)
+    {
+        try
+        {
+            using var resp = await Http.GetAsync(Base + path);
+            var txt = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _lastError = "HTTP " + (int)resp.StatusCode;
+                return null;
+            }
+            var err = ApiError(txt);
+            if (err.Length > 0)
+            {
+                _lastError = err;
+                return null;
+            }
+            _lastError = "";
+            return JsonNode.Parse(txt);
+        }
+        catch (Exception ex)
+        {
+            _lastError = ex.Message;
+            return null;
+        }
+    }
+
+    private async Task<JsonNode?> PostJsonAsync(string path, JsonNode body)
+    {
+        try
+        {
+            using var resp = await Http.PostAsync(Base + path, JsonBody(body));
+            var txt = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _lastError = "HTTP " + (int)resp.StatusCode;
+                return null;
+            }
+            var err = ApiError(txt);
+            if (err.Length > 0)
+            {
+                _lastError = err;
+                return null;
+            }
+            _lastError = "";
+            return JsonNode.Parse(txt);
+        }
+        catch (Exception ex)
+        {
+            _lastError = ex.Message;
+            return null;
+        }
+    }
+
+    private static StringContent JsonBody(JsonNode node)
+        => new(node.ToJsonString(), Encoding.UTF8, "application/json");
+
+    private static string ApiError(string body)
+    {
+        try
+        {
+            if (JsonNode.Parse(body) is JsonObject o && o["error"] is JsonValue v && v.TryGetValue<string>(out var e))
+                return e ?? "";
+        }
+        catch { }
+        return "";
+    }
+
+    private string ErrSuffix()
+        => _lastError.Length > 0
+            ? "（" + _lastError + "）"
+            : "（本机服务端 127.0.0.1:" + Api.Port + " 可能未启动）";
+
+    // ---------------- clipboard / feedback ----------------
+
+    private async Task CopyWidgetUrl(Widget w) => await CopyText(WidgetUrl(w.Id), "已复制挂件地址：" + w.Name);
+
+    private async Task CopyText(string text, string okMsg)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            Notify(okMsg, true);
+        }
+        catch
+        {
+            try
+            {
+                var literal = JsonSerializer.Serialize(text);
+                await JS.InvokeVoidAsync("eval",
+                    "(function(){var t=document.createElement('textarea');t.value=" + literal +
+                    ";t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.focus();t.select();" +
+                    "document.execCommand('copy');document.body.removeChild(t);})()");
+                Notify(okMsg, true);
+            }
+            catch
+            {
+                Notify("复制失败，请手动复制输入框内容", false);
+            }
+        }
+    }
+
+    private void Notify(string msg, bool ok)
+    {
+        _note = msg;
+        _noteOk = ok;
+    }
+
+    // ---------------- json helpers ----------------
+
+    private static string Str(JsonObject o, string key, string def)
+        => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<string>(out var s) ? (s ?? def) : def;
+
+    private static double Num(JsonObject o, string key, double def)
+        => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<double>(out var d) ? d : def;
+}

@@ -1,0 +1,863 @@
+@page "/tts"
+@using System.Globalization
+@using System.Text
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@inject AppConfig Config
+@inject TtsHost TtsEngine
+@inject LivePipeline Pipeline
+@implements IDisposable
+@* TTS page: engine panel, master switch, per-type switches, tone presets and voice preview.
+   Config is read from GET /api/config and written back as the whole document via POST /api/config
+   (server merges top-level keys and persists); a direct in-process write is the offline fallback. *@
+
+<div class="blt-pagehead">
+    <h1>语音念弹幕</h1><span class="en">TTS</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--amber)">@_status</span>
+        <button class="blt-btn primary" @onclick="SaveAll" disabled="@_busy">保存全部</button>
+    </span>
+</div>
+
+<div class="blt-topstrip">
+    <span class="seg">config <b class="@ConfigClass()">@ConfigText()</b></span>
+    <span class="seg">api <b>127.0.0.1:@Config.Port</b></span>
+    <span class="seg">engine <b class="amber">@_engine</b></span>
+    <span class="seg">引擎状态 <b class="@EngineClass()">@EngineText()</b></span>
+    <span class="seg">edge 音色 <b>@_voices.Count</b></span>
+    <span class="seg">总开关 <b class="@OnOff(_enabled)">@OnOffText(_enabled)</b></span>
+</div>
+
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：引擎 / 音色 / 语气 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🎛 语音引擎</span><span class="en">ENGINE</span>
+                <span class="right"><span>tts.engine</span><b class="amber">@_engine</b></span>
+            </div>
+            <div class="blt-panel-body">
+                <label class="blt-label">engine · 引擎选择</label>
+                <div style="display:flex;gap:10px">
+                    <select class="blt-input" style="flex:1;cursor:pointer" @bind="_engine">
+                        <option value="edge">edge · 在线语音（edge-tts，322 音色）</option>
+                        <option value="moss">moss · 本地离线引擎（端口 8021）</option>
+                        <option value="sys">sys · 系统语音兜底</option>
+                    </select>
+                    <button class="blt-btn" @onclick="RefreshAll">刷新状态</button>
+                </div>
+
+                <div style="margin-top:12px">
+                    @if (_engine == "edge")
+                    {
+                        <div class="blt-kv"><span class="k">edge 服务 :8020</span><span class="v @OnOff(_edgeRunning)">@RunText(_edgeRunning)</span></div>
+                        <div class="blt-kv"><span class="k">在线音色清单</span><span class="v @OnOff(_voices.Count > 0)">@VoiceStateText()</span></div>
+                        <div class="blt-kv"><span class="k">引擎程序</span><span class="v" style="font-size:11px;word-break:break-all">@PathText(_edgePath)</span></div>
+                    }
+                    else if (_engine == "moss")
+                    {
+                        <div class="blt-kv"><span class="k">moss 服务 :8021</span><span class="v @OnOff(_mossRunning)">@RunText(_mossRunning)</span></div>
+                        <div class="blt-kv"><span class="k">模型目录</span><span class="v" style="font-size:11px;word-break:break-all">@PathText(_mossModelDir)</span></div>
+                        <div class="blt-kv"><span class="k">本地音色（mossVoice）</span><span class="v amber">@_mossVoice</span></div>
+                    }
+                    else
+                    {
+                        <div class="blt-kv"><span class="k">系统语音</span><span class="v amber">免服务 · 本机语音合成</span></div>
+                        <div class="blt-kv"><span class="k">回退顺序</span><span class="v" style="font-size:11px">edge → moss → sys</span></div>
+                    }
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+                    @if (_engine == "moss")
+                    {
+                        <button class="blt-btn" @onclick="StartMoss" disabled="@_busy">启动</button>
+                        <button class="blt-btn" @onclick="StopMoss" disabled="@_busy">停止</button>
+                        <button class="blt-btn" @onclick="RestartMoss" disabled="@_busy">重启</button>
+                    }
+                    <button class="blt-btn primary" @onclick="SaveEngine" disabled="@_busy">保存引擎</button>
+                </div>
+                @if (_engine == "sys")
+                {
+                    <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
+                        sys 引擎不依赖本地服务；edge 未运行时自动回退到系统语音
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🗣 音色与试听</span><span class="en">VOICE</span>
+                <span class="right"><span>tts.voice</span><b class="amber">@_voice</b></span>
+            </div>
+            <div class="blt-panel-body">
+                @if (_engine != "edge")
+                {
+                    <div style="font-family:var(--mono);font-size:10.5px;color:var(--amber);margin-bottom:8px">
+                        当前引擎为 @_engine：下方列表来自 edge 引擎，保存后写入 tts.voice（moss 另用 mossVoice）
+                    </div>
+                }
+                <label class="blt-label">搜索音色（ShortName / 名称）</label>
+                <input class="blt-input mono" placeholder="如 zh-CN / xiaoxiao / 女声" @bind="_voiceFilter" @bind:event="oninput" />
+
+                <div style="margin-top:10px">
+                    <label class="blt-label">edge 音色（前 50 条 / 共 @_voices.Count 条）</label>
+                    <select class="blt-input mono" style="cursor:pointer" @bind="_voice">
+                        @foreach (var v in ShownVoices())
+                        {
+                            <option value="@v.Name">@v.Label</option>
+                        }
+                    </select>
+                </div>
+
+                <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+                    <button class="blt-btn" @onclick="Preview" disabled="@_busy">试听</button>
+                    <button class="blt-btn primary" @onclick="SaveVoice" disabled="@_busy">保存音色</button>
+                    <span style="font-family:var(--mono);font-size:11px;color:var(--ink-2)">@_previewMsg</span>
+                </div>
+                @if (_previewUrl.Length > 0)
+                {
+                    <audio controls src="@_previewUrl" style="width:100%;margin-top:10px"></audio>
+                }
+                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
+                    试听走 POST /api/tts/edge/（text + voice）· 返回 audio/mpeg 字节
+                </div>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🎚 语气预设</span><span class="en">TONE</span>
+                <span class="right"><span>tone.global</span><b class="amber">@_toneGlobal</b></span>
+            </div>
+            <div class="blt-panel-body">
+                <label class="blt-label">全局语气（tone.global）</label>
+                <div style="display:flex;gap:10px">
+                    <select class="blt-input" style="flex:1;cursor:pointer" @bind="_toneGlobal">
+                        <option value="">— 默认（normal）—</option>
+                        @foreach (var t in _tonePresets)
+                        {
+                            <option value="@t.Key">@t.Label</option>
+                        }
+                    </select>
+                    <button class="blt-btn primary" @onclick="SaveTone" disabled="@_busy">保存语气</button>
+                </div>
+
+                <div style="margin-top:12px">
+                    @if (_tonePresets.Count == 0)
+                    {
+                        <div class="blt-empty">配置中未找到 tonePresets</div>
+                    }
+                    else
+                    {
+                        @foreach (var t in _tonePresets)
+                        {
+                            <div class="blt-kv">
+                                <span class="k">@t.Label <span style="font-family:var(--mono);color:var(--ink-3);font-size:10px">@t.Key</span></span>
+                                <span class="v" style="font-size:11px">@t.Desc</span>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <div style="margin-top:12px;padding-top:8px;border-top:1px dashed var(--line)">
+                    <label class="blt-label">分类语气（tone.byType · 只读，空 = 跟随全局）</label>
+                    @foreach (var t in _toneByType)
+                    {
+                        <div class="blt-kv"><span class="k">@t.Label</span><span class="v">@t.Value</span></div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：总开关 / 分类开关 / 只读参数 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🔊 总开关与语速</span><span class="en">MASTER</span>
+                <span class="right"><span>enabled / rate / volume</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <span class="@SwitchClass(_enabled)" @onclick="ToggleEnabled"><span class="track"></span>语音念弹幕 <span style="color:var(--ink-3)">总开关（tts.enabled）</span></span>
+
+                <div style="display:flex;gap:14px;margin-top:16px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:110px">
+                        <label class="blt-label">rate · 语速</label>
+                        <input class="blt-input mono" type="number" step="0.05" min="0.5" max="2.5" @bind="_rateText" />
+                    </div>
+                    <div style="flex:1;min-width:110px">
+                        <label class="blt-label">volume · 音量</label>
+                        <input class="blt-input mono" type="number" step="0.05" min="0" max="1" @bind="_volumeText" />
+                    </div>
+                </div>
+                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:8px">
+                    rate 0.5–2.5（1 = 原速）· volume 0–1
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:14px">
+                    <button class="blt-btn primary" @onclick="SaveMaster" disabled="@_busy">保存总开关</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🧩 分类开关</span><span class="en">BY TYPE</span>
+                <span class="right"><span>enabled + volume</span></span>
+            </div>
+            <div class="blt-panel-body">
+                @foreach (var row in _cats)
+                {
+                    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)">
+                        <span class="@SwitchClass(row.Enabled)" @onclick="() => ToggleCat(row)"><span class="track"></span>@row.Label</span>
+                        <span style="font-family:var(--mono);font-size:10px;color:var(--ink-3)">tts.@row.Key</span>
+                        <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
+                            <span style="font-size:10.5px;color:var(--ink-3)">音量</span>
+                            <input class="blt-input mono" style="width:84px" type="number" step="0.05" min="0" max="1" @bind="row.Volume" />
+                        </span>
+                    </div>
+                }
+                @if (_cats.Count == 0)
+                {
+                    <div class="blt-empty">配置读取失败，分类开关不可用</div>
+                }
+                <div style="display:flex;gap:8px;margin-top:14px">
+                    <button class="blt-btn primary" @onclick="SaveCats" disabled="@_busy">保存分类设置</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">⚙ 其他参数</span><span class="en">READ ONLY</span>
+                <span class="right"><span>由原版面板维护</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-kv"><span class="k">pitch · 音调基准</span><span class="v">@_pitch</span></div>
+                <div class="blt-kv"><span class="k">gain · 增益</span><span class="v">@_gain</span></div>
+                <div class="blt-kv"><span class="k">gap · 队列间隔 ms</span><span class="v">@_gap</span></div>
+                <div class="blt-kv"><span class="k">queueMax · 队列上限</span><span class="v">@_queueMax</span></div>
+                <div class="blt-kv"><span class="k">guardPriority · 舰长优先</span><span class="v @OnOff(_guardPriority)">@OnOffText(_guardPriority)</span></div>
+                <div class="blt-kv"><span class="k">favoriteVoices · 收藏音色</span><span class="v">@_favoriteCount 个</span></div>
+                <div class="blt-kv"><span class="k">blacklistUids / bannedWords</span><span class="v">@_blacklistCount / @_bannedCount</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // ---- shared HTTP client (localhost config API) ----
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private string Base => "http://127.0.0.1:" + Config.Port;
+
+    private JsonObject? _doc;
+    private bool _busy;
+    private string _status = "载入中…";
+
+    // engine
+    private string _engine = "edge";
+    private bool _edgeRunning, _mossRunning, _guardPriority;
+    private string _edgePath = "", _mossModelDir = "", _mossVoice = "Junhao";
+
+    // master
+    private bool _enabled;
+    private string _rateText = "1", _volumeText = "1";
+    private string _pitch = "1", _gain = "0", _gap = "0", _queueMax = "8";
+    private int _favoriteCount, _blacklistCount, _bannedCount;
+
+    // per-type switches
+    private List<CatRow> _cats = new();
+
+    // voices
+    private readonly List<VoiceItem> _voices = new();
+    private string _voice = "zh-CN-XiaoxiaoNeural";
+    private string _voiceFilter = "";
+    private string _previewMsg = "", _previewUrl = "";
+
+    // tone
+    private string _toneGlobal = "normal";
+    private readonly List<TonePreset> _tonePresets = new();
+    private readonly List<ToneRow> _toneByType = new();
+
+    private System.Threading.Timer? _tick;
+
+    private sealed class CatRow
+    {
+        public string Key = "";
+        public string Label = "";
+        public bool Enabled;
+        public string Volume = "1";
+    }
+
+    private sealed record VoiceItem(string Name, string Label, bool Zh);
+
+    private sealed record TonePreset(string Key, string Label, string Desc);
+
+    private sealed record ToneRow(string Label, string Value);
+
+    // ---- Chinese display names for the common zh voices (same map as the legacy panel) ----
+    private static readonly Dictionary<string, string> ZhVoices = new()
+    {
+        ["zh-CN-XiaoxiaoNeural"] = "小晓(女·普通话)",
+        ["zh-CN-XiaoyiNeural"] = "晓伊(女·普通话)",
+        ["zh-CN-YunxiNeural"] = "云希(男·普通话)",
+        ["zh-CN-YunyangNeural"] = "云扬(男·普通话)",
+        ["zh-CN-YunjianNeural"] = "云健(男·普通话)",
+        ["zh-CN-YunxiaNeural"] = "云夏(男·普通话)",
+        ["zh-CN-liaoning-XiaobeiNeural"] = "小北(女·辽宁)",
+        ["zh-CN-shaanxi-XiaoniNeural"] = "小妮(女·陕西)",
+        ["zh-HK-HiuGaaiNeural"] = "曉佳(女·粤语)",
+        ["zh-HK-HiuMaanNeural"] = "曉曼(女·粤语)",
+        ["zh-HK-WanLungNeural"] = "雲龍(男·粤语)",
+        ["zh-TW-HsiaoChenNeural"] = "曉臻(女·台湾)",
+        ["zh-TW-HsiaoYuNeural"] = "曉雨(女·台湾)",
+        ["zh-TW-YunJheNeural"] = "雲哲(男·台湾)",
+    };
+
+    // ---- lifecycle ----
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConfigAsync();
+        await RefreshAll();
+        // Keep the engine lamps fresh without hammering the API.
+        _tick = new System.Threading.Timer(_ => _ = InvokeAsync(() => { RefreshEngineLocal(); StateHasChanged(); }), null, 10000, 10000);
+    }
+
+    private async Task RefreshAll()
+    {
+        RefreshEngineLocal();
+        await FetchMossStatusAsync();
+        await FetchEdgeVoicesAsync();
+    }
+
+    public void Dispose() => _tick?.Dispose();
+
+    // ---- config load / save ----
+
+    private async Task LoadConfigAsync()
+    {
+        string? json = null;
+        try
+        {
+            using var resp = await Http.GetAsync(Base + "/api/config");
+            if (resp.IsSuccessStatusCode) json = await resp.Content.ReadAsStringAsync();
+            else _status = "配置接口 HTTP " + (int)resp.StatusCode + "，改用本地快照";
+        }
+        catch (Exception ex)
+        {
+            _status = "配置接口不可用（" + Short(ex.Message) + "），改用本地快照";
+        }
+
+        if (json == null)
+        {
+            try { json = Config.SnapshotJson(); } catch { /* keep the page alive */ }
+        }
+
+        try
+        {
+            _doc = json != null ? JsonNode.Parse(json) as JsonObject : null;
+        }
+        catch (Exception ex)
+        {
+            _doc = null;
+            _status = "配置解析失败：" + Short(ex.Message);
+        }
+        ApplyFromDoc();
+        if (_doc != null && _status.StartsWith("载入中")) _status = "配置已载入 · " + Stamp();
+    }
+
+    private void ApplyFromDoc()
+    {
+        var tts = _doc?["tts"] as JsonObject;
+        _engine = NormalizeEngine(Str(tts, "engine", "edge"));
+        _voice = Str(tts, "voice", "zh-CN-XiaoxiaoNeural");
+        _mossVoice = Str(tts, "mossVoice", "Junhao");
+        _enabled = Flag(tts, "enabled", false);
+        _rateText = NumText(tts, "rate", 1);
+        _volumeText = NumText(tts, "volume", 1);
+        _pitch = NumText(tts, "pitch", 1);
+        _gain = NumText(tts, "gain", 0);
+        _gap = NumText(tts, "gap", 0);
+        _queueMax = NumText(tts, "queueMax", 8);
+        _guardPriority = Flag(tts, "guardPriority", false);
+        _favoriteCount = (tts?["favoriteVoices"] as JsonArray)?.Count ?? 0;
+        _blacklistCount = SplitList(Str(tts, "blacklistUids")).Count;
+        _bannedCount = SplitList(Str(tts, "bannedWords")).Count;
+
+        _cats = BuildCats(tts);
+
+        _toneGlobal = Str(tts?["tone"] as JsonObject, "global", "normal");
+        if (_toneGlobal.Length == 0) _toneGlobal = "normal";
+        LoadTonePresets(tts);
+        LoadToneByType(tts?["tone"] as JsonObject);
+    }
+
+    private static List<CatRow> BuildCats(JsonObject? tts)
+    {
+        var defs = new (string Key, string Label)[]
+        {
+            ("danmu", "弹幕"),
+            ("gift", "礼物"),
+            ("superchat", "醒目留言"),
+            ("welcome", "欢迎进房"),
+        };
+        var list = new List<CatRow>();
+        foreach (var (key, label) in defs)
+        {
+            var sec = tts?[key] as JsonObject;
+            list.Add(new CatRow
+            {
+                Key = key,
+                Label = label,
+                Enabled = Flag(sec, "enabled", false),
+                Volume = NumText(sec, "volume", 1),
+            });
+        }
+        return list;
+    }
+
+    private void LoadTonePresets(JsonObject? tts)
+    {
+        _tonePresets.Clear();
+        if (tts?["tonePresets"] is not JsonObject presets) return;
+        foreach (var (key, node) in presets)
+        {
+            var p = node as JsonObject;
+            var label = Str(p, "label");
+            _tonePresets.Add(new TonePreset(key, label.Length > 0 ? label : key, ToneDesc(p)));
+        }
+    }
+
+    private void LoadToneByType(JsonObject? tone)
+    {
+        _toneByType.Clear();
+        var byType = tone?["byType"] as JsonObject;
+        foreach (var (key, label) in new[] { ("danmu", "弹幕"), ("gift", "礼物"), ("superchat", "醒目留言"), ("welcome", "欢迎进房") })
+        {
+            var v = Str(byType, key);
+            _toneByType.Add(new ToneRow(label, v.Length > 0 ? v : "跟随全局"));
+        }
+    }
+
+    /// <summary>Writes every UI field back into the in-memory document (unknown keys stay untouched).</summary>
+    private void ApplyToDoc()
+    {
+        _doc ??= new JsonObject();
+        if (_doc["tts"] is not JsonObject tts)
+        {
+            tts = new JsonObject();
+            _doc["tts"] = tts;
+        }
+        tts["enabled"] = _enabled;
+        tts["engine"] = _engine;
+        tts["voice"] = _voice;
+        tts["rate"] = ParseD(_rateText, 1);
+        tts["volume"] = ParseD(_volumeText, 1);
+
+        foreach (var row in _cats)
+        {
+            if (tts[row.Key] is not JsonObject sec)
+            {
+                sec = new JsonObject();
+                tts[row.Key] = sec;
+            }
+            sec["enabled"] = row.Enabled;
+            sec["volume"] = ParseD(row.Volume, 1);
+        }
+
+        if (tts["tone"] is not JsonObject tone)
+        {
+            tone = new JsonObject();
+            tts["tone"] = tone;
+        }
+        tone["global"] = _toneGlobal;
+    }
+
+    private async Task SaveAll()
+    {
+        ApplyToDoc();
+        await SaveAsync("语音配置已保存");
+    }
+
+    private async Task SaveEngine()
+    {
+        ApplyToDoc();
+        await SaveAsync("引擎已保存（" + _engine + "）");
+        if (_engine == "moss" && !_mossRunning) await MossActionAsync("ensure");
+    }
+
+    private async Task SaveVoice()
+    {
+        ApplyToDoc();
+        await SaveAsync("音色已保存（" + _voice + "）");
+    }
+
+    private async Task SaveMaster()
+    {
+        ApplyToDoc();
+        await SaveAsync("总开关已保存（" + OnOffText(_enabled) + "）");
+    }
+
+    private async Task SaveCats()
+    {
+        ApplyToDoc();
+        await SaveAsync("分类开关已保存");
+    }
+
+    private async Task SaveTone()
+    {
+        ApplyToDoc();
+        await SaveAsync("语气已保存（" + _toneGlobal + "）");
+    }
+
+    /// <summary>POSTs the whole document; falls back to a direct in-process write when the API is down.</summary>
+    private async Task SaveAsync(string label)
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var json = _doc!.ToJsonString();
+            try
+            {
+                using var resp = await Http.PostAsync(Base + "/api/config",
+                    new StringContent(json, Encoding.UTF8, "application/json"));
+                var body = await resp.Content.ReadAsStringAsync();
+                if (resp.IsSuccessStatusCode)
+                {
+                    _status = label + " · " + Stamp();
+                    return;
+                }
+                WriteLocal(label + " · HTTP " + (int)resp.StatusCode + ErrText(body));
+            }
+            catch (Exception ex)
+            {
+                WriteLocal(label + " · " + Short(ex.Message));
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void WriteLocal(string why)
+    {
+        try
+        {
+            Config.UpdateFrom(_doc!);   // top-level merge + persist, same semantics as POST /api/config
+            Pipeline.ApplyConfig();
+            ApplyFromDoc();
+            _status = why + " → 已直写本地配置 · " + Stamp();
+        }
+        catch (Exception ex)
+        {
+            _status = "保存失败：" + Short(ex.Message);
+        }
+    }
+
+    // ---- engine status / lifecycle ----
+
+    private void RefreshEngineLocal()
+    {
+        try
+        {
+            var e = TtsEngine.EdgeStatus();
+            _edgeRunning = PropBool(e, "running");
+            var ep = PropStr(e, "execPath");
+            if (ep.Length > 0) _edgePath = ep;
+            var m = TtsEngine.MossStatus();
+            _mossRunning = PropBool(m, "running");
+            var md = PropStr(m, "modelDir");
+            if (md.Length > 0) _mossModelDir = md;
+        }
+        catch { /* status probe must never break rendering */ }
+    }
+
+    private async Task FetchMossStatusAsync()
+    {
+        try
+        {
+            using var resp = await Http.PostAsync(Base + "/api/maui/tts/moss/status",
+                new StringContent("{}", Encoding.UTF8, "application/json"));
+            var text = await resp.Content.ReadAsStringAsync();
+            if (resp.IsSuccessStatusCode && JsonNode.Parse(text) is JsonObject o)
+            {
+                _mossRunning = Flag(o, "running", _mossRunning);
+                var md = Str(o, "modelDir");
+                if (md.Length > 0) _mossModelDir = md;
+                return;
+            }
+        }
+        catch { /* fall back to the in-process probe below */ }
+        RefreshEngineLocal();
+    }
+
+    private async Task FetchEdgeVoicesAsync()
+    {
+        try
+        {
+            using var resp = await Http.GetAsync(Base + "/api/tts/edge/voices");
+            var text = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                if (_engine == "edge") _status = "edge 音色清单 HTTP " + (int)resp.StatusCode + ErrText(text);
+                _edgeRunning = false;
+                return;
+            }
+            if (JsonNode.Parse(text) is not JsonArray arr)
+            {
+                _status = "edge 音色清单格式异常";
+                return;
+            }
+            _voices.Clear();
+            foreach (var node in arr)
+            {
+                if (node is not JsonObject o) continue;
+                var name = Str(o, "ShortName");
+                if (name.Length == 0) name = Str(o, "shortName");
+                if (name.Length == 0) name = Str(o, "Name");
+                if (name.Length == 0) continue;
+                var friendly = Str(o, "FriendlyName");
+                var gender = Str(o, "Gender");
+                var zh = name.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
+                _voices.Add(new VoiceItem(name, VoiceLabel(name, friendly, gender), zh));
+            }
+            // Chinese voices first so the 50-entry window is actually useful; order stays stable otherwise.
+            var sorted = _voices.OrderByDescending(v => v.Zh).ToList();
+            _voices.Clear();
+            _voices.AddRange(sorted);
+            if (_engine == "edge") _edgeRunning = true;
+        }
+        catch (Exception ex)
+        {
+            _edgeRunning = false;
+            if (_engine == "edge") _status = "edge 音色清单读取失败：" + Short(ex.Message);
+        }
+    }
+
+    private async Task MossActionAsync(string action)
+    {
+        if (_busy) return;
+        _busy = true;
+        _status = "MOSS " + action + " 请求中…";
+        try
+        {
+            try
+            {
+                using var resp = await Http.PostAsync(Base + "/api/maui/tts/moss/" + action,
+                    new StringContent("{}", Encoding.UTF8, "application/json"));
+                var text = await resp.Content.ReadAsStringAsync();
+                if (resp.IsSuccessStatusCode)
+                {
+                    if (JsonNode.Parse(text) is JsonObject o) _mossRunning = Flag(o, "running", _mossRunning);
+                    _status = "MOSS " + action + " → " + RunText(_mossRunning) + " · " + Stamp();
+                    return;
+                }
+                _status = "MOSS " + action + " HTTP " + (int)resp.StatusCode + ErrText(text);
+            }
+            catch
+            {
+                // server unreachable: drive the host directly
+                object r = action switch
+                {
+                    "stop" => TtsEngine.StopMoss(),
+                    "restart" => await TtsEngine.RestartMossAsync(),
+                    _ => TtsEngine.EnsureMoss(),
+                };
+                _mossRunning = PropBool(r, "running");
+                _status = "MOSS " + action + "（本地直调）→ " + RunText(_mossRunning) + " · " + Stamp();
+            }
+        }
+        finally
+        {
+            _busy = false;
+            RefreshEngineLocal();
+        }
+    }
+
+    private async Task StartMoss() => await MossActionAsync("ensure");
+
+    private async Task StopMoss() => await MossActionAsync("stop");
+
+    private async Task RestartMoss() => await MossActionAsync("restart");
+
+    // ---- preview ----
+
+    private async Task Preview()
+    {
+        if (_busy) return;
+        _busy = true;
+        _previewMsg = "合成中…";
+        _previewUrl = "";
+        try
+        {
+            var body = new JsonObject { ["text"] = "这是一条试听", ["voice"] = _voice };
+            using var resp = await Http.PostAsync(Base + "/api/tts/edge/",
+                new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"));
+            if (!resp.IsSuccessStatusCode)
+            {
+                var err = await resp.Content.ReadAsStringAsync();
+                _previewMsg = "合成失败 · HTTP " + (int)resp.StatusCode + ErrText(err);
+                return;
+            }
+            var bytes = await resp.Content.ReadAsByteArrayAsync();
+            var mime = resp.Content.Headers.ContentType?.MediaType ?? "audio/mpeg";
+            if (bytes.Length < 100)
+            {
+                _previewMsg = "合成失败 · 仅返回 " + bytes.Length + " 字节";
+                return;
+            }
+            _previewMsg = "已合成 " + bytes.Length + " 字节（" + mime + "）";
+            // Inline data URL keeps the preview playable without extra JS assets.
+            if (bytes.Length <= 2 * 1024 * 1024)
+                _previewUrl = "data:" + mime + ";base64," + Convert.ToBase64String(bytes);
+            else
+                _previewMsg += " · 超过 2MB，未内联播放";
+        }
+        catch (Exception ex)
+        {
+            _previewMsg = "合成失败：" + Short(ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    // ---- small helpers ----
+
+    private void ToggleEnabled() => _enabled = !_enabled;
+
+    private static void ToggleCat(CatRow row) => row.Enabled = !row.Enabled;
+
+    private List<VoiceItem> ShownVoices()
+    {
+        var filter = _voiceFilter.Trim();
+        IEnumerable<VoiceItem> src = _voices;
+        if (filter.Length > 0)
+            src = src.Where(v => v.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                              || v.Label.Contains(filter, StringComparison.OrdinalIgnoreCase));
+        var list = src.Take(50).ToList();
+        if (_voice.Length > 0 && !list.Any(v => v.Name == _voice))
+            list.Insert(0, new VoiceItem(_voice, _voice + "（当前配置）", false));
+        return list;
+    }
+
+    private static string VoiceLabel(string name, string friendly, string gender)
+    {
+        if (ZhVoices.TryGetValue(name, out var zh)) return zh + " · " + name;
+        if (friendly.Length > 0)
+        {
+            var f = friendly.Replace("Microsoft ", "").Replace(" Online (Natural)", "").Replace(" - ", " · ");
+            return f + " · " + name;
+        }
+        var g = gender == "Female" ? "女" : gender == "Male" ? "男" : gender;
+        return g.Length > 0 ? name + "（" + g + "）" : name;
+    }
+
+    private static string NormalizeEngine(string e)
+        => e == "moss" || e == "sys" ? e : "edge";
+
+    private static string ToneDesc(JsonObject? p)
+    {
+        if (p == null) return "";
+        var parts = new List<string>();
+        var rate = Dbl(p, "rate", 1);
+        if (Math.Abs(rate - 1) > 0.001) parts.Add("语速 ×" + rate.ToString("0.##", CultureInfo.InvariantCulture));
+        var pitch = Dbl(p, "pitch", 0);
+        if (Math.Abs(pitch) > 0.001) parts.Add("音调 " + (pitch > 0 ? "+" : "") + pitch.ToString("0.##", CultureInfo.InvariantCulture) + "Hz");
+        var voice = Str(p, "voice");
+        if (voice.Length > 0) parts.Add("音色 " + voice);
+        var prefix = Str(p, "prefix");
+        if (prefix.Length > 0) parts.Add("前缀 「" + prefix + "」");
+        if (parts.Count == 0) parts.Add("原声（无调整）");
+        return string.Join(" · ", parts);
+    }
+
+    private string ConfigClass() => _doc != null ? "green" : "red";
+
+    private string ConfigText() => _doc != null ? "LOADED" : "FAIL";
+
+    private string EngineClass() => _engine == "edge" ? OnOff(_edgeRunning) : _engine == "moss" ? OnOff(_mossRunning) : "amber";
+
+    private string EngineText() => _engine switch
+    {
+        "edge" => _edgeRunning ? (EdgeAlive() ? "ONLINE" : "READY") : "OFFLINE",
+        "moss" => _mossRunning ? "RUNNING" : "STOPPED",
+        _ => "SYSTEM",
+    };
+
+    private bool EdgeAlive() => _voices.Count > 0;
+
+    private string VoiceStateText() => _voices.Count > 0 ? _voices.Count + " 个音色" : "未获取（服务未运行？）";
+
+    private static string RunText(bool on) => on ? "RUNNING" : "STOPPED";
+
+    private static string OnOff(bool on) => on ? "green" : "red";
+
+    private static string OnOffText(bool on) => on ? "ON" : "OFF";
+
+    private static string SwitchClass(bool on) => on ? "blt-switch on" : "blt-switch";
+
+    private static string PathText(string p) => p.Length > 0 ? p : "—";
+
+    private static string Stamp() => DateTime.Now.ToString("HH:mm:ss");
+
+    private static string Short(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "未知错误";
+        return s.Length > 90 ? s[..90] + "…" : s;
+    }
+
+    private static string ErrText(string s)
+    {
+        try
+        {
+            if (JsonNode.Parse(s) is JsonObject o)
+            {
+                var e = Str(o, "error");
+                if (e.Length > 0) return " · " + e;
+            }
+        }
+        catch { /* not JSON */ }
+        return "";
+    }
+
+    private static bool PropBool(object o, string name)
+    {
+        var v = o.GetType().GetProperty(name)?.GetValue(o);
+        return v is bool b && b;
+    }
+
+    private static string PropStr(object o, string name)
+        => o.GetType().GetProperty(name)?.GetValue(o) as string ?? "";
+
+    private static string Str(JsonObject? o, string key, string def = "")
+    {
+        if (o != null && o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<string>(out var s) && s != null) return s;
+        return def;
+    }
+
+    private static bool Flag(JsonObject? o, string key, bool def)
+    {
+        if (o != null && o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<bool>(out var b)) return b;
+        return def;
+    }
+
+    private static double Dbl(JsonObject? o, string key, double def)
+    {
+        if (o != null && o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<double>(out var d)) return d;
+        return def;
+    }
+
+    private static string NumText(JsonObject? o, string key, double def)
+        => Dbl(o, key, def).ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static double ParseD(string s, double def)
+    {
+        if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var d)) return d;
+        if (double.TryParse(s, out var d2)) return d2;
+        return def;
+    }
+
+    private static List<string> SplitList(string s)
+        => s.Split(new[] { ',', '，', '\n', ' ', ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+}

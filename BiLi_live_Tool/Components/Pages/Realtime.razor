@@ -1,0 +1,399 @@
+@page "/realtime"
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using BiLi_live_Tool.Services
+@inject AppConfig Config
+@inject EventHub Hub
+@inject KestrelHost Api
+@implements IDisposable
+
+<div class="blt-pagehead"><h1>实时展示</h1><span class="en">REALTIME</span></div>
+
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：直播间信息 + 分类计数 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">📊 直播间信息</span><span class="en">LIVE ROOM INFO</span>
+                <span class="right">
+                    <span>@InfoUpdatedText()</span>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="RefreshLiveInfo">立即刷新</button>
+                </span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:flex;align-items:flex-end;gap:14px;padding-bottom:10px">
+                    <div>
+                        <div style="font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:1px">ONLINE · 在线人数</div>
+                        <div style="font-family:var(--mono);font-size:38px;font-weight:700;color:var(--green);line-height:1.15">@OnlineText()</div>
+                    </div>
+                    <div style="margin-left:auto;text-align:right">
+                        <div class="blt-badge @StateBadge()">@StateText()</div>
+                        <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:6px">ROOM @RoomText()</div>
+                    </div>
+                </div>
+
+                @if (_infoError.Length > 0)
+                {
+                    <div style="color:var(--red);font-size:12px;padding:2px 0 8px">@_infoError</div>
+                }
+
+                <div class="blt-kv"><span class="k">房间号</span><span class="v">@RoomText()</span></div>
+                <div class="blt-kv"><span class="k">人气值</span><span class="v">@FmtNum(Hub.LastStatus.Popularity)</span></div>
+                <div class="blt-kv"><span class="k">舰长总数</span><span class="v amber">@_guardTotal.ToString("N0")</span></div>
+                <div class="blt-kv"><span class="k">总督 · 提督 · 舰长</span><span class="v">@GuardCountText()</span></div>
+
+                <label class="blt-label" style="margin-top:12px">TOP 3 舰长 · TOP GUARDS</label>
+                @if (_top3.Count == 0)
+                {
+                    <div class="blt-empty" style="padding:10px 4px">暂无舰长数据（连接直播间后显示）</div>
+                }
+                else
+                {
+                    @foreach (var g in _top3)
+                    {
+                        <div class="blt-kv">
+                            <span class="k"><span class="blt-badge amber">@GuardLevelText(g.GuardLevel)</span> @g.Name</span>
+                            <span class="v">陪伴 @g.Accompany.ToString("N0") 天</span>
+                        </div>
+                    }
+                }
+
+                <label class="blt-label" style="margin-top:12px">在线榜 · ONLINE RANK</label>
+                @if (_rank.Count == 0)
+                {
+                    <div class="blt-empty" style="padding:10px 4px">接口暂未返回在线榜数据</div>
+                }
+                else
+                {
+                    @foreach (var r in _rank)
+                    {
+                        <div class="blt-kv"><span class="k">@r.Name</span><span class="v">@r.Score.ToString("N0")</span></div>
+                    }
+                }
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🔢 分类计数</span><span class="en">CATEGORY COUNTS</span>
+                <span class="right">
+                    <span>本页会话（含服务端缓存初始值）</span>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="ResetCounters">清零</button>
+                </span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                    @foreach (var c in CounterDefs)
+                    {
+                        <div style="background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px">
+                            <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:@ColorOf(c.Key)">@Cnt(c.Key)</div>
+                            <div style="font-size:11px;color:var(--ink-2)">@c.Label <span style="color:var(--ink-3);font-family:var(--mono);font-size:9.5px">@c.En</span></div>
+                        </div>
+                    }
+                    <div style="background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px">
+                        <div style="font-family:var(--mono);font-size:22px;font-weight:700">@TotalCount()</div>
+                        <div style="font-size:11px;color:var(--ink-2)">总计 <span style="color:var(--ink-3);font-family:var(--mono);font-size:9.5px">TOTAL</span></div>
+                    </div>
+                </div>
+                <div class="blt-empty" style="padding:12px 4px 2px;text-align:left">
+                    计数为页面会话内统计；礼物聚合（GIFTΣ）仅用于展示，不重复计入「礼物」计数。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：实时事件流（最多保留 200 条） ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">📜 实时事件流</span><span class="en">LIVE EVENTS</span>
+                <span class="right">
+                    <span>tail -f · @_events.Count / @MaxEvents</span>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="ClearEvents">清空显示</button>
+                </span>
+            </div>
+            <div class="blt-panel-body" style="padding:6px 0">
+                @if (_events.Count == 0)
+                {
+                    <div class="blt-empty">等待事件… 连接直播间后实时滚动显示 弹幕 / 礼物 / 舰长 / SC / 互动</div>
+                }
+                else
+                {
+                    <div class="blt-log" style="max-height:640px">
+                        @foreach (var ev in _events)
+                        {
+                            <div class="blt-logrow">
+                                <span class="t">@ev.Time</span>
+                                <span class="tag @TagClass(ev.Type)">@TagText(ev.Type)</span>
+                                <span class="txt"><span class="u">@(string.IsNullOrEmpty(ev.Uname) ? "—" : ev.Uname)</span> @EventText(ev)</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private const int MaxEvents = 200;
+
+    // Shared static client: local API on 127.0.0.1, short timeout keeps the UI responsive.
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
+    private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);
+
+    private static readonly (string Key, string Label, string En)[] CounterDefs =
+    {
+        ("danmu", "弹幕", "DANMU"),
+        ("gifts", "礼物", "GIFTS"),
+        ("guard", "舰长", "GUARD"),
+        ("superchat", "醒目留言", "SC"),
+        ("interact", "互动（进房/关注）", "INTER"),
+    };
+
+    private readonly Dictionary<string, int> _counts = new()
+    {
+        ["danmu"] = 0, ["gifts"] = 0, ["guard"] = 0, ["superchat"] = 0, ["interact"] = 0,
+    };
+
+    private List<LiveEvent> _events = new();
+    private List<TopGuard> _top3 = new();
+    private List<RankItem> _rank = new();
+    private long _online;
+    private long _guardTotal;
+    private long[] _guardCount = new long[3];
+    private string _infoUpdated = "";
+    private string _infoError = "";
+    private System.Threading.Timer? _timer;
+    private int _refreshing;
+    private bool _disposed;
+
+    private sealed record TopGuard(string Name, long Accompany, int GuardLevel);
+    private sealed record RankItem(string Name, long Score);
+
+    private string BaseUrl => "http://127.0.0.1:" + Api.Port;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Hub.OnEvent += OnEvent;
+        // 5s auto refresh; first tick shortly after mount.
+        _timer = new System.Threading.Timer(_ =>
+        {
+            try { if (!_disposed) _ = InvokeAsync(RefreshLiveInfo); }
+            catch { /* renderer already gone */ }
+        }, null, 1200, 5000);
+        await LoadRecentAsync();
+    }
+
+    private void OnEvent(LiveEvent ev) => InvokeAsync(() =>
+    {
+        if (_disposed) return;
+        _events.Insert(0, ev);
+        if (_events.Count > MaxEvents) _events.RemoveAt(_events.Count - 1);
+        if (_counts.ContainsKey(ev.Type)) _counts[ev.Type]++;
+        StateHasChanged();
+    });
+
+    private async Task RefreshLiveInfo()
+    {
+        if (_disposed || Interlocked.CompareExchange(ref _refreshing, 1, 0) != 0) return;
+        try
+        {
+            var j = await GetJsonAsync("/api/room/live-info");
+            if (j == null)
+            {
+                _infoError = "接口无响应（本机服务端可能未启动）";
+                return;
+            }
+            _online = GetLong(j["online"]);
+            _guardTotal = GetLong(j["guardTotal"]);
+            _guardCount = new long[3];
+            if (j["guardCount"] is JsonArray gc)
+                for (var i = 0; i < 3 && i < gc.Count; i++) _guardCount[i] = GetLong(gc[i]);
+
+            _top3 = new List<TopGuard>();
+            if (j["top3"] is JsonArray t3)
+            {
+                foreach (var n in t3)
+                {
+                    if (n is not JsonObject o) continue;
+                    _top3.Add(new TopGuard(GetStr(o["name"]), GetLong(o["accompany"]), (int)GetLong(o["guardLevel"])));
+                }
+            }
+
+            _rank = new List<RankItem>();
+            if (j["onlineRank"] is JsonArray ra)
+            {
+                foreach (var n in ra)
+                {
+                    if (n is not JsonObject o) continue;
+                    var name = GetStr(o["name"]);
+                    if (name.Length == 0) name = GetStr(o["uname"]);
+                    if (name.Length == 0) name = GetStr(o["nickname"]);
+                    if (name.Length == 0) name = GetStr(o["uid"]);
+                    var score = GetLong(o["score"]);
+                    if (score == 0) score = GetLong(o["value"]);
+                    _rank.Add(new RankItem(name.Length > 0 ? name : "—", score));
+                }
+            }
+
+            _infoError = "";
+            _infoUpdated = DateTime.Now.ToString("HH:mm:ss");
+        }
+        catch (Exception e)
+        {
+            _infoError = "刷新失败：" + e.Message;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _refreshing, 0);
+            try { if (!_disposed) StateHasChanged(); } catch { /* renderer already gone */ }
+        }
+    }
+
+    /// <summary>Seed counters and the log tail from the server-side ring buffers.</summary>
+    private async Task LoadRecentAsync()
+    {
+        var merged = new List<LiveEvent>();
+        foreach (var c in CounterDefs)
+        {
+            try
+            {
+                var j = await GetJsonAsync("/api/recent?type=" + c.Key);
+                if (j?["events"] is not JsonArray arr) continue;
+                _counts[c.Key] = arr.Count;
+                foreach (var n in arr)
+                {
+                    var ev = n?.Deserialize<LiveEvent>(WebJson);
+                    if (ev != null && !string.IsNullOrEmpty(ev.Type)) merged.Add(ev);
+                }
+            }
+            catch { /* seeding is best-effort */ }
+        }
+        if (_disposed) return;
+        _events = merged.OrderByDescending(e => e.Ts).Take(MaxEvents).ToList();
+        StateHasChanged();
+    }
+
+    private async Task<JsonNode?> GetJsonAsync(string path)
+    {
+        var txt = await Http.GetStringAsync(BaseUrl + path);
+        return JsonNode.Parse(txt);
+    }
+
+    private string InfoUpdatedText() => _infoUpdated.Length > 0 ? "更新于 " + _infoUpdated : "5s 自动刷新";
+
+    private string OnlineText() => _online > 0 ? _online.ToString("N0") : "—";
+
+    private string GuardCountText() => $"{_guardCount[0]} · {_guardCount[1]} · {_guardCount[2]}";
+
+    private static string GuardLevelText(int level) => level switch
+    {
+        1 => "总督",
+        2 => "提督",
+        3 => "舰长",
+        _ => "舰长",
+    };
+
+    private string RoomText()
+    {
+        if (!string.IsNullOrEmpty(Hub.LastStatus.RealRoomId)) return Hub.LastStatus.RealRoomId;
+        return string.IsNullOrEmpty(Config.RoomId) ? "—" : Config.RoomId;
+    }
+
+    private static string FmtNum(long v) => v > 0 ? v.ToString("N0") : "—";
+
+    private int Cnt(string key) => _counts.TryGetValue(key, out var v) ? v : 0;
+
+    private int TotalCount() => _counts.Values.Sum();
+
+    private static string ColorOf(string key) => key switch
+    {
+        "danmu" => "var(--blue)",
+        "gifts" => "var(--red)",
+        "guard" => "var(--amber)",
+        "superchat" => "var(--amber)",
+        "interact" => "var(--green)",
+        _ => "var(--ink)",
+    };
+
+    private void ResetCounters()
+    {
+        foreach (var key in _counts.Keys.ToList()) _counts[key] = 0;
+    }
+
+    private void ClearEvents() => _events.Clear();
+
+    private string StateBadge() => Hub.LastStatus.State switch
+    {
+        "connected" => "green",
+        "error" => "red",
+        "idle" => "off",
+        _ => "amber",
+    };
+
+    private string StateText() => Hub.LastStatus.State switch
+    {
+        "idle" => "未连接",
+        "resolving" => "解析中",
+        "checking_live" => "检测开播",
+        "not_live" => "未开播",
+        "getting_danmu" => "获取弹幕服务器",
+        "connected" => "CONNECTED",
+        "reconnecting" => "重连中",
+        "disconnected" => "已断开",
+        "error" => "错误",
+        _ => Hub.LastStatus.State,
+    };
+
+    private string TagClass(string type) => type switch
+    {
+        "danmu" => "danmu",
+        "gifts" or "gifts_merged" => "gifts",
+        "guard" => "guard",
+        "superchat" => "superchat",
+        "interact" => "interact",
+        _ => "info",
+    };
+
+    private string TagText(string type) => type switch
+    {
+        "danmu" => "DANMU",
+        "gifts" => "GIFT",
+        "gifts_merged" => "GIFTΣ",
+        "guard" => "GUARD",
+        "superchat" => "SC",
+        "interact" => "INTER",
+        "blindbox" => "BOX",
+        _ => type.ToUpperInvariant()[..Math.Min(6, type.Length)],
+    };
+
+    private string EventText(LiveEvent ev) => ev.Type switch
+    {
+        "danmu" => ev.Msg,
+        "gifts" => $"送出 {ev.GiftName} ×{ev.Num}" + (ev.Value > 0 ? $"（≈¥{ev.Value:0.##}）" : ""),
+        "guard" => $"开通 {ev.LevelName} ×{ev.Num}",
+        "superchat" => $"SC：{ev.Msg}" + (ev.Price > 0 ? $"（¥{ev.Price}）" : ""),
+        "interact" => ev.MsgType == 2 ? "关注了直播间" : "进入直播间",
+        "gifts_merged" => $"聚合：{string.Join("、", (ev.Gifts ?? new()).Select(g => $"{g.GiftName}×{g.Num}"))}",
+        "blindbox" => $"盲盒 {ev.GiftName} ×{ev.Num} · 成本 ¥{ev.Cost:0.##} · 收益 ¥{ev.Income:0.##}",
+        _ => "",
+    };
+
+    private static long GetLong(JsonNode? n)
+    {
+        if (n == null) return 0;
+        try { return n.GetValue<long>(); } catch { }
+        try { return (long)n.GetValue<double>(); } catch { }
+        try { return long.TryParse(n.ToString(), out var v) ? v : 0; } catch { return 0; }
+    }
+
+    private static string GetStr(JsonNode? n)
+    {
+        try { return n?.GetValue<string>() ?? ""; } catch { return ""; }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Hub.OnEvent -= OnEvent;
+        _timer?.Dispose();
+    }
+}

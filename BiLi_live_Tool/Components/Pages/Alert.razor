@@ -1,0 +1,479 @@
+@page "/alert"
+@using System.Text
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@inject KestrelHost Api
+@inject IJSRuntime JS
+
+@* Alert wall console. Talks to the embedded API on 127.0.0.1 (the same server
+   that feeds the OBS overlay): GET/POST /api/config, GET /api/sounds and
+   POST /api/alert/test. *@
+
+<div class="blt-pagehead"><h1>提醒特效墙</h1><span class="en">ALERT OVERLAY</span></div>
+
+<div class="blt-topstrip">
+    <span class="seg">总开关 <b class="@(_enabled ? "green" : "amber")">@(_enabled ? "ENABLED" : "DISABLED")</b></span>
+    <span class="seg">主题 <b>@_theme</b></span>
+    <span class="seg">时长 <b>@((int)_duration) ms</b></span>
+    <span class="seg">音效库 <b>@_sounds.Count</b></span>
+    @if (_note.Length > 0)
+    {
+        <span class="seg"><b class="@(_noteOk ? "green" : "red")">@_note</b></span>
+    }
+</div>
+
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：浮层地址 + 音效与测试 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🔗 浮层地址</span><span class="en">OBS BROWSER SOURCE</span>
+                <span class="right"><span>127.0.0.1:@Api.Port</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <label class="blt-label">alert overlay url</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input class="blt-input mono" readonly value="@OverlayUrl" />
+                    <button class="blt-btn" @onclick="CopyOverlayUrl">复制地址</button>
+                    <a class="blt-btn" href="@OverlayUrl" target="_blank" rel="noopener" style="text-decoration:none;white-space:nowrap">浏览器打开</a>
+                </div>
+                <div class="blt-kv" style="margin-top:10px">
+                    <span class="k">OBS 接入</span>
+                    <span class="v">浏览器源 · 建议 800×600 · 透明背景</span>
+                </div>
+                <p style="color:var(--ink-3);font-size:11.5px;margin:8px 0 0">
+                    说明：OBS 中添加「浏览器源」并粘贴上方地址。浮层每分钟同步一次配置，切换主题后最长 60 秒生效。
+                </p>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">🔊 音效与测试</span><span class="en">SOUNDS / TEST</span>
+                <span class="right"><span>/api/sounds</span>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="Reload">重新加载</button>
+                </span>
+            </div>
+            <div class="blt-panel-body">
+                @if (_sounds.Count == 0)
+                {
+                    <div class="blt-empty">未发现音效文件 · 支持 .wav / .ogg / .mp3，放入 data\sounds\ 后点「重新加载」</div>
+                }
+                else
+                {
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        @foreach (var s in _sounds)
+                        {
+                            <span class="blt-badge blue">@s</span>
+                        }
+                    </div>
+                }
+
+                <label class="blt-label" style="margin-top:12px">推送测试横幅 / api/alert/test</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="blt-btn" @onclick="TestGift">测试礼物</button>
+                    <button class="blt-btn" @onclick="TestGuard">测试舰长</button>
+                    <button class="blt-btn" @onclick="TestSc">测试SC</button>
+                    <button class="blt-btn" @onclick="TestFollow">测试关注</button>
+                    <button class="blt-btn" @onclick="TestEnter">测试进房</button>
+                </div>
+                <p style="color:var(--ink-3);font-size:11.5px;margin:10px 0 0">
+                    测试事件由服务端生成样例并广播（alert_test），OBS 预览窗口立即弹出，不受「总开关」限制。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：提醒配置 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head"><span class="t">⚙ 提醒配置</span><span class="en">ALERT CONFIG</span>
+                <span class="right"><span>alert{theme,durationMs,types}</span>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="Reload">重新读取</button>
+                </span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-kv">
+                    <span class="k">启用提醒特效墙 <span style="color:var(--ink-3)">enabled</span></span>
+                    <span class="blt-switch @(_enabled ? "on" : "")" @onclick="ToggleEnabled"><span class="track"></span>@(_enabled ? "ON" : "OFF")</span>
+                </div>
+
+                <label class="blt-label" style="margin-top:10px">样式主题 theme</label>
+                <select class="blt-input" @bind="_theme">
+                    @foreach (var t in Themes)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
+
+                <label class="blt-label" style="margin-top:10px">横幅停留时长 durationMs</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input class="blt-input" type="number" min="3000" max="15000" step="500" style="max-width:150px" @bind="_duration" />
+                    <span style="color:var(--ink-3);font-size:11.5px">毫秒 · 3000-15000（浮层最低按 2000 生效）</span>
+                </div>
+
+                <label class="blt-label" style="margin-top:12px">事件类型 types</label>
+                @foreach (var t in _types)
+                {
+                    <div class="blt-kv">
+                        <span class="k">@t.Name <span style="color:var(--ink-3)">· @(string.IsNullOrEmpty(t.Sound) ? "无音效" : t.Sound)</span></span>
+                        <span class="blt-switch @(t.On ? "on" : "")" @onclick="() => Toggle(t)"><span class="track"></span>@(t.On ? "ON" : "OFF")</span>
+                    </div>
+                }
+
+                <div style="display:flex;gap:8px;margin-top:12px">
+                    <button class="blt-btn primary" @onclick="Save">保存配置</button>
+                    <button class="blt-btn" @onclick="Reload">放弃修改</button>
+                </div>
+                <p style="color:var(--ink-3);font-size:11.5px;margin:10px 0 0">
+                    保存即把整份配置文档 POST 回 /api/config（仅 alert 节点被改写，其余字段原样保留）。
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Shared client for the in-process API (same pattern as the other console pages).
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
+
+    private static readonly (string Id, string Name)[] Themes =
+    {
+        ("bubble", "头像气泡"),
+        ("cyber", "霓虹赛博"),
+        ("minimal", "极简文字"),
+        ("pink", "B站粉 · 简约横幅"),
+    };
+
+    /// <summary>One row per overlay type key (matches alert.types.{key} in the overlay script).</summary>
+    private sealed class TypeRow
+    {
+        public string Key = "";
+        public string Name = "";
+        public bool On = true;
+        public string Sound = "";
+    }
+
+    private readonly List<TypeRow> _types = new()
+    {
+        new TypeRow { Key = "gift", Name = "🎁 礼物" },
+        new TypeRow { Key = "guard", Name = "🛡 舰长 / 大航海" },
+        new TypeRow { Key = "superchat", Name = "💬 醒目留言" },
+        new TypeRow { Key = "follow", Name = "⭐ 关注" },
+        new TypeRow { Key = "enter", Name = "👋 进房", On = false },
+    };
+
+    private JsonObject? _doc;      // last GET /api/config snapshot (full document)
+    private bool _enabled = true;
+    private string _theme = "pink";
+    private double _duration = 5000;
+    private List<string> _sounds = new();
+    private bool _cfgMissing;
+    private bool _loadFailed;
+    private string _lastError = "";
+    private string _note = "";
+    private bool _noteOk = true;
+
+    private string Base => "http://127.0.0.1:" + Api.Port;
+    private string OverlayUrl => Base + "/alert/overlay.html";
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    // ---------------- load ----------------
+
+    private async Task Reload()
+    {
+        _loadFailed = false;
+        await LoadConfig();
+        await LoadSounds();
+        if (_loadFailed) return;
+        Notify(_cfgMissing
+            ? "未找到 alert 配置节点 · 已按默认值展示（点「保存配置」写入）"
+            : $"已读取配置 · 音效 {_sounds.Count} 个", true);
+    }
+
+    private async Task LoadConfig()
+    {
+        try
+        {
+            var doc = await GetJsonAsync("/api/config") as JsonObject;
+            if (doc == null)
+            {
+                _loadFailed = true;
+                Notify("读取配置失败" + ErrSuffix(), false);
+                return;
+            }
+            _doc = doc;
+            var node = doc["alert"] as JsonObject;
+            _cfgMissing = node == null;
+            var a = node ?? new JsonObject();
+
+            _enabled = GetBool(a, "enabled", true);
+            var theme = GetStr(a, "theme", "pink");
+            _theme = Themes.Any(t => t.Id == theme) ? theme : "pink";
+            // The overlay reads durationMs; "duration" is accepted as a legacy alias.
+            _duration = GetNum(a, "durationMs", GetNum(a, "duration", 5000));
+            _duration = Math.Clamp(_duration, 3000, 15000);
+
+            var types = a["types"] as JsonObject;
+            foreach (var t in _types)
+            {
+                t.On = t.Key != "enter";   // defaults when the key is absent (enter is noisy → off)
+                t.Sound = "";
+                if (types == null || !types.TryGetPropertyValue(t.Key, out var tn) || tn == null) continue;
+                if (tn is JsonObject obj)
+                {
+                    t.On = GetBool(obj, "on", t.On);
+                    t.Sound = GetStr(obj, "sound", "");
+                }
+                else if (tn is JsonValue val && val.TryGetValue<bool>(out var b))
+                {
+                    t.On = b;   // tolerate the compact {"gift":true} shape
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _loadFailed = true;
+            Notify("读取配置失败" + ErrSuffix(ex), false);
+        }
+    }
+
+    private async Task LoadSounds()
+    {
+        try
+        {
+            var o = await GetJsonAsync("/api/sounds") as JsonObject;
+            if (o?["sounds"] is JsonArray arr)
+            {
+                _sounds = new List<string>();
+                foreach (var n in arr)
+                    if (n is JsonValue v && v.TryGetValue<string>(out var s) && !string.IsNullOrEmpty(s))
+                        _sounds.Add(s);
+                return;
+            }
+            _sounds = new List<string>();
+        }
+        catch
+        {
+            _sounds = new List<string>();   // the list is cosmetic; keep the page usable
+        }
+    }
+
+    // ---------------- edit ----------------
+
+    private void ToggleEnabled()
+    {
+        _enabled = !_enabled;
+        Notify(_enabled ? "总开关：已启用（记得保存）" : "总开关：已关闭（记得保存）", true);
+    }
+
+    private void Toggle(TypeRow t)
+    {
+        t.On = !t.On;
+        Notify($"{t.Name}：{(t.On ? "ON" : "OFF")}（记得保存）", true);
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            if (_doc == null) await LoadConfig();
+            if (_doc == null)
+            {
+                Notify("配置尚未加载，无法保存" + ErrSuffix(), false);
+                return;
+            }
+
+            var a = _doc["alert"] as JsonObject ?? new JsonObject();
+            a["enabled"] = _enabled;
+            a["theme"] = _theme;
+            a["durationMs"] = (int)Math.Round(_duration);
+
+            // Keep unknown sub-fields (volume / panelSound / minAmount …) untouched;
+            // only the "on" flag is written back per type.
+            var types = a["types"] as JsonObject ?? new JsonObject();
+            foreach (var t in _types)
+            {
+                var obj = types[t.Key] as JsonObject ?? new JsonObject();
+                obj["on"] = t.On;
+                types[t.Key] = obj;
+            }
+            a["types"] = types;
+            _doc["alert"] = a;
+
+            var fresh = await PostJsonAsync("/api/config", _doc);
+            if (fresh is JsonObject doc) _doc = doc;   // endpoint echoes the saved snapshot
+            if (fresh == null)
+            {
+                Notify("保存失败" + ErrSuffix(), false);
+                return;
+            }
+            Notify("配置已保存 · 整份文档已回写", true);
+        }
+        catch (Exception ex)
+        {
+            Notify("保存失败：" + ex.Message, false);
+        }
+    }
+
+    // ---------------- test ----------------
+
+    private async Task TestGift() => await SendTest("gift");
+    private async Task TestGuard() => await SendTest("guard");
+    private async Task TestSc() => await SendTest("superchat");
+    private async Task TestFollow() => await SendTest("follow");
+    private async Task TestEnter() => await SendTest("enter");
+
+    /// <summary>POST /api/alert/test — the server builds the sample event and broadcasts it.</summary>
+    private async Task SendTest(string type)
+    {
+        try
+        {
+            var body = new JsonObject { ["type"] = type };
+            var o = await PostJsonAsync("/api/alert/test", body);
+            if (o == null)
+            {
+                Notify("测试失败" + ErrSuffix(), false);
+                return;
+            }
+            Notify("已推送测试横幅：" + TypeName(type), true);
+        }
+        catch (Exception ex)
+        {
+            Notify("测试失败：" + ex.Message, false);
+        }
+    }
+
+    private static string TypeName(string type) => type switch
+    {
+        "guard" => "舰长",
+        "superchat" => "醒目留言",
+        "follow" => "关注",
+        "enter" => "进房",
+        _ => "礼物",
+    };
+
+    // ---------------- http ----------------
+
+    private async Task<JsonNode?> GetJsonAsync(string path)
+    {
+        try
+        {
+            using var resp = await Http.GetAsync(Base + path);
+            var txt = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _lastError = "HTTP " + (int)resp.StatusCode;
+                return null;
+            }
+            var err = ApiError(txt);
+            if (err.Length > 0)
+            {
+                _lastError = err;
+                return null;
+            }
+            _lastError = "";
+            return JsonNode.Parse(txt);
+        }
+        catch (Exception ex)
+        {
+            _lastError = ex.Message;
+            return null;
+        }
+    }
+
+    private async Task<JsonNode?> PostJsonAsync(string path, JsonNode body)
+    {
+        try
+        {
+            using var resp = await Http.PostAsync(Base + path, JsonBody(body));
+            var txt = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _lastError = "HTTP " + (int)resp.StatusCode;
+                return null;
+            }
+            var err = ApiError(txt);
+            if (err.Length > 0)
+            {
+                _lastError = err;
+                return null;
+            }
+            _lastError = "";
+            return JsonNode.Parse(txt);
+        }
+        catch (Exception ex)
+        {
+            _lastError = ex.Message;
+            return null;
+        }
+    }
+
+    private static StringContent JsonBody(JsonNode node)
+        => new(node.ToJsonString(), Encoding.UTF8, "application/json");
+
+    private static string ApiError(string body)
+    {
+        try
+        {
+            if (JsonNode.Parse(body) is JsonObject o && o["error"] is JsonValue v && v.TryGetValue<string>(out var e))
+                return e ?? "";
+        }
+        catch { }
+        return "";
+    }
+
+    private string ErrSuffix(Exception? ex = null)
+    {
+        var msg = ex?.Message ?? _lastError;
+        return msg.Length > 0
+            ? "（" + msg + "）"
+            : "（本机服务端 127.0.0.1:" + Api.Port + " 可能未启动）";
+    }
+
+    // ---------------- clipboard / feedback ----------------
+
+    private async Task CopyOverlayUrl() => await CopyText(OverlayUrl, "已复制浮层地址");
+
+    private async Task CopyText(string text, string okMsg)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            Notify(okMsg, true);
+        }
+        catch
+        {
+            // Fallback for hosts without the async clipboard permission.
+            try
+            {
+                var literal = JsonSerializer.Serialize(text);
+                await JS.InvokeVoidAsync("eval",
+                    "(function(){var t=document.createElement('textarea');t.value=" + literal +
+                    ";t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.focus();t.select();" +
+                    "document.execCommand('copy');document.body.removeChild(t);})()");
+                Notify(okMsg, true);
+            }
+            catch
+            {
+                Notify("复制失败，请手动复制输入框内容", false);
+            }
+        }
+    }
+
+    private void Notify(string msg, bool ok)
+    {
+        _note = msg;
+        _noteOk = ok;
+    }
+
+    // ---------------- json helpers ----------------
+
+    private static bool GetBool(JsonObject o, string key, bool def)
+        => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<bool>(out var b) ? b : def;
+
+    private static string GetStr(JsonObject o, string key, string def)
+        => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<string>(out var s) && !string.IsNullOrEmpty(s) ? s : def;
+
+    private static double GetNum(JsonObject o, string key, double def)
+        => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<double>(out var d) ? d : def;
+}

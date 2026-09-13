@@ -1,0 +1,93 @@
+@page "/help"
+@using BiLi_live_Tool.Services
+@inject AppConfig Config
+@inject EventHub Hub
+@inject KestrelHost Api
+
+<div class="blt-pagehead"><h1>使用教程</h1><span class="en">HELP</span></div>
+
+<div class="blt-topstrip">
+    <span class="seg">BUILD <b class="amber">@KestrelHost.VersionText</b></span>
+    <span class="seg">服务端口 <b>@Api.Port</b></span>
+    <span class="seg">当前房间 <b>@RoomText()</b></span>
+</div>
+
+<div class="blt-panel">
+    <div class="blt-panel-head"><span class="t">🚀 快速上手</span><span class="en">QUICK START</span></div>
+    <div class="blt-panel-body">
+        <div class="blt-steps" style="grid-template-columns:repeat(3,1fr)">
+            <div class="blt-step">
+                <div class="s1"><span class="blt-dot green"></span>① 连接直播间</div>
+                <div class="s2">在「房间管理」页顶部输入房间号，点「连接」。状态显示 CONNECTED 即已接入弹幕流。</div>
+            </div>
+            <div class="blt-step">
+                <div class="s1"><span class="blt-dot green"></span>② 扫码登录</div>
+                <div class="s2">点「打开B站浏览器」，用手机B站扫码登录，Cookie 自动同步到工具（发送弹幕等写操作需要）。</div>
+            </div>
+            <div class="blt-step">
+                <div class="s1"><span class="blt-dot green"></span>③ 按需开启功能</div>
+                <div class="s2">在「语音念弹幕」「自动弹幕」「点歌功能」页打开对应开关，即可实时播报与互动。</div>
+            </div>
+        </div>
+
+        <label class="blt-label" style="margin-top:14px">④ OBS 浮层地址 · 添加为浏览器源（宽 1920 / 高 1080）</label>
+        @foreach (var o in Overlays())
+        {
+            <div class="blt-kv">
+                <span class="k">@o.Name</span>
+                <span class="v"><a href="@o.Url" target="_blank" rel="noopener" style="color:var(--blue)">@o.Url</a></span>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="blt-panel">
+    <div class="blt-panel-head"><span class="t">❓ 常见问题</span><span class="en">FAQ</span></div>
+    <div class="blt-panel-body">
+        @foreach (var f in Faqs)
+        {
+            <div style="padding:8px 0;border-bottom:1px dashed var(--line)">
+                <div style="font-weight:600">Q：@f.Q</div>
+                <div style="color:var(--ink-2);margin-top:3px">A：@f.A</div>
+            </div>
+        }
+        <div class="blt-empty" style="padding:10px 4px 2px;text-align:left">
+            更多功能页持续补齐中；过渡期可在浏览器打开 http://127.0.0.1:@Api.Port/legacy/index.html 使用原版面板（服务层完全共用）。
+        </div>
+    </div>
+</div>
+
+@code {
+    private sealed record Overlay(string Name, string Url);
+    private sealed record Faq(string Q, string A);
+
+    private List<Overlay> Overlays() => new()
+    {
+        new("提醒特效墙", "http://127.0.0.1:" + Api.Port + "/alert/overlay.html"),
+        new("歌词", "http://127.0.0.1:" + Api.Port + "/lyrics/overlay.html"),
+        new("文字挂件", "http://127.0.0.1:" + Api.Port + "/widgets/overlay.html"),
+        new("键鼠可视化", "http://127.0.0.1:" + Api.Port + "/keyview/overlay.html"),
+    };
+
+    private static readonly Faq[] Faqs =
+    {
+        new("连不上房间",
+            "检查房间号是否正确、网络是否正常；到「网络诊断」页跑一遍，确认「B站房间接口」与「B站弹幕服务器握手接口」可达。"),
+        new("没有声音",
+            "检查「语音念弹幕」页的语音引擎是否运行、音色试听是否正常；本机 TTS 服务（Edge 8020 / MOSS 8021）可在「网络诊断」页确认。"),
+        new("OBS 浮层不显示",
+            "确认浏览器源的地址、宽高（建议 1920×1080）与坐标；在 OBS 中右键该源选择「刷新」，或重新加载页面。"),
+        new("Cookie 失效",
+            "重新点「打开B站浏览器」并扫码登录，登录成功后 Cookie 自动同步；写操作（发送弹幕等）依赖该登录态。"),
+        new("内存占用高",
+            "在「房间管理」页点「关闭浏览器」销毁内嵌B站浏览器窗口释放内存（「隐藏浏览器」仅挪到屏幕外，内存仍占用）。"),
+        new("自动弹幕不发送",
+            "需先登录 Cookie，并在「自动弹幕」页打开对应开关；发送有频率限制，触发风控时会被拒发。"),
+    };
+
+    private string RoomText()
+    {
+        if (!string.IsNullOrEmpty(Hub.LastStatus.RealRoomId)) return Hub.LastStatus.RealRoomId;
+        return string.IsNullOrEmpty(Config.RoomId) ? "—" : Config.RoomId;
+    }
+}

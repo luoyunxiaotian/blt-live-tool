@@ -1,0 +1,214 @@
+@page "/diagnostics"
+@using System.Text
+@using System.Text.Json.Nodes
+@using BiLi_live_Tool.Services
+@inject KestrelHost Api
+@inject IJSRuntime JS
+
+<div class="blt-pagehead"><h1>网络诊断</h1><span class="en">DIAGNOSTICS</span></div>
+
+<div class="blt-panel">
+    <div class="blt-panel-head"><span class="t">🩺 连通性探测</span><span class="en">CONNECTIVITY PROBES</span>
+        <span class="right">
+            <span>@GeneratedText()</span>
+            <button class="blt-btn primary" style="padding:3px 14px" @onclick="RunAsync" disabled="@_running">@(_running ? "诊断中…" : "开始诊断")</button>
+            <button class="blt-btn" style="padding:3px 12px" @onclick="CopyResult" disabled="@(_results.Count == 0)">复制结果</button>
+        </span>
+    </div>
+    <div class="blt-panel-body">
+        @if (_running)
+        {
+            <div class="blt-empty">正在依次探测 8 项服务，通常需要数秒（单项超时 6s）…</div>
+        }
+        @if (_error.Length > 0)
+        {
+            <div style="color:var(--red);font-size:12px;padding:2px 0 8px">@_error</div>
+        }
+        @if (_copyHint.Length > 0)
+        {
+            <div style="color:var(--ink-2);font-size:12px;padding:2px 0 8px">@_copyHint</div>
+        }
+        @if (_results.Count == 0 && !_running && _error.Length == 0)
+        {
+            <div class="blt-empty">点击右上角「开始诊断」，探测 B站接口 / 更新源 / 音乐源 / 本机 TTS 服务 / 本机服务端 共 8 项。</div>
+        }
+        @if (_results.Count > 0)
+        {
+            <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;padding:6px 8px;font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:1px;border-bottom:1px solid var(--line)">状态</th>
+                            <th style="text-align:left;padding:6px 8px;font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:1px;border-bottom:1px solid var(--line)">探测项</th>
+                            <th style="text-align:right;padding:6px 8px;font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:1px;border-bottom:1px solid var(--line)">延迟</th>
+                            <th style="text-align:left;padding:6px 8px;font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:1px;border-bottom:1px solid var(--line)">详情</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _results)
+                        {
+                            <tr>
+                                <td style="padding:6px 8px;border-bottom:1px dashed var(--line);white-space:nowrap"><span class="blt-badge @Badge(r.State)">@StateText(r.State)</span></td>
+                                <td style="padding:6px 8px;border-bottom:1px dashed var(--line)">@r.Name</td>
+                                <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);color:var(--ink-2)">@r.Latency ms</td>
+                                <td style="padding:6px 8px;border-bottom:1px dashed var(--line);color:var(--ink-2)">@r.Detail</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;padding:10px 2px 0;font-family:var(--mono);font-size:11px;color:var(--ink-2)">
+                <span>合计 <b style="color:var(--ink)">@_results.Count</b> 项</span>
+                <span>OK <b style="color:var(--green)">@CountState("ok")</b></span>
+                <span>WARN <b style="color:var(--amber)">@CountState("warn")</b></span>
+                <span>FAIL <b style="color:var(--red)">@CountState("fail")</b></span>
+                <span style="margin-left:auto">BUILD @KestrelHost.VersionText · 端口 @Api.Port</span>
+            </div>
+        }
+        @if (_showText)
+        {
+            <label class="blt-label" style="margin-top:12px">诊断文本 · 可手动复制</label>
+            <textarea readonly class="blt-input mono" style="height:190px;white-space:pre;resize:vertical" spellcheck="false">@PlainText()</textarea>
+        }
+    </div>
+</div>
+
+<div class="blt-panel">
+    <div class="blt-panel-head"><span class="t">ℹ 说明</span><span class="en">NOTES</span></div>
+    <div class="blt-panel-body">
+        <div class="blt-empty" style="padding:0;text-align:left">
+            诊断共 8 项：B站房间接口（观众数/房间信息）、B站弹幕服务器握手接口、授权验证服务器、GitHub 更新源、网易云音乐源（点歌）、
+            Edge TTS 语音服务（本机 8020）、本地语音引擎 MOSS（本机 8021）、本机服务端。
+            状态含义：OK 正常 / WARN 网络可达但接口异常 / FAIL 不可达。单项超时 6 秒。
+        </div>
+    </div>
+</div>
+
+@code {
+    // Sequential probes can take up to ~8 x 6s; allow a generous timeout.
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(120) };
+
+    private List<DiagItem> _results = new();
+    private bool _running;
+    private string _error = "";
+    private string _generatedAt = "";
+    private string _copyHint = "";
+    private bool _showText;
+
+    private sealed record DiagItem(string Name, string State, long Latency, string Detail);
+
+    private string BaseUrl => "http://127.0.0.1:" + Api.Port;
+
+    private async Task RunAsync()
+    {
+        if (_running) return;
+        _running = true;
+        _error = "";
+        _copyHint = "";
+        _showText = false;
+        try
+        {
+            var content = new StringContent("{}", Encoding.UTF8, "application/json");
+            var resp = await Http.PostAsync(BaseUrl + "/api/diagnostics", content);
+            var txt = await resp.Content.ReadAsStringAsync();
+            var j = JsonNode.Parse(txt);
+            var err = GetStr(j?["error"]);
+            if (err.Length > 0)
+            {
+                _error = "诊断失败：" + err;
+                return;
+            }
+            var list = new List<DiagItem>();
+            if (j?["results"] is JsonArray arr)
+            {
+                foreach (var n in arr)
+                {
+                    if (n is not JsonObject o) continue;
+                    var state = GetStr(o["state"]);
+                    if (state != "ok" && state != "warn" && state != "fail") state = "warn";
+                    list.Add(new DiagItem(GetStr(o["name"]), state, GetLong(o["latency"]), GetStr(o["detail"])));
+                }
+            }
+            _results = list;
+            var gen = GetLong(j?["generatedAt"]);
+            _generatedAt = gen > 0
+                ? DateTimeOffset.FromUnixTimeMilliseconds(gen).LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")
+                : DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        }
+        catch (Exception e)
+        {
+            _error = "诊断失败：" + e.Message;
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private async Task CopyResult()
+    {
+        _showText = true;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", PlainText());
+            _copyHint = "已写入剪贴板；若系统未授权，可在下方文本框手动复制。";
+        }
+        catch
+        {
+            _copyHint = "写入剪贴板失败（浏览器不支持或未授权），请在下方文本框手动复制。";
+        }
+    }
+
+    private string PlainText()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("BLT 网络诊断报告");
+        sb.AppendLine("生成时间: " + (_generatedAt.Length > 0 ? _generatedAt : DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")));
+        sb.AppendLine("BUILD " + KestrelHost.VersionText + " · 端口 " + Api.Port);
+        sb.AppendLine(new string('-', 52));
+        foreach (var r in _results)
+            sb.AppendLine("[" + r.State.ToUpperInvariant().PadRight(4) + "] " + r.Name + " · " + r.Latency + "ms · " + r.Detail);
+        sb.AppendLine(new string('-', 52));
+        sb.AppendLine("合计 " + _results.Count + " 项 · OK " + CountState("ok") + " · WARN " + CountState("warn") + " · FAIL " + CountState("fail"));
+        return sb.ToString();
+    }
+
+    private int CountState(string state)
+    {
+        var n = 0;
+        foreach (var r in _results)
+            if (r.State == state) n++;
+        return n;
+    }
+
+    private string GeneratedText() => _generatedAt.Length > 0 ? "生成于 " + _generatedAt : "未运行";
+
+    private static string StateText(string state) => state switch
+    {
+        "ok" => "OK",
+        "warn" => "WARN",
+        "fail" => "FAIL",
+        _ => state.ToUpperInvariant(),
+    };
+
+    private static string Badge(string state) => state switch
+    {
+        "ok" => "green",
+        "warn" => "amber",
+        "fail" => "red",
+        _ => "off",
+    };
+
+    private static long GetLong(JsonNode? n)
+    {
+        if (n == null) return 0;
+        try { return n.GetValue<long>(); } catch { }
+        try { return (long)n.GetValue<double>(); } catch { }
+        try { return long.TryParse(n.ToString(), out var v) ? v : 0; } catch { return 0; }
+    }
+
+    private static string GetStr(JsonNode? n)
+    {
+        try { return n?.GetValue<string>() ?? ""; } catch { return ""; }
+    }
+}

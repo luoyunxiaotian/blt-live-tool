@@ -1,0 +1,651 @@
+@page "/logs/danmu"
+@page "/logs/gifts"
+@page "/logs/blindbox"
+@page "/logs/guard"
+@page "/logs/superchat"
+@using System.Text
+@using System.Text.Json.Nodes
+@inject NavigationManager Nav
+@inject EventHub Hub
+@implements IDisposable
+
+@* Shared page for the 5 recorder logs; the active type is derived from the current URL. *@
+
+<div class="blt-pagehead">
+    <h1>@MetaZh()</h1><span class="en">@MetaEn()</span>
+    <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
+        <span class="@RecBadgeClass()">@RecBadgeText()</span>
+        <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3)">/api/logs/@_type</span>
+    </span>
+</div>
+
+@* ── 工具条：录制开关 + 筛选条件 ── *@
+<div class="blt-panel">
+    <div class="blt-panel-head"><span class="t">🔍 查询条件</span><span class="en">FILTERS</span>
+        <span class="right"><span>total</span><b>@_total</b></span>
+    </div>
+    <div class="blt-panel-body">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+            <span class="@SwitchClass()" style="margin-bottom:5px" @onclick="ToggleRecording">
+                <span class="track"></span>录制 @MetaZh() <span style="color:var(--ink-3)">@RecBadgeText()</span>
+            </span>
+            <div>
+                <label class="blt-label">开始时间</label>
+                <input class="blt-input mono" type="datetime-local" style="width:186px" value="@_start" @onchange="OnStartChanged" />
+            </div>
+            <div>
+                <label class="blt-label">结束时间</label>
+                <input class="blt-input mono" type="datetime-local" style="width:186px" value="@_end" @onchange="OnEndChanged" />
+            </div>
+            <div style="flex:1;min-width:170px">
+                <label class="blt-label">关键词</label>
+                <input class="blt-input mono" @bind="_q" placeholder="用户名 / UID / 内容" />
+            </div>
+            <div style="width:124px">
+                <label class="blt-label">UID</label>
+                <input class="blt-input mono" @bind="_uid" placeholder="精确匹配" />
+            </div>
+            <button class="blt-btn primary" @onclick="ApplyQuery">查询</button>
+            <button class="blt-btn" @onclick="ResetQuery">重置</button>
+        </div>
+        <div style="margin-top:10px;font-family:var(--mono);font-size:10.5px;color:var(--ink-3)">
+            时间 本地时区（yyyy-MM-ddTHH:mm） · 关键词匹配 用户名/UID/内容 · 每页 @PageSize 条 · 最新在前
+        </div>
+    </div>
+</div>
+
+@* ── 记录表 ── *@
+<div class="blt-panel">
+    <div class="blt-panel-head"><span class="t">📄 @MetaZh()</span><span class="en">RECORDS</span>
+        <span class="right">
+            @if (_error.Length > 0)
+            {
+                <b style="color:var(--red)">@_error</b>
+            }
+            @if (_pending > 0)
+            {
+                <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="Refresh">新事件 @_pending · 刷新</button>
+            }
+            <button class="blt-btn" style="padding:1px 8px;font-size:10.5px" @onclick="Refresh">刷新</button>
+        </span>
+    </div>
+    <div class="blt-panel-body" style="padding:0">
+        @if (_rows.Count == 0)
+        {
+            <div class="blt-empty">
+                @if (_error.Length > 0)
+                {
+                    <span style="color:var(--red)">@_error</span>
+                }
+                else if (_loading)
+                {
+                    <span>加载中…</span>
+                }
+                else
+                {
+                    <span>暂无记录 —— 开启录制后的事件会按天写入 jsonl 并在此显示</span>
+                }
+            </div>
+        }
+        else
+        {
+            <div style="overflow:auto;max-height:480px">
+                <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px">
+                    <thead>
+                        <tr>
+                            @foreach (var c in _cols)
+                            {
+                                <th style="@ThStyle(c)">@c.Label</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _rows)
+                        {
+                            <tr>
+                                @foreach (var c in _cols)
+                                {
+                                    <td style="@TdStyle(row, c)">@CellText(row, c.Key)</td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+    <div class="blt-panel-body" style="padding:8px 12px;border-top:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <button class="blt-btn" @onclick="PrevPage" disabled="@PrevDisabled">上一页</button>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--ink-2)">第 @_page / @TotalPages 页 · 共 @_total 条</span>
+        <button class="blt-btn" @onclick="NextPage" disabled="@NextDisabled">下一页</button>
+        <span style="margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-3)">服务端升序返回，本页倒序展示（第 1 页 = 最新）</span>
+    </div>
+</div>
+
+@* ── 文件面板 ── *@
+<div class="blt-panel">
+    <div class="blt-panel-head"><span class="t">📁 记录文件</span><span class="en">FILES</span>
+        <span class="right">
+            <span style="max-width:460px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@DirText()</span>
+        </span>
+    </div>
+    <div class="blt-panel-body">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="blt-btn" @onclick="OpenFolder">打开目录</button>
+            <button class="blt-btn" @onclick="RebuildHtml">重建HTML</button>
+            @if (_notice.Length > 0)
+            {
+                <span style="font-family:var(--mono);font-size:10.5px;color:var(--amber)">@_notice</span>
+            }
+        </div>
+
+        @if (_files.Count == 0)
+        {
+            <div class="blt-empty">
+                @if (_filesError.Length > 0)
+                {
+                    <span style="color:var(--red)">@_filesError</span>
+                }
+                else
+                {
+                    <span>暂无文件 —— 录制中的数据按天生成 jsonl 与同名 html 查看器</span>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="blt-log" style="max-height:220px;margin-top:10px">
+                @foreach (var f in _files)
+                {
+                    <div class="blt-logrow">
+                        <span class="txt" style="flex:1">@f.Name</span>
+                        @if (f.Jsonl)
+                        {
+                            <span class="blt-badge blue">jsonl</span>
+                        }
+                        @if (f.Html)
+                        {
+                            <span class="blt-badge amber">html</span>
+                        }
+                    </div>
+                }
+            </div>
+            <div style="margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--ink-3)">
+                共 @_files.Count 个文件 · 重建HTML 只重建当天查看器
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private const int PageSize = 50;
+    private const string ApiBase = "http://127.0.0.1:7460";
+
+    /// <summary>Table column definition: JSON field key, header label, text alignment.</summary>
+    private sealed record Col(string Key, string Label, string Align);
+    private sealed record FileRow(string Name, bool Jsonl, bool Html);
+
+    private static readonly Dictionary<string, (string Zh, string En)> Meta = new()
+    {
+        ["danmu"] = ("弹幕记录", "DANMU LOG"),
+        ["gifts"] = ("礼物记录", "GIFT LOG"),
+        ["blindbox"] = ("盲盒记录", "BLIND BOX LOG"),
+        ["guard"] = ("舰长记录", "GUARD LOG"),
+        ["superchat"] = ("SC 记录", "SUPERCHAT LOG"),
+    };
+
+    private static readonly Dictionary<string, Col[]> Layout = new()
+    {
+        ["danmu"] = new[]
+        {
+            new Col("time", "时间", "left"), new Col("uname", "用户", "left"),
+            new Col("uid", "UID", "left"), new Col("msg", "内容", "left"),
+        },
+        ["gifts"] = new[]
+        {
+            new Col("time", "时间", "left"), new Col("uname", "用户", "left"),
+            new Col("giftName", "礼物", "left"), new Col("num", "数量", "right"),
+            new Col("price", "单价(瓜子)", "right"), new Col("value", "总价(元)", "right"),
+        },
+        ["blindbox"] = new[]
+        {
+            new Col("time", "时间", "left"), new Col("uname", "用户", "left"),
+            new Col("giftName", "名称", "left"), new Col("num", "数量", "right"),
+            new Col("cost", "成本(元)", "right"), new Col("income", "收入(元)", "right"),
+            new Col("profit", "盈亏(元)", "right"),
+        },
+        ["guard"] = new[]
+        {
+            new Col("time", "时间", "left"), new Col("uname", "用户", "left"),
+            new Col("levelName", "等级", "left"), new Col("num", "数量", "right"),
+            new Col("value", "合计(元)", "right"),
+        },
+        ["superchat"] = new[]
+        {
+            new Col("time", "时间", "left"), new Col("uname", "用户", "left"),
+            new Col("msg", "内容", "left"), new Col("priceYuan", "价格(元)", "right"),
+        },
+    };
+
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
+
+    private string _type = "danmu";
+    private Col[] _cols = Layout["danmu"];
+    private bool _recording;
+    private string _start = "";
+    private string _end = "";
+
+    // Manual binding: keep the raw "yyyy-MM-ddTHH:mm" string (the API accepts it).
+    private void OnStartChanged(ChangeEventArgs e) => _start = e.Value?.ToString() ?? "";
+    private void OnEndChanged(ChangeEventArgs e) => _end = e.Value?.ToString() ?? "";
+    private string _q = "";
+    private string _uid = "";
+    private int _page = 1;
+    private long _total;
+    private bool _loading;
+    private int _pending;
+    private string _error = "";
+    private string _notice = "";
+    private string _filesError = "";
+    private string _dir = "";
+    private List<JsonObject> _rows = new();
+    private List<FileRow> _files = new();
+
+    private int TotalPages => (int)Math.Max(1, (_total + PageSize - 1) / PageSize);
+    private bool PrevDisabled => _page <= 1;
+    private bool NextDisabled => _page >= TotalPages;
+
+    private string MetaZh() => Meta.TryGetValue(_type, out var m) ? m.Zh : _type;
+    private string MetaEn() => Meta.TryGetValue(_type, out var m) ? m.En : "LOG";
+    private string SwitchClass() => _recording ? "blt-switch on" : "blt-switch";
+    private string RecBadgeClass() => _recording ? "blt-badge green" : "blt-badge off";
+    private string RecBadgeText() => _recording ? "REC" : "OFF";
+    private string DirText() => _dir.Length > 0 ? _dir : "目录未知";
+
+    // ----- lifecycle -----
+
+    protected override void OnInitialized()
+    {
+        Hub.OnEvent += OnHubEvent;
+        Nav.LocationChanged += OnLocationChanged;
+        ApplyRoute();
+        _ = ReloadAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Switching between /logs/* routes can reuse this component instance, so re-check the URL.
+        if (CurrentType() != _type)
+        {
+            ApplyRoute();
+            _ = ReloadAsync();
+        }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => InvokeAsync(() =>
+    {
+        if (CurrentType() != _type)
+        {
+            ApplyRoute();
+            _ = ReloadAsync();
+        }
+        StateHasChanged();
+    });
+
+    private void OnHubEvent(LiveEvent ev) => InvokeAsync(() =>
+    {
+        if (ev.Type == _type)
+        {
+            _pending++;
+            StateHasChanged();
+        }
+    });
+
+    // ----- routing -----
+
+    private string CurrentType()
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath.Trim('/');
+        var slug = path.Contains('/') ? path[(path.LastIndexOf('/') + 1)..] : path;
+        return Layout.ContainsKey(slug) ? slug : "danmu";
+    }
+
+    private void ApplyRoute()
+    {
+        _type = CurrentType();
+        _cols = Layout[_type];
+        _page = 1;
+        _total = 0;
+        _pending = 0;
+        _error = "";
+        _notice = "";
+        _filesError = "";
+        _rows.Clear();
+        _files.Clear();
+        _dir = "";
+    }
+
+    private async Task ReloadAsync()
+    {
+        await RefreshStatusAsync();
+        await FetchAsync(false);
+        await LoadFilesAsync();
+    }
+
+    // ----- data -----
+
+    private async Task RefreshStatusAsync()
+    {
+        var type = _type;
+        try
+        {
+            var node = await GetJsonAsync("/api/status");
+            if (node == null || type != _type) return;
+            var rec = node["recording"] as JsonObject;
+            _recording = rec?.TryGetPropertyValue(type, out var v) == true
+                && v is JsonValue val && val.TryGetValue<bool>(out var b) && b;
+        }
+        catch
+        {
+            // Status is best-effort: a failure only leaves the switch at its last known state.
+        }
+    }
+
+    private async Task FetchAsync(bool quiet)
+    {
+        var type = _type;
+        if (!quiet)
+        {
+            _loading = true;
+            _error = "";
+            StateHasChanged();
+        }
+        try
+        {
+            var apiPage = ApiPageFor(_page, _total);
+            var node = await GetJsonAsync(LogsPath(type, apiPage));
+            if (type != _type) return; // route changed while the request was in flight
+            var total = node?["total"]?.GetValue<long>() ?? 0;
+            var corrected = ApiPageFor(_page, total);
+            if (node != null && corrected != apiPage)
+            {
+                // Record count grew/shrank since the last fetch: re-request the mapped page.
+                node = await GetJsonAsync(LogsPath(type, corrected)) ?? node;
+                if (type != _type) return;
+            }
+            if (node == null)
+            {
+                _error = "本地 API 无响应（" + ApiBase + "）";
+                _rows.Clear();
+                _total = 0;
+                return;
+            }
+            var err = node["error"]?.GetValue<string>();
+            if (!string.IsNullOrEmpty(err))
+            {
+                _error = "接口错误：" + err;
+                _rows.Clear();
+                _total = 0;
+                return;
+            }
+            var rows = new List<JsonObject>();
+            if (node["rows"] is JsonArray arr)
+            {
+                foreach (var r in arr)
+                    if (r is JsonObject o) rows.Add(o);
+            }
+            rows.Reverse(); // server returns ascending by ts; the UI shows newest first
+            _rows = rows;
+            _total = total;
+            if (_page > TotalPages) _page = TotalPages;
+            _error = "";
+        }
+        catch (Exception ex)
+        {
+            _error = "加载失败：" + ex.Message;
+            _rows.Clear();
+            _total = 0;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadFilesAsync()
+    {
+        var type = _type;
+        try
+        {
+            var node = await GetJsonAsync("/api/files/" + type);
+            if (node == null || type != _type) return;
+            _dir = node["dir"]?.GetValue<string>() ?? "";
+            var rows = new List<FileRow>();
+            if (node["files"] is JsonArray arr)
+            {
+                foreach (var f in arr)
+                {
+                    if (f is not JsonObject o) continue;
+                    rows.Add(new FileRow(
+                        o["name"]?.GetValue<string>() ?? "",
+                        o["jsonl"]?.GetValue<bool>() ?? false,
+                        o["html"]?.GetValue<bool>() ?? false));
+                }
+            }
+            _files = rows;
+            _filesError = "";
+        }
+        catch (Exception ex)
+        {
+            _files = new List<FileRow>();
+            _filesError = "文件列表获取失败：" + ex.Message;
+        }
+        StateHasChanged();
+    }
+
+    /// <summary>Map the UI page (1 = newest) onto the API's ascending page numbering.</summary>
+    private static int ApiPageFor(int uiPage, long total)
+    {
+        var pages = Math.Max(1, (int)((total + PageSize - 1) / PageSize));
+        return Math.Max(1, pages - uiPage + 1);
+    }
+
+    private string LogsPath(string type, int page)
+    {
+        var sb = new StringBuilder("/api/logs/").Append(type)
+            .Append("?page=").Append(page).Append("&size=").Append(PageSize);
+        if (_start.Trim().Length > 0) sb.Append("&start=").Append(Uri.EscapeDataString(_start.Trim()));
+        if (_end.Trim().Length > 0) sb.Append("&end=").Append(Uri.EscapeDataString(_end.Trim()));
+        if (_q.Trim().Length > 0) sb.Append("&q=").Append(Uri.EscapeDataString(_q.Trim()));
+        if (_uid.Trim().Length > 0) sb.Append("&uid=").Append(Uri.EscapeDataString(_uid.Trim()));
+        return sb.ToString();
+    }
+
+    // ----- actions (parameterless handlers only) -----
+
+    private async Task ToggleRecording()
+    {
+        var next = !_recording;
+        try
+        {
+            var body = new JsonObject { ["on"] = next };
+            var resp = await PostJsonAsync("/api/recording/" + _type, body);
+            _recording = resp?["on"]?.GetValue<bool>() ?? next;
+            _notice = _recording ? "已开启录制" : "已关闭录制";
+            await RefreshStatusAsync();
+            await LoadFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            _notice = "切换录制失败：" + ex.Message;
+        }
+        StateHasChanged();
+    }
+
+    private Task ApplyQuery()
+    {
+        _page = 1;
+        _pending = 0;
+        return FetchAsync(false);
+    }
+
+    private Task ResetQuery()
+    {
+        _start = "";
+        _end = "";
+        _q = "";
+        _uid = "";
+        _page = 1;
+        _pending = 0;
+        return FetchAsync(false);
+    }
+
+    private Task Refresh()
+    {
+        _pending = 0;
+        return FetchAsync(true);
+    }
+
+    private Task PrevPage()
+    {
+        if (_page <= 1) return Task.CompletedTask;
+        _page--;
+        return FetchAsync(false);
+    }
+
+    private Task NextPage()
+    {
+        if (_page >= TotalPages) return Task.CompletedTask;
+        _page++;
+        return FetchAsync(false);
+    }
+
+    private async Task OpenFolder()
+    {
+        try
+        {
+            var resp = await PostJsonAsync("/api/open-folder/" + _type, new JsonObject());
+            var dir = resp?["dir"]?.GetValue<string>();
+            _notice = "已请求打开目录：" + (string.IsNullOrEmpty(dir) ? DirText() : dir);
+            await LoadFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            _notice = "打开目录失败：" + ex.Message;
+        }
+        StateHasChanged();
+    }
+
+    private async Task RebuildHtml()
+    {
+        try
+        {
+            var resp = await PostJsonAsync("/api/export/" + _type, new JsonObject());
+            var err = resp?["error"]?.GetValue<string>();
+            _notice = string.IsNullOrEmpty(err) ? "当天 HTML 查看器已重建" : "重建失败：" + err;
+            await LoadFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            _notice = "重建失败：" + ex.Message;
+        }
+        StateHasChanged();
+    }
+
+    // ----- http -----
+
+    private static async Task<JsonObject?> GetJsonAsync(string path)
+    {
+        var txt = await Http.GetStringAsync(ApiBase + path);
+        return JsonNode.Parse(txt) as JsonObject;
+    }
+
+    private static async Task<JsonObject?> PostJsonAsync(string path, JsonObject body)
+    {
+        var content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+        var resp = await Http.PostAsync(ApiBase + path, content);
+        var txt = await resp.Content.ReadAsStringAsync();
+        try
+        {
+            return JsonNode.Parse(txt) as JsonObject;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // ----- table rendering -----
+
+    private static string ThStyle(Col c)
+        => "text-align:" + c.Align
+        + ";padding:6px 10px;font-size:10px;letter-spacing:.5px;color:var(--ink-3);font-weight:600"
+        + ";background:var(--panel-2);border-bottom:1px solid var(--line);position:sticky;top:0;white-space:nowrap";
+
+    private static string TdStyle(JsonObject row, Col c)
+    {
+        var sb = new StringBuilder("padding:5px 10px;border-bottom:1px dashed var(--line);vertical-align:top;text-align:")
+            .Append(c.Align);
+        if (c.Key == "msg")
+            sb.Append(";white-space:normal;word-break:break-all;color:var(--ink)");
+        else
+            sb.Append(";white-space:nowrap;color:var(--ink-2)");
+        var color = CellColor(row, c.Key);
+        if (color.Length > 0) sb.Append(";color:").Append(color);
+        return sb.ToString();
+    }
+
+    private static string CellText(JsonObject r, string key) => key switch
+    {
+        "time" => Dash(Str(r, key)),
+        "uname" => Dash(Str(r, key)),
+        "uid" => Dash(Str(r, key)),
+        "msg" => Dash(Str(r, key)),
+        "giftName" => Dash(Str(r, key)),
+        "levelName" => LevelText(r),
+        "num" => ((long)Math.Round(Num(r, key))).ToString(),
+        "price" => Num(r, key).ToString("N0"),
+        "priceYuan" => Money(Num(r, "price")),
+        "value" => Money(Num(r, key)),
+        "cost" => Money(Num(r, key)),
+        "income" => Money(Num(r, key)),
+        "profit" => ProfitText(Num(r, key)),
+        _ => "",
+    };
+
+    private static string CellColor(JsonObject r, string key)
+    {
+        if (key != "profit") return "";
+        var p = Num(r, "profit");
+        if (p > 0) return "var(--green)";
+        if (p < 0) return "var(--red)";
+        return "";
+    }
+
+    private static string LevelText(JsonObject r)
+    {
+        var name = Str(r, "levelName");
+        if (name.Length > 0) return name;
+        var lv = (long)Math.Round(Num(r, "level"));
+        return lv > 0 ? "等级" + lv : "—";
+    }
+
+    private static string ProfitText(double v) => (v > 0 ? "+" : "") + Money(v);
+
+    private static string Money(double v) => "¥" + v.ToString("0.##");
+
+    private static string Dash(string s) => s.Length > 0 ? s : "—";
+
+    private static string Str(JsonObject o, string key)
+        => o[key] is JsonValue v && v.TryGetValue<string>(out var s) && s != null ? s : "";
+
+    private static double Num(JsonObject o, string key)
+        => o[key] is JsonValue v && v.TryGetValue<double>(out var d) ? d : 0;
+
+    public void Dispose()
+    {
+        Hub.OnEvent -= OnHubEvent;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

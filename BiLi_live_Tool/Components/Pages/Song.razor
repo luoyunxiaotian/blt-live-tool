@@ -1,0 +1,930 @@
+@page "/song"
+@using System.Text
+@using System.Text.Json.Nodes
+@inject AppConfig Config
+@implements IDisposable
+
+<div class="blt-pagehead"><h1>点歌功能</h1><span class="en">SONG REQUEST</span></div>
+
+<div class="blt-topstrip">
+    <span class="seg">总开关 <span class="blt-badge @OnOffCls(_enabled)">@OnOffText(_enabled)</span></span>
+    <span class="seg">当前平台 <b>@PlatName(_platform)</b></span>
+    <span class="seg">播放列表 <b>@_playlist.Count</b> 首@(CurSeg())</span>
+    <span class="seg">cookie
+        <span class="blt-badge @CkCls(_ckQq)">QQ</span>
+        <span class="blt-badge @CkCls(_ckNetease)">网易云</span>
+        <span class="blt-badge @CkCls(_ckKugou)">酷狗</span>
+        <span class="blt-badge @CkCls(_ckBili)">B站</span>
+    </span>
+    <span class="seg" style="margin-left:auto">
+        @if (_feedback.Length > 0)
+        {
+            <span class="blt-badge @_feedbackCls">@_feedback</span>
+        }
+    </span>
+    <span class="seg">
+        <button class="blt-btn" style="padding:1px 10px;font-size:10.5px" @onclick="RefreshAll" disabled="@_busy">刷新</button>
+    </span>
+</div>
+
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：设置 / 搜索 / 黑名单 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t">⚙ 点歌设置</span><span class="en">SETTINGS</span>
+                <span class="right"><span>songRequest · POST /api/config</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 14px">
+                    <div>
+                        <label class="blt-label">总开关</label>
+                        <span class="blt-switch @OnOff(_enabled)" @onclick="ToggleEnabled" data-tip="开启后观众弹幕发送「关键词 + 歌名」即可点歌">
+                            <span class="track"></span>@OnOffText(_enabled)
+                        </span>
+                    </div>
+                    <div>
+                        <label class="blt-label">点歌平台</label>
+                        <select class="blt-input" @bind="_platform">
+                            <option value="qq">QQ音乐</option>
+                            <option value="netease">网易云音乐</option>
+                            <option value="kugou">酷狗音乐</option>
+                            <option value="bilibili">B站</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="blt-label">触发关键词</label>
+                        <input class="blt-input" @bind="_keyword" placeholder="点歌" />
+                    </div>
+                    <div>
+                        <label class="blt-label">每日上限（0=不限）</label>
+                        <input class="blt-input" type="number" min="0" @bind="_maxDaily" />
+                    </div>
+                    <div>
+                        <label class="blt-label">全局冷却（秒）</label>
+                        <input class="blt-input" type="number" min="0" @bind="_cooldownSec" />
+                    </div>
+                    <div>
+                        <label class="blt-label">每用户冷却（秒）</label>
+                        <input class="blt-input" type="number" min="0" @bind="_userCooldownSec" />
+                    </div>
+                    <div>
+                        <label class="blt-label">最低粉丝勋章</label>
+                        <input class="blt-input" type="number" min="0" @bind="_fanMedalMin" />
+                    </div>
+                    <div>
+                        <label class="blt-label">最低荣誉等级</label>
+                        <input class="blt-input" type="number" min="0" @bind="_honorLevelMin" />
+                    </div>
+                    <div>
+                        <label class="blt-label">仅舰长可点</label>
+                        <span class="blt-switch @OnOff(_guardOnly)" @onclick="ToggleGuardOnly">
+                            <span class="track"></span>@OnOffText(_guardOnly)
+                        </span>
+                    </div>
+                    <div>
+                        <label class="blt-label">去重（分钟内不重复）</label>
+                        <div style="display:flex;gap:8px;align-items:center">
+                            <span class="blt-switch @OnOff(_dedupEnabled)" @onclick="ToggleDedup">
+                                <span class="track"></span>@OnOffText(_dedupEnabled)
+                            </span>
+                            <input class="blt-input" type="number" min="0" style="width:72px" @bind="_dedupMin" disabled="@(!_dedupEnabled)" />
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">
+                    <button class="blt-btn primary" @onclick="SaveSettings" disabled="@_busy">保存设置</button>
+                    <span style="color:var(--ink-3);font-size:11.5px">回写整份配置；黑名单 / Cookie / UP 名单等未展示字段原样保留</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t">🔍 手动搜索</span><span class="en">SEARCH</span>
+                <span class="right"><span>POST /api/song-request/search</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:flex;gap:8px">
+                    <select class="blt-input" style="width:112px;flex:none" @bind="_searchType">
+                        <option value="smart">智能搜索</option>
+                        <option value="song">按歌名</option>
+                        <option value="artist">按歌手</option>
+                        <option value="lyric">按歌词</option>
+                    </select>
+                    <input class="blt-input" @bind="_searchKeyword" @bind:event="oninput" @onkeydown="OnSearchKey"
+                           placeholder="歌曲名 / 歌手 / 歌词片段" />
+                    <button class="blt-btn primary" style="flex:none" @onclick="DoSearch" disabled="@_busy">搜索</button>
+                </div>
+                @if (_searching)
+                {
+                    <div class="blt-empty">搜索中…（走当前平台，可能需要数秒）</div>
+                }
+                else if (_results.Count == 0)
+                {
+                    <div class="blt-empty">暂无搜索结果 · 命中后点「添加」进入播放列表</div>
+                }
+                else
+                {
+                    <div style="margin-top:10px">
+                        @foreach (var r in _searchRows)
+                        {
+                            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)">
+                                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@r.Title</span>
+                                <span class="blt-badge @r.PlatformBadgeCls">@r.PlatformBadgeName</span>
+                                <span class="blt-badge @r.VipBadgeCls">@r.VipBadgeText</span>
+                                <button class="blt-btn" style="padding:2px 10px;font-size:11px;flex:none" @onclick="r.Add" disabled="@_busy">添加</button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t">🚫 黑名单</span><span class="en">BLACKLIST</span>
+                <span class="right"><span>共 @_blacklist.Count 条 · 包含匹配</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:flex;gap:8px">
+                    <select class="blt-input" style="width:96px;flex:none" @bind="_blType">
+                        <option value="song">歌曲</option>
+                        <option value="artist">歌手</option>
+                    </select>
+                    <input class="blt-input" @bind="_blValue" @bind:event="oninput" @onkeydown="OnBlacklistKey"
+                           placeholder="歌曲名或歌手名" />
+                    <button class="blt-btn" style="flex:none" @onclick="AddBlacklist" disabled="@_busy">添加</button>
+                </div>
+                @if (_blacklist.Count == 0)
+                {
+                    <div class="blt-empty">黑名单为空</div>
+                }
+                else
+                {
+                    <div style="margin-top:8px">
+                        @foreach (var b in _blacklistRows)
+                        {
+                            <div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line)">
+                                <span class="blt-badge @b.TypeCls" style="flex:none">@b.TypeText</span>
+                                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@b.Value</span>
+                                <button class="blt-btn" style="padding:2px 10px;font-size:11px" @onclick="b.Remove" disabled="@_busy">删除</button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：播放列表 / Cookie / 最近点歌 ── *@
+    <div>
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t">🎵 播放列表</span><span class="en">PLAYLIST</span>
+                <span class="right">
+                    <span>@_playlist.Count 首 · idx @(_currentIndex)</span>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="SkipCurrent" disabled="@_busy">跳过当前</button>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="ClearPlaylist" disabled="@_busy">清空</button>
+                </span>
+            </div>
+            <div class="blt-panel-body" style="padding:4px 0">
+                @if (_playlist.Count == 0)
+                {
+                    <div class="blt-empty">播放列表为空 · 弹幕「@_keyword 歌名」或在此手动搜索添加</div>
+                }
+                else
+                {
+                    @foreach (var row in _playlistRows)
+                    {
+                        <div style="@row.RowStyle">
+                            <span style="@row.NoStyle">@row.NoText</span>
+                            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                @row.Title<span style="color:var(--ink-3)"> - @row.Artist</span>
+                                <span class="blt-badge @row.PlatformBadgeCls">@row.PlatformBadgeName</span>
+                                <span class="blt-badge @row.VipBadgeCls">@row.VipBadgeText</span>
+                                @if (row.IsCurrent)
+                                {
+                                    <span class="blt-badge amber">当前</span>
+                                }
+                            </span>
+                            <span style="width:104px;flex:none;color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@row.Requester</span>
+                            <span style="flex:none;display:flex;gap:6px">
+                                <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="row.MoveUp" disabled="@(!row.CanUp || _busy)">↑</button>
+                                <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="row.MoveDown" disabled="@(!row.CanDown || _busy)">↓</button>
+                                <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="row.Remove" disabled="@_busy">删除</button>
+                            </span>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t">🍪 平台 Cookie</span><span class="en">COOKIE</span>
+                <span class="right"><span>VIP 歌曲需要登录态</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-kv">
+                    <span class="k">QQ音乐</span>
+                    <span class="v"><span class="blt-badge @CkCls(_ckQq)">@CkText(_ckQq)</span></span>
+                </div>
+                <div style="display:flex;gap:8px;margin:6px 0 12px">
+                    <input class="blt-input mono" @bind="_cookieQq" placeholder="粘贴 QQ音乐 Cookie（留空保存 = 清除）" />
+                    <button class="blt-btn" style="flex:none" @onclick="SaveQqCookie" disabled="@_busy">保存</button>
+                </div>
+
+                <div class="blt-kv">
+                    <span class="k">网易云音乐</span>
+                    <span class="v"><span class="blt-badge @CkCls(_ckNetease)">@CkText(_ckNetease)</span></span>
+                </div>
+                <div style="display:flex;gap:8px;margin:6px 0 12px">
+                    <input class="blt-input mono" @bind="_cookieNetease" placeholder="粘贴 网易云 Cookie（MUSIC_U=...）" />
+                    <button class="blt-btn" style="flex:none" @onclick="SaveNeteaseCookie" disabled="@_busy">保存</button>
+                </div>
+
+                <div class="blt-kv">
+                    <span class="k">酷狗音乐</span>
+                    <span class="v"><span class="blt-badge @CkCls(_ckKugou)">@CkText(_ckKugou)</span></span>
+                </div>
+                <div style="display:flex;gap:8px;margin:6px 0 12px">
+                    <input class="blt-input mono" @bind="_cookieKugou" placeholder="粘贴 酷狗 Cookie（留空保存 = 清除）" />
+                    <button class="blt-btn" style="flex:none" @onclick="SaveKugouCookie" disabled="@_busy">保存</button>
+                </div>
+
+                <div class="blt-kv">
+                    <span class="k">B站</span>
+                    <span class="v"><span class="blt-badge @CkCls(_ckBili)">@CkText(_ckBili)</span></span>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+                    <button class="blt-btn" @onclick="OpenBiliBrowser">打开B站浏览器</button>
+                    <span style="color:var(--ink-3);font-size:11.5px">登录后自动捕获并同步 B站 Cookie（SESSDATA / bili_jct）</span>
+                </div>
+
+                <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">
+                    <label class="blt-label">B站 UP 主名单 · 仅搜索名单内 UP 主的视频</label>
+                    <div style="display:flex;gap:8px">
+                        <input class="blt-input mono" @bind="_newUid" @bind:event="oninput" @onkeydown="OnUidKey" placeholder="输入 UP 主 UID（纯数字）" />
+                        <button class="blt-btn" style="flex:none" @onclick="AddUid" disabled="@_busy">添加</button>
+                    </div>
+                    @if (_upList.Count == 0)
+                    {
+                        <div class="blt-empty">名单为空 · B站平台将搜索不到任何结果</div>
+                    }
+                    else
+                    {
+                        <div style="margin-top:8px;max-height:220px;overflow-y:auto">
+                            @foreach (var u in _upRows)
+                            {
+                                <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line)">
+                                    <span style="flex:1;font-family:var(--mono);font-size:12px">@u.Uid</span>
+                                    <button class="blt-btn" style="padding:2px 10px;font-size:11px" @onclick="u.Remove" disabled="@_busy">删除</button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t">🕒 最近点歌</span><span class="en">RECENT</span>
+                <span class="right"><span>最近 @(_recentRows.Count) 条 · GET /api/song-request/recent</span></span>
+            </div>
+            <div class="blt-panel-body" style="padding:6px 0">
+                @if (_recentRows.Count == 0)
+                {
+                    <div class="blt-empty">暂无点歌记录</div>
+                }
+                else
+                {
+                    <div class="blt-log" style="max-height:260px">
+                        @foreach (var r in _recentRows)
+                        {
+                            <div class="blt-logrow">
+                                <span class="t">@r.Time</span>
+                                <span class="tag @r.StatusCls">@r.StatusText</span>
+                                <span class="txt"><span class="u">@r.Uname</span> @r.Song</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // ---------- remote data ----------
+    private readonly List<JsonObject> _playlist = new();
+    private readonly List<JsonObject> _blacklist = new();
+    private readonly List<JsonObject> _recent = new();
+    private readonly List<string> _upList = new();
+    private readonly List<JsonObject> _results = new();
+
+    // ---------- view models rebuilt on each data refresh ----------
+    private List<PlaylistRowVm> _playlistRows = new();
+    private List<BlacklistRowVm> _blacklistRows = new();
+    private List<UidRowVm> _upRows = new();
+    private List<SearchRowVm> _searchRows = new();
+    private List<RecentRowVm> _recentRows = new();
+
+    private int _currentIndex = -1;
+
+    // ---------- settings form (seconds/minutes for display, ms in config) ----------
+    private bool _enabled;
+    private string _platform = "qq";
+    private string _keyword = "点歌";
+    private string _cooldownSec = "10";
+    private string _userCooldownSec = "60";
+    private string _fanMedalMin = "0";
+    private string _honorLevelMin = "0";
+    private bool _guardOnly;
+    private string _maxDaily = "0";
+    private bool _dedupEnabled = true;
+    private string _dedupMin = "5";
+
+    // ---------- cookie / uplist form ----------
+    private bool _ckQq, _ckNetease, _ckKugou, _ckBili;
+    private string _cookieQq = "";
+    private string _cookieNetease = "";
+    private string _cookieKugou = "";
+    private string _newUid = "";
+
+    // ---------- search / blacklist form ----------
+    private string _searchType = "smart";
+    private string _searchKeyword = "";
+    private string _blType = "song";
+    private string _blValue = "";
+
+    // ---------- page state ----------
+    private HttpClient? _http;
+    private bool _busy;
+    private bool _searching;
+    private string _feedback = "";
+    private string _feedbackCls = "off";
+
+    private const string RowBaseStyle = "display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px dashed var(--line)";
+
+    // Local API base follows the config port (pinned to 7460 by AppConfig default).
+    private HttpClient Http => _http ??= new HttpClient
+    {
+        BaseAddress = new Uri("http://127.0.0.1:" + Config.Port),
+        Timeout = TimeSpan.FromSeconds(30),
+    };
+
+    protected override async Task OnInitializedAsync() => await RefreshAll();
+
+    public void Dispose()
+    {
+        _http?.Dispose();
+        _http = null;
+    }
+
+    // ---------- loading ----------
+
+    private async Task RefreshAll()
+    {
+        _busy = true;
+        try
+        {
+            await LoadConfigAsync();
+            await Task.WhenAll(LoadPlaylistAsync(), LoadBlacklistAsync(), LoadRecentAsync(), LoadCookiesAsync(), LoadUpListAsync());
+            if (_feedbackCls != "red") SetMsg("已刷新", "green");
+        }
+        catch (Exception ex)
+        {
+            SetMsg("加载失败：" + ex.Message, "red");
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadConfigAsync()
+    {
+        try
+        {
+            var doc = await GetJson("/api/config") as JsonObject;
+            if (doc == null) { SetMsg("配置读取失败：响应为空", "red"); return; }
+            ApplySettings(doc["songRequest"] as JsonObject);
+        }
+        catch (Exception ex) { SetMsg("配置读取失败：" + ex.Message, "red"); }
+    }
+
+    private async Task LoadPlaylistAsync()
+    {
+        try { ApplyPlaylist(await GetJson("/api/song-request/playlist")); }
+        catch (Exception ex) { SetMsg("播放列表读取失败：" + ex.Message, "red"); }
+    }
+
+    private async Task LoadBlacklistAsync()
+    {
+        try
+        {
+            var data = await GetJson("/api/song-request/blacklist") as JsonObject;
+            _blacklist.Clear();
+            if (data?["blacklist"] is JsonArray arr)
+                foreach (var n in arr) if (n is JsonObject o) _blacklist.Add(o);
+            BuildBlacklistRows();
+        }
+        catch (Exception ex) { SetMsg("黑名单读取失败：" + ex.Message, "red"); }
+    }
+
+    private async Task LoadRecentAsync()
+    {
+        try
+        {
+            var data = await GetJson("/api/song-request/recent") as JsonObject;
+            _recent.Clear();
+            if (data?["recent"] is JsonArray arr)
+                foreach (var n in arr) if (n is JsonObject o) _recent.Add(o);
+            BuildRecentRows();
+        }
+        catch (Exception ex) { SetMsg("最近点歌读取失败：" + ex.Message, "red"); }
+    }
+
+    private async Task LoadCookiesAsync()
+    {
+        try
+        {
+            var data = await GetJson("/api/song-request/cookie-status") as JsonObject;
+            _ckQq = Jb(data, "qq");
+            _ckNetease = Jb(data, "netease");
+            _ckKugou = Jb(data, "kugou");
+            _ckBili = Jb(data, "bilibili");
+        }
+        catch (Exception ex) { SetMsg("Cookie 状态读取失败：" + ex.Message, "red"); }
+    }
+
+    private async Task LoadUpListAsync()
+    {
+        try
+        {
+            var data = await GetJson("/api/song-request/bilibili-uplist") as JsonObject;
+            _upList.Clear();
+            if (data?["upList"] is JsonArray arr)
+                foreach (var n in arr)
+                {
+                    var s = n is JsonValue v && v.TryGetValue<string>(out var uid) ? uid ?? "" : "";
+                    if (s.Length > 0) _upList.Add(s);
+                }
+            BuildUpRows();
+        }
+        catch (Exception ex) { SetMsg("B站 UP 名单读取失败：" + ex.Message, "red"); }
+    }
+
+    private void ApplyPlaylist(JsonNode? data)
+    {
+        _playlist.Clear();
+        if (data?["playlist"] is JsonArray arr)
+            foreach (var n in arr) if (n is JsonObject o) _playlist.Add(o);
+        _currentIndex = (int)Jl(data as JsonObject, "currentIndex", -1);
+        BuildPlaylistRows();
+    }
+
+    private void ApplySettings(JsonObject? sr)
+    {
+        if (sr == null) return;
+        _enabled = Jb(sr, "enabled");
+        _platform = Js(sr, "platform");
+        if (_platform.Length == 0) _platform = "qq";
+        var kw = Js(sr, "keyword");
+        _keyword = kw.Length > 0 ? kw : "点歌";
+        _cooldownSec = (Jl(sr, "cooldownMs", 10000) / 1000).ToString();
+        _userCooldownSec = (Jl(sr, "userCooldownMs", 60000) / 1000).ToString();
+        _fanMedalMin = Jl(sr, "fanMedalMin").ToString();
+        _honorLevelMin = Jl(sr, "honorLevelMin").ToString();
+        _guardOnly = Jb(sr, "guardOnly");
+        _maxDaily = Jl(sr, "maxDaily").ToString();
+        _dedupEnabled = Jb(sr, "dedupEnabled", true);
+        _dedupMin = Math.Max(0, (long)Math.Round(Jl(sr, "dedupMs", 300000) / 60000.0)).ToString();
+    }
+
+    // ---------- view model builders (closures live in code, not in markup) ----------
+
+    private void BuildPlaylistRows()
+    {
+        var rows = new List<PlaylistRowVm>(_playlist.Count);
+        for (var i = 0; i < _playlist.Count; i++)
+        {
+            var idx = i;
+            var song = _playlist[i];
+            var platform = Js(song, "platform");
+            var vip = Vb(song["vip"]);
+            var isCurrent = i == _currentIndex;
+            rows.Add(new PlaylistRowVm
+            {
+                NoText = isCurrent ? "▶ " + (i + 1) : (i + 1).ToString(),
+                NoStyle = "width:46px;flex:none;font-family:var(--mono);font-size:11px;color:" + (isCurrent ? "var(--amber)" : "var(--ink-3)"),
+                RowStyle = RowBaseStyle + (isCurrent ? ";background:var(--amber-dim)" : ""),
+                Title = Js(song, "name"),
+                Artist = Js(song, "artist"),
+                Requester = Js(song, "requester"),
+                PlatformBadgeName = PlatName(platform),
+                PlatformBadgeCls = PlatCls(platform),
+                VipBadgeText = vip ? "VIP" : "免费",
+                VipBadgeCls = vip ? "red" : "off",
+                IsCurrent = isCurrent,
+                CanUp = i > 0,
+                CanDown = i < _playlist.Count - 1,
+                Remove = () => RemoveAt(idx),
+                MoveUp = () => MoveTo(idx, idx - 1),
+                MoveDown = () => MoveTo(idx, idx + 1),
+            });
+        }
+        _playlistRows = rows;
+    }
+
+    private void BuildBlacklistRows()
+    {
+        var rows = new List<BlacklistRowVm>(_blacklist.Count);
+        for (var i = 0; i < _blacklist.Count; i++)
+        {
+            var idx = i;
+            var b = _blacklist[i];
+            var type = Js(b, "type");
+            rows.Add(new BlacklistRowVm
+            {
+                TypeText = type == "artist" ? "歌手" : "歌曲",
+                TypeCls = type == "artist" ? "blue" : "amber",
+                Value = Js(b, "value"),
+                Remove = () => DeleteBlacklistAt(idx),
+            });
+        }
+        _blacklistRows = rows;
+    }
+
+    private void BuildUpRows()
+    {
+        var rows = new List<UidRowVm>(_upList.Count);
+        foreach (var uid in _upList)
+        {
+            var id = uid;
+            rows.Add(new UidRowVm { Uid = id, Remove = () => DeleteUid(id) });
+        }
+        _upRows = rows;
+    }
+
+    private void BuildSearchRows()
+    {
+        var rows = new List<SearchRowVm>(_results.Count);
+        foreach (var song in _results)
+        {
+            var s = song;
+            var platform = Js(s, "platform");
+            var vip = Vb(s["vip"]);
+            var artist = Js(s, "artist");
+            rows.Add(new SearchRowVm
+            {
+                Title = Js(s, "name") + (artist.Length > 0 ? " - " + artist : ""),
+                PlatformBadgeName = PlatName(platform),
+                PlatformBadgeCls = PlatCls(platform),
+                VipBadgeText = vip ? "VIP" : "免费",
+                VipBadgeCls = vip ? "red" : "off",
+                Add = () => AddSong(s),
+            });
+        }
+        _searchRows = rows;
+    }
+
+    private void BuildRecentRows()
+    {
+        var rows = new List<RecentRowVm>();
+        foreach (var r in _recent.Take(20))
+        {
+            var artist = Js(r, "artist");
+            var status = Js(r, "status");
+            rows.Add(new RecentRowVm
+            {
+                Time = FmtTime(Jl(r, "time")),
+                Song = Js(r, "songName") + (artist.Length > 0 ? " - " + artist : ""),
+                Uname = Js(r, "uname"),
+                StatusText = StatusText(status),
+                StatusCls = status == "success" ? "interact" : "info",
+            });
+        }
+        _recentRows = rows;
+    }
+
+    // ---------- playlist ops ----------
+
+    private async Task RemoveAt(int index) => await Guard(async () =>
+    {
+        await PostJson("/api/song-request/playlist/remove", new JsonObject { ["index"] = index });
+        await LoadPlaylistAsync();
+        SetMsg("已移除第 " + (index + 1) + " 首", "green");
+    }, "移除失败");
+
+    private async Task MoveTo(int from, int to) => await Guard(async () =>
+    {
+        await PostJson("/api/song-request/playlist/reorder", new JsonObject { ["from"] = from, ["to"] = to });
+        await LoadPlaylistAsync();
+        SetMsg(to < from ? "已上移" : "已下移", "green");
+    }, "排序失败");
+
+    private async Task ClearPlaylist() => await Guard(async () =>
+    {
+        await PostJson("/api/song-request/playlist/clear", new JsonObject());
+        await LoadPlaylistAsync();
+        SetMsg("播放列表已清空", "green");
+    }, "清空失败");
+
+    private async Task SkipCurrent() => await Guard(async () =>
+    {
+        await PostJson("/api/song-request/skip", new JsonObject());
+        await LoadPlaylistAsync();
+        SetMsg("已跳过当前歌曲", "green");
+    }, "跳过失败");
+
+    // ---------- search ----------
+
+    private async Task DoSearch()
+    {
+        var kw = _searchKeyword.Trim();
+        if (kw.Length == 0) { SetMsg("请输入搜索关键词", "amber"); StateHasChanged(); return; }
+        _busy = true;
+        _searching = true;
+        try
+        {
+            var resp = await PostJson("/api/song-request/search", new JsonObject { ["keyword"] = kw, ["type"] = _searchType });
+            _results.Clear();
+            if (resp?["results"] is JsonArray arr)
+                foreach (var n in arr) if (n is JsonObject o) _results.Add(o);
+            BuildSearchRows();
+            SetMsg(_results.Count == 0 ? "未找到与「" + kw + "」匹配的歌曲" : "搜索到 " + _results.Count + " 条结果",
+                _results.Count == 0 ? "amber" : "green");
+        }
+        catch (Exception ex) { SetMsg("搜索失败：" + ex.Message, "red"); }
+        finally
+        {
+            _busy = false;
+            _searching = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddSong(JsonObject song) => await Guard(async () =>
+    {
+        var body = new JsonObject { ["song"] = song.DeepClone(), ["requester"] = "手动添加" };
+        await PostJson("/api/song-request/playlist/add", body);
+        SetMsg("已添加《" + Js(song, "name") + "》到播放列表", "green");
+        await LoadPlaylistAsync();
+    }, "添加失败");
+
+    // ---------- blacklist ----------
+
+    private async Task AddBlacklist() => await Guard(async () =>
+    {
+        var value = _blValue.Trim();
+        if (value.Length == 0) { SetMsg("请输入要屏蔽的歌曲名或歌手名", "amber"); return; }
+        await PostJson("/api/song-request/blacklist", new JsonObject { ["type"] = _blType, ["value"] = value });
+        _blValue = "";
+        SetMsg("已加入黑名单", "green");
+        await LoadBlacklistAsync();
+    }, "添加黑名单失败");
+
+    private async Task DeleteBlacklistAt(int index) => await Guard(async () =>
+    {
+        await PostJson("/api/song-request/blacklist/delete", new JsonObject { ["index"] = index });
+        SetMsg("已从黑名单移除", "green");
+        await LoadBlacklistAsync();
+    }, "删除黑名单失败");
+
+    // ---------- cookies / uplist ----------
+
+    private async Task SaveCookie(string platform, string cookie) => await Guard(async () =>
+    {
+        var value = cookie.Trim();
+        await PostJson("/api/song-request/cookie", new JsonObject { ["platform"] = platform, ["cookie"] = value });
+        SetMsg(value.Length > 0 ? "已保存 " + PlatName(platform) + " Cookie" : "已清除 " + PlatName(platform) + " Cookie", "green");
+        await LoadCookiesAsync();
+    }, "保存 Cookie 失败");
+
+    private async Task SaveQqCookie() => await SaveCookie("qq", _cookieQq);
+    private async Task SaveNeteaseCookie() => await SaveCookie("netease", _cookieNetease);
+    private async Task SaveKugouCookie() => await SaveCookie("kugou", _cookieKugou);
+
+    private async Task AddUid() => await Guard(async () =>
+    {
+        var uid = _newUid.Trim();
+        if (uid.Length == 0) { SetMsg("请输入 UP 主 UID", "amber"); return; }
+        await PostJson("/api/song-request/bilibili-uplist/add", new JsonObject { ["uid"] = uid });
+        _newUid = "";
+        SetMsg("已添加 UP 主 " + uid, "green");
+        await LoadUpListAsync();
+    }, "添加 UP 主失败");
+
+    private async Task DeleteUid(string uid) => await Guard(async () =>
+    {
+        await PostJson("/api/song-request/bilibili-uplist/delete", new JsonObject { ["uid"] = uid });
+        SetMsg("已移除 UP 主 " + uid, "green");
+        await LoadUpListAsync();
+    }, "删除 UP 主失败");
+
+    // ---------- settings ----------
+
+    private async Task SaveSettings() => await Guard(async () =>
+    {
+        var doc = await GetJson("/api/config") as JsonObject ?? new JsonObject();
+        var sr = doc["songRequest"] as JsonObject;
+        if (sr == null)
+        {
+            sr = new JsonObject();
+            doc["songRequest"] = sr;
+        }
+        var keyword = _keyword.Trim();
+        sr["enabled"] = JsonValue.Create(_enabled);
+        sr["platform"] = JsonValue.Create(_platform);
+        sr["keyword"] = JsonValue.Create(keyword.Length > 0 ? keyword : "点歌");
+        sr["cooldownMs"] = JsonValue.Create(ParseLong(_cooldownSec, 10) * 1000L);
+        sr["userCooldownMs"] = JsonValue.Create(ParseLong(_userCooldownSec, 60) * 1000L);
+        sr["fanMedalMin"] = JsonValue.Create(ParseLong(_fanMedalMin));
+        sr["honorLevelMin"] = JsonValue.Create(ParseLong(_honorLevelMin));
+        sr["guardOnly"] = JsonValue.Create(_guardOnly);
+        sr["maxDaily"] = JsonValue.Create(ParseLong(_maxDaily));
+        sr["dedupEnabled"] = JsonValue.Create(_dedupEnabled);
+        sr["dedupMs"] = JsonValue.Create(ParseLong(_dedupMin, 5) * 60000L);
+        var resp = await PostJson("/api/config", doc);
+        ApplySettings((resp as JsonObject)?["songRequest"] as JsonObject);
+        SetMsg("点歌设置已保存", "green");
+    }, "保存设置失败");
+
+    private void ToggleEnabled() => _enabled = !_enabled;
+    private void ToggleGuardOnly() => _guardOnly = !_guardOnly;
+    private void ToggleDedup() => _dedupEnabled = !_dedupEnabled;
+
+    private void OpenBiliBrowser() => MainPage.Current?.ShowBiliBrowser("https://live.bilibili.com/");
+
+    private Task OnSearchKey(KeyboardEventArgs e) => e.Key == "Enter" ? DoSearch() : Task.CompletedTask;
+    private Task OnBlacklistKey(KeyboardEventArgs e) => e.Key == "Enter" ? AddBlacklist() : Task.CompletedTask;
+    private Task OnUidKey(KeyboardEventArgs e) => e.Key == "Enter" ? AddUid() : Task.CompletedTask;
+
+    // ---------- http plumbing ----------
+
+    private async Task<JsonNode?> GetJson(string path)
+    {
+        var resp = await Http.GetAsync(path);
+        var text = await resp.Content.ReadAsStringAsync();
+        if (!resp.IsSuccessStatusCode) throw new Exception("HTTP " + (int)resp.StatusCode + " " + Trim(text));
+        return string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text);
+    }
+
+    private async Task<JsonNode?> PostJson(string path, JsonObject body)
+    {
+        using var content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+        var resp = await Http.PostAsync(path, content);
+        var text = await resp.Content.ReadAsStringAsync();
+        if (!resp.IsSuccessStatusCode) throw new Exception("HTTP " + (int)resp.StatusCode + " " + Trim(text));
+        return string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text);
+    }
+
+    private async Task Guard(Func<Task> body, string failPrefix)
+    {
+        _busy = true;
+        try { await body(); }
+        catch (Exception ex) { SetMsg(failPrefix + "：" + ex.Message, "red"); }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetMsg(string text, string cls)
+    {
+        _feedback = text;
+        _feedbackCls = cls;
+    }
+
+    // ---------- helpers ----------
+
+    private static string Trim(string s) => s.Length > 160 ? s[..160] : s;
+
+    private static string Js(JsonObject? o, string key)
+        => o?[key] is JsonValue v && v.TryGetValue<string>(out var s) ? s ?? "" : "";
+
+    private static long Jl(JsonObject? o, string key, long def = 0)
+        => o?[key] is JsonValue v && v.TryGetValue<long>(out var l) ? l : def;
+
+    private static bool Jb(JsonObject? o, string key, bool def = false)
+        => o?[key] is JsonValue v && v.TryGetValue<bool>(out var b) ? b : def;
+
+    private static bool Vb(JsonNode? n)
+    {
+        if (n is not JsonValue v) return false;
+        if (v.TryGetValue<bool>(out var b)) return b;
+        if (v.TryGetValue<long>(out var l)) return l != 0;
+        return false;
+    }
+
+    private static long ParseLong(string s, long def = 0)
+        => long.TryParse((s ?? "").Trim(), out var v) ? (v < 0 ? 0 : v) : def;
+
+    private static string FmtTime(long ms)
+        => ms <= 0 ? "—" : DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime.ToString("MM-dd HH:mm:ss");
+
+    private static string StatusText(string s) => s switch
+    {
+        "success" => "成功",
+        "error" or "fail" or "failed" => "失败",
+        "blacklist" => "黑名单",
+        "cooldown" or "user_cooldown" => "冷却中",
+        "not_found" => "未找到",
+        "guard_only" => "仅舰长",
+        "medal" => "勋章不足",
+        "honor" => "等级不足",
+        "daily_limit" => "超每日上限",
+        "dedup" => "重复点歌",
+        "" => "未知",
+        _ => s,
+    };
+
+    private static string PlatName(string p) => p switch
+    {
+        "qq" => "QQ音乐",
+        "netease" => "网易云",
+        "kugou" => "酷狗",
+        "bilibili" => "B站",
+        _ => p.Length > 0 ? p : "—",
+    };
+
+    private static string PlatCls(string p) => p switch
+    {
+        "qq" => "blue",
+        "netease" => "red",
+        "kugou" => "amber",
+        "bilibili" => "green",
+        _ => "off",
+    };
+
+    private static string OnOff(bool b) => b ? "on" : "";
+    private static string OnOffCls(bool b) => b ? "green" : "off";
+    private static string OnOffText(bool b) => b ? "ON" : "OFF";
+    private static string CkCls(bool b) => b ? "green" : "off";
+    private static string CkText(bool b) => b ? "已配置" : "未配置";
+
+    private string CurSeg()
+        => _currentIndex >= 0 && _playlist.Count > 0 && _currentIndex < _playlist.Count
+            ? " · 当前 #" + (_currentIndex + 1)
+            : "";
+
+    // ---------- row view models (parameterless delegates bound via @onclick) ----------
+
+    private sealed class PlaylistRowVm
+    {
+        public string NoText = "";
+        public string NoStyle = "";
+        public string RowStyle = "";
+        public string Title = "";
+        public string Artist = "";
+        public string Requester = "";
+        public string PlatformBadgeName = "";
+        public string PlatformBadgeCls = "off";
+        public string VipBadgeText = "";
+        public string VipBadgeCls = "off";
+        public bool IsCurrent;
+        public bool CanUp;
+        public bool CanDown;
+        public Func<Task> Remove = () => Task.CompletedTask;
+        public Func<Task> MoveUp = () => Task.CompletedTask;
+        public Func<Task> MoveDown = () => Task.CompletedTask;
+    }
+
+    private sealed class BlacklistRowVm
+    {
+        public string TypeText = "";
+        public string TypeCls = "amber";
+        public string Value = "";
+        public Func<Task> Remove = () => Task.CompletedTask;
+    }
+
+    private sealed class UidRowVm
+    {
+        public string Uid = "";
+        public Func<Task> Remove = () => Task.CompletedTask;
+    }
+
+    private sealed class SearchRowVm
+    {
+        public string Title = "";
+        public string PlatformBadgeName = "";
+        public string PlatformBadgeCls = "off";
+        public string VipBadgeText = "";
+        public string VipBadgeCls = "off";
+        public Func<Task> Add = () => Task.CompletedTask;
+    }
+
+    private sealed class RecentRowVm
+    {
+        public string Time = "";
+        public string Song = "";
+        public string Uname = "";
+        public string StatusText = "";
+        public string StatusCls = "info";
+    }
+}

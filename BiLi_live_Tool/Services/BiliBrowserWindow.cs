@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls;
 
@@ -5,16 +6,22 @@ namespace BiLi_live_Tool.Services;
 
 #if !WINDOWS
 /// <summary>Stub for non-Windows TFMs.</summary>
-public sealed class BiliBrowserWindow
+public sealed class BiliBrowserWindow : IDisposable
 {
     public BiliBrowserWindow(Func<AppConfig?> cfg, Func<Microsoft.Maui.Dispatching.IDispatcher?> dispatcher) { }
     public bool IsVisible => false;
     public string CurrentUrl => "";
+    /// <summary>The idle auto-close only exists on Windows (no owned WebView2 window here).</summary>
+    public bool AutoClosedForIdle => false;
+    public long IdleClosedAt => 0;
+    public int IdleClosedMinutes => 0;
+    public int IdleCloseMinutes => 10;
     public void Show(nint ownerHwnd, string url) { }
     public void Hide() { }
     public void Reload() { }
     public void GoBack() { }
     public void GoForward() { }
+    public void Dispose() { }
 }
 #else
 using System.Runtime.InteropServices;
@@ -25,9 +32,20 @@ using System.Runtime.InteropServices;
 /// right ~62%; a poller re-docks it when the main window moves/resizes.
 /// Bilibili login cookies are captured while visible (the original listened to
 /// partition cookie changes → /api/cookie; here written straight to config).
+/// The owned WebView2 costs ~150MB-0.8GB, so an idle timer tears the window
+/// down when nothing happened for biliBrowser.idleCloseMin minutes (0 = off).
 /// </summary>
-public sealed class BiliBrowserWindow
+public sealed class BiliBrowserWindow : IDisposable
 {
+    /// <summary>Idle poll cadence; the WebView2 playing probe runs at the same beat.</summary>
+    private const int IdleTickMs = 30_000;
+    /// <summary>biliBrowser.idleCloseMin fallback when the key is absent.</summary>
+    private const int DefaultIdleCloseMin = 10;
+    /// <summary>Upper clamp for the configured threshold (one day).</summary>
+    private const int MaxIdleCloseMin = 1440;
+    /// <summary>A probe that never comes back is abandoned after this long.</summary>
+    private const int ProbeStaleMs = 60_000;
+
     private readonly Func<AppConfig?> _config;
     private readonly Func<Microsoft.Maui.Dispatching.IDispatcher?> _dispatcher;
 
@@ -39,13 +57,41 @@ public sealed class BiliBrowserWindow
     private long _lastRect;
     private CancellationTokenSource? _pollCts;
 
+    // ----- idle auto-close state -----
+    private System.Threading.Timer? _idleTimer;
+    private long _lastActivityMs;        // Environment.TickCount64 of the last activity
+    private string _lastActivityUrl = ""; // previous CurrentUrl, for navigation detection
+    private long _activityGen;           // bumped per activity; lets a stale probe abandon the close
+    private int _idleProbeBusy;          // 1 while a JS playing-probe is in flight
+    private long _idleProbeStartMs;      // TickCount64 when that probe started
+    private int _autoClosedForIdle;      // 1 when the last teardown came from the idle timer
+    private long _idleClosedAtMs;        // Unix ms of the last idle auto-close (0 = never)
+    private int _idleClosedMinutes;      // threshold used by that close
+    private int _disposed;
+
     public BiliBrowserWindow(Func<AppConfig?> config, Func<Microsoft.Maui.Dispatching.IDispatcher?> dispatcher)
     {
         _config = config;
         _dispatcher = dispatcher;
+        _lastActivityMs = Environment.TickCount64;
+        _idleTimer = new System.Threading.Timer(_ => IdleTick(), null, IdleTickMs, IdleTickMs);
     }
 
     public bool IsVisible => _visible;
+
+    // ----- idle auto-close state exposed to the panel (MainPage → RoomManage) -----
+
+    /// <summary>True when the last teardown was an idle auto-close (not the user's).</summary>
+    public bool AutoClosedForIdle => Volatile.Read(ref _autoClosedForIdle) != 0;
+
+    /// <summary>Unix ms of the last idle auto-close (0 = never); a change signals a new UI notice.</summary>
+    public long IdleClosedAt => Interlocked.Read(ref _idleClosedAtMs);
+
+    /// <summary>Minutes the last idle auto-close waited (0 = never closed by idle).</summary>
+    public int IdleClosedMinutes => Volatile.Read(ref _idleClosedMinutes);
+
+    /// <summary>Effective biliBrowser.idleCloseMin in minutes (0 = the feature is off).</summary>
+    public int IdleCloseMinutes => ReadIdleCloseMinutes();
     public string CurrentUrl
     {
         get
@@ -57,11 +103,12 @@ public sealed class BiliBrowserWindow
 
     public void Show(nint ownerHwnd, string url)
     {
-        if (ownerHwnd == 0) return;
+        if (ownerHwnd == 0 || Volatile.Read(ref _disposed) != 0) return;
         RunOnUi(() =>
         {
             try
             {
+                Volatile.Write(ref _autoClosedForIdle, 0);   // a fresh open supersedes the idle notice
                 EnsureWindow(ownerHwnd);
                 if (_window == null || _webView == null) return;
                 try
@@ -73,6 +120,7 @@ public sealed class BiliBrowserWindow
                 StartLoops(ownerHwnd);
                 DockToOwner(ownerHwnd);
                 try { _platformWindow?.Activate(); } catch { }
+                MarkActivity();
             }
             catch { }
         });
@@ -106,30 +154,196 @@ public sealed class BiliBrowserWindow
     /// Fully destroys the window + WebView (frees the renderer memory; Hide
     /// only parks it off-screen). Show recreates everything on demand.
     /// </summary>
-    public void Close()
+    public void Close() => RunOnUi(() => CloseInner(false));
+
+    /// <summary>
+    /// Stops the idle timer and tears the window down — the app-exit hook
+    /// (MainPage window Destroying) calls this so nothing outlives the app.
+    /// </summary>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        try
+        {
+            _idleTimer?.Dispose();
+            _idleTimer = null;
+        }
+        catch { }
+        RunOnUi(() => CloseInner(false));
+    }
+
+    public void Reload() => RunOnUi(() => { try { _webView?.Reload(); } catch { } MarkActivity(); });
+    public void GoBack() => RunOnUi(() => { try { if (_webView?.CanGoBack == true) _webView.GoBack(); } catch { } MarkActivity(); });
+    public void GoForward() => RunOnUi(() => { try { if (_webView?.CanGoForward == true) _webView.GoForward(); } catch { } MarkActivity(); });
+
+    // ----- internals -----
+
+    /// <summary>Teardown shared by the user-facing Close and the idle auto-close (UI thread).</summary>
+    private void CloseInner(bool byIdle)
+    {
+        Volatile.Write(ref _autoClosedForIdle, byIdle ? 1 : 0);
+        _visible = false;
+        _lastRect = 0;
+        _pollCts?.Cancel();
+        var w = _window;
+        _window = null;
+        _webView = null;
+        _platformWindow = null;
+        try
+        {
+            if (w != null) Application.Current?.CloseWindow(w);
+        }
+        catch { }
+    }
+
+    // ----- idle auto-close -----
+    // The owned WebView2 window is the app's biggest memory item (150MB-0.8GB), so
+    // an idle timer below the panel tears it down. "Active" = a navigation, a panel
+    // action (Show/Reload/GoBack/GoForward), a captured login cookie, or a playing
+    // <video> in a visible window. The threshold is read from biliBrowser.idleCloseMin
+    // on every tick, so page-side edits apply without a restart.
+
+    /// <summary>Resets the idle clock and invalidates any probe already in flight.</summary>
+    private void MarkActivity()
+    {
+        Interlocked.Exchange(ref _lastActivityMs, Environment.TickCount64);
+        Interlocked.Increment(ref _activityGen);
+        try { _lastActivityUrl = CurrentUrl; } catch { }
+    }
+
+    /// <summary>biliBrowser.idleCloseMin (minutes; 0 = disabled; absent = 10).</summary>
+    private int ReadIdleCloseMinutes()
+    {
+        try
+        {
+            if (_config()?.GetNode("biliBrowser") is JsonObject node
+                && node.TryGetPropertyValue("idleCloseMin", out var v)
+                && v is JsonValue jv
+                && jv.TryGetValue<double>(out var d))
+                return Math.Clamp((int)Math.Round(d), 0, MaxIdleCloseMin);
+        }
+        catch { }
+        return DefaultIdleCloseMin;
+    }
+
+    private void IdleTick()
+    {
+        try
+        {
+            if (Volatile.Read(ref _disposed) != 0) return;
+            var minutes = ReadIdleCloseMinutes();
+            if (minutes <= 0 || Volatile.Read(ref _window) == null)
+            {
+                // Feature off, or nothing alive to release: keep the clock at "now" so a
+                // re-enable / a fresh Show gets the full countdown.
+                MarkActivity();
+                return;
+            }
+            // Navigation or redirects count as activity even without a panel click.
+            var url = CurrentUrl;
+            if (url.Length > 0 && url != _lastActivityUrl)
+            {
+                _lastActivityUrl = url;
+                MarkActivity();
+            }
+            if (Environment.TickCount64 - Interlocked.Read(ref _lastActivityMs) < minutes * 60_000L) return;
+
+            // Hidden (parked off-screen by Hide): a <video> may keep playing where nobody
+            // can see it, so skip the probe and treat the window as idle.
+            if (!_visible)
+            {
+                CloseForIdle(minutes, Interlocked.Read(ref _activityGen));
+                return;
+            }
+            if (!TryBeginProbe()) return;
+            _ = ProbeThenCloseAsync(minutes);
+        }
+        catch { }
+    }
+
+    /// <summary>Single-flight guard for the JS probe (a probe that never returns is abandoned).</summary>
+    private bool TryBeginProbe()
+    {
+        if (Interlocked.CompareExchange(ref _idleProbeBusy, 1, 0) != 0)
+        {
+            if (Environment.TickCount64 - Interlocked.Read(ref _idleProbeStartMs) < ProbeStaleMs) return false;
+            Interlocked.Exchange(ref _idleProbeBusy, 0);   // stale guard: retry on the next tick
+            return false;
+        }
+        Interlocked.Exchange(ref _idleProbeStartMs, Environment.TickCount64);
+        return true;
+    }
+
+    private async Task ProbeThenCloseAsync(int minutes)
+    {
+        var gen = Interlocked.Read(ref _activityGen);
+        try
+        {
+            var playing = await IsVideoPlayingAsync();
+            if (playing == true)
+            {
+                MarkActivity();   // live video is playing: the user is watching, never close
+                return;
+            }
+            // false = known idle, null = probe unavailable/unknown → both allow the close.
+            if (gen != Interlocked.Read(ref _activityGen)) return;   // the panel acted meanwhile
+            CloseForIdle(minutes, gen);
+        }
+        catch { }
+        finally
+        {
+            Interlocked.Exchange(ref _idleProbeBusy, 0);
+        }
+    }
+
+    /// <summary>Final re-checks on the UI thread, then the memory-releasing teardown.</summary>
+    private void CloseForIdle(int minutes, long gen)
     {
         RunOnUi(() =>
         {
-            _visible = false;
-            _lastRect = 0;
-            _pollCts?.Cancel();
-            var w = _window;
-            _window = null;
-            _webView = null;
-            _platformWindow = null;
-            try
-            {
-                if (w != null) Application.Current?.CloseWindow(w);
-            }
-            catch { }
+            if (Volatile.Read(ref _disposed) != 0 || _window == null) return;
+            if (gen != Interlocked.Read(ref _activityGen)) return;   // the panel acted meanwhile
+            if (Environment.TickCount64 - Interlocked.Read(ref _lastActivityMs) < minutes * 60_000L) return;
+            Volatile.Write(ref _idleClosedMinutes, minutes);
+            Interlocked.Exchange(ref _idleClosedAtMs, DateTimeOffset.Now.ToUnixTimeMilliseconds());
+            CloseInner(true);
         });
     }
 
-    public void Reload() => RunOnUi(() => { try { _webView?.Reload(); } catch { } });
-    public void GoBack() => RunOnUi(() => { try { if (_webView?.CanGoBack == true) _webView.GoBack(); } catch { } });
-    public void GoForward() => RunOnUi(() => { try { if (_webView?.CanGoForward == true) _webView.GoForward(); } catch { } });
+    /// <summary>
+    /// true = a video is playing; false = known idle; null = the probe could not run.
+    /// Failures (no WebView2 yet, script blocked, timeout) are "unknown" and never throw.
+    /// </summary>
+    private async Task<bool?> IsVideoPlayingAsync()
+    {
+        var tcs = new TaskCompletionSource<bool?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            RunOnUi(() => _ = ProbeVideoPlayingAsync(tcs));
+            var done = await Task.WhenAny(tcs.Task, Task.Delay(6000)).ConfigureAwait(false);
+            return done == tcs.Task ? await tcs.Task.ConfigureAwait(false) : null;
+        }
+        catch { return null; }
+    }
 
-    // ----- internals -----
+    /// <summary>WebView2 script call; must start on the UI thread (handler-owned object).</summary>
+    private async Task ProbeVideoPlayingAsync(TaskCompletionSource<bool?> tcs)
+    {
+        try
+        {
+            var wv = _webView;
+            if (wv == null) { tcs.TrySetResult(null); return; }
+            const string script =
+                "(function(){try{var v=document.querySelector('video');"
+                + "return (v && !v.paused && !v.ended) ? '1' : '0';}catch(e){return '0';}})()";
+            var raw = await wv.EvaluateJavaScriptAsync(script);
+            var res = (raw ?? "").Trim().Trim('"');
+            if (res == "1" || res.Equals("true", StringComparison.OrdinalIgnoreCase)) tcs.TrySetResult(true);
+            else if (res == "0" || res.Equals("false", StringComparison.OrdinalIgnoreCase)) tcs.TrySetResult(false);
+            else tcs.TrySetResult(null);
+        }
+        catch { tcs.TrySetResult(null); }
+    }
 
     private void EnsureWindow(nint ownerHwnd)
     {
@@ -245,6 +459,7 @@ public sealed class BiliBrowserWindow
             if (cookie == _lastCookie) return;
             _lastCookie = cookie;
             _config()?.SetBiliCookie(cookie, dede ?? "");
+            MarkActivity();   // a captured login cookie means the user was just in the browser
 #endif
         }
         catch { }

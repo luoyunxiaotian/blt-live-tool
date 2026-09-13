@@ -89,7 +89,7 @@
                 <span class="seg" style="color:var(--red)">🔒 未授权</span>
             }
             <span class="seg amber">BUILD @KestrelHost.VersionText</span>
-            <span class="seg" style="margin-left:auto">🕒 @DateTime.Now.ToString("HH:mm:ss")</span>
+            <span class="seg" style="margin-left:auto">🕒 <b id="blt-clock">--:--:--</b></span>
         </div>
         @if (Verify.Locked)
         {
@@ -136,6 +136,7 @@
     private string _theme = "console";
     private bool _themeApplied;
     private bool _audioStarted;
+    private bool _clockStarted;
 
     // Sidebar group fold state (localStorage 'blt_nav_fold', like the legacy panel).
     private readonly Dictionary<string, bool> _fold = new();
@@ -243,8 +244,11 @@
         var skin = (Config.GetNode("skin") as System.Text.Json.Nodes.JsonValue)?.GetValue<string>() ?? "";
         if (skin.Length == 0 || skin == "default") skin = "console";
         if (Themes.Contains(skin)) _theme = skin;
-        // 1s ticker: clock + API state refresh.
-        _timer = new System.Threading.Timer(_ => InvokeAsync(StateHasChanged), null, 1000, 1000);
+        // Layout re-render tick: the clock updates itself in JS every second
+        // (see #blt-clock in blt-panels.js), so the expensive full-layout diff only
+        // needs to run for connection/status freshness. 5s keeps the top strip honest
+        // while cutting the per-second render garbage that showed up in the renderer.
+        _timer = new System.Threading.Timer(_ => InvokeAsync(StateHasChanged), null, 5000, 5000);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -253,6 +257,11 @@
         {
             await LoadFoldAsync();
             StateHasChanged();
+        }
+        if (!_clockStarted)
+        {
+            _clockStarted = true;
+            try { await JS.InvokeVoidAsync("bltStartClock"); } catch { }
         }
         if (!_themeApplied)
         {

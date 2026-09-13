@@ -41,6 +41,14 @@
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
         <WindowsPackageType>None</WindowsPackageType>
 
+        <!-- 体积优化（实测依据：开发文档/体积与内存优化方案.md）
+             1) 卫星资源只保留中英：当前发布里有 88 个语言目录、约 170 个零碎文件，
+                裁剪后同时降低 patch 增量的文件数；
+             2) Release 不生成调试符号（*.pdb + DiaSymReader 约 3~6MB）。 -->
+        <SatelliteResourceLanguages>zh-CN;en-US</SatelliteResourceLanguages>
+        <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+        <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
+
         <!-- Raw build assets are copied by the CopyBltAssets target; keep them out of
              default item sets (Content/None double-inclusion in MAUI multi-targeting). -->
         <DefaultItemExcludes>$(DefaultItemExcludes);Assets\**</DefaultItemExcludes>

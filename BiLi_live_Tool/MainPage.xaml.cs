@@ -40,6 +40,38 @@ namespace BiLi_live_Tool
         protected override void OnHandlerChanged()
         {
             base.OnHandlerChanged();
+            // The main window is already registered by the time the page handler exists;
+            // OnAppearing retries in case this ran too early.
+            HookBrowserTeardown();
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            HookBrowserTeardown();
+        }
+
+        private bool _teardownHooked;
+
+        /// <summary>
+        /// Releases the idle timer and the owned browser window when the main window is
+        /// destroyed (App.CreateWindow hooks Window.Destroying as the app's exit path).
+        /// </summary>
+        private void HookBrowserTeardown()
+        {
+            if (_teardownHooked) return;
+            try
+            {
+                // Windows[0] is the main window (same assumption as OwnerHwnd below).
+                var window = Application.Current?.Windows?.FirstOrDefault();
+                if (window == null) return;
+                _teardownHooked = true;
+                window.Destroying += (_, _) =>
+                {
+                    try { _biliBrowser.Dispose(); } catch { }
+                };
+            }
+            catch { }
         }
 
         // ----- bilibili browser window (called from Blazor pages) -----
@@ -72,6 +104,29 @@ namespace BiLi_live_Tool
         public bool IsBiliVisible => _biliBrowser.IsVisible;
 
         public string BiliCurrentUrl => _biliBrowser.CurrentUrl;
+
+        // ----- idle auto-close (config key biliBrowser.idleCloseMin) -----
+
+        /// <summary>True when the idle timer (not the user) tore the browser window down.</summary>
+        public bool BiliAutoClosedForIdle => _biliBrowser.AutoClosedForIdle;
+
+        /// <summary>Effective biliBrowser.idleCloseMin in minutes (0 = the feature is off).</summary>
+        public int BiliIdleCloseMin => _biliBrowser.IdleCloseMinutes;
+
+        /// <summary>Unix ms of the last idle auto-close (0 = never); a change signals a new notice.</summary>
+        public long BiliIdleClosedAt => _biliBrowser.IdleClosedAt;
+
+        /// <summary>Minutes the last idle auto-close waited (0 = never closed by idle).</summary>
+        public int BiliIdleClosedMinutes => _biliBrowser.IdleClosedMinutes;
+
+        /// <summary>Panel notice; "" when the last teardown was not an idle auto-close.</summary>
+        public string BiliIdleCloseNote()
+        {
+            if (!_biliBrowser.AutoClosedForIdle) return "";
+            var mins = _biliBrowser.IdleClosedMinutes;
+            if (mins <= 0) mins = _biliBrowser.IdleCloseMinutes;
+            return $"因闲置 {mins} 分钟已自动关闭 B站浏览器";
+        }
 
         public void ReloadBili() => _biliBrowser.Reload();
         public void GoBackBili() => _biliBrowser.GoBack();

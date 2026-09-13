@@ -46,6 +46,8 @@ public sealed class KestrelHost
     private readonly HttpClient _proxy = new() { Timeout = TimeSpan.FromSeconds(180) };
     private readonly Random _rand = new();
     private WebApplication? _app;
+    /// <summary>Process start, for uptime reporting in /api/maui/debug/health.</summary>
+    private static readonly DateTime StartedAt = DateTime.UtcNow;
 
     /// <summary>
     /// Build-injected version (csproj ApplicationDisplayVersion) + the MAUI channel
@@ -1001,6 +1003,29 @@ public sealed class KestrelHost
                     var parsed = probeHub.GetRecent("gifts");
                     probe.Stop();
                     return Results.Json(new { ok = true, room, seconds, cmds, frames, parsedGifts = parsed }, JsonWeb);
+                }
+                case "health":
+                {
+                    // Long-run leak observation: managed heap + native handles + uptime
+                    // sampled from inside the process (pairs with tools/mem-watch.py).
+                    var proc = System.Diagnostics.Process.GetCurrentProcess();
+                    var info = GC.GetGCMemoryInfo();
+                    return Results.Json(new
+                    {
+                        ok = true,
+                        uptimeSec = (int)(DateTime.UtcNow - StartedAt).TotalSeconds,
+                        workingSetMB = Math.Round(proc.WorkingSet64 / 1048576.0, 1),
+                        privateMB = Math.Round(proc.PrivateMemorySize64 / 1048576.0, 1),
+                        handles = proc.HandleCount,
+                        threads = proc.Threads.Count,
+                        gcTotalMB = Math.Round(GC.GetTotalMemory(false) / 1048576.0, 1),
+                        gcHeapMB = Math.Round(info.HeapSizeBytes / 1048576.0, 1),
+                        gcCommittedMB = Math.Round(info.TotalCommittedBytes / 1048576.0, 1),
+                        gcFragmentedMB = Math.Round(info.FragmentedBytes / 1048576.0, 1),
+                        gen0 = GC.CollectionCount(0), gen1 = GC.CollectionCount(1), gen2 = GC.CollectionCount(2),
+                        wsClients = _clients.Count,
+                        keyviewClients = _keyviewClients.Count,
+                    }, JsonWeb);
                 }
                 case "verify/status":
                     return Results.Json(VerifyPayload(), JsonWeb);

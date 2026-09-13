@@ -73,6 +73,23 @@
                 <button class="blt-btn" @onclick="CloseBiliBrowser" data-tip="销毁窗口释放内存，再打开自动重建">关闭浏览器</button>
                 <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
             </div>
+
+            @* 闲置自动关闭（biliBrowser.idleCloseMin）：开关与分钟数都走本页自动保存 *@
+            <div style="display:flex;gap:10px;margin-top:10px;align-items:center;flex-wrap:wrap">
+                <span class="blt-switch @IdleSwitchClass()" @onclick="ToggleIdleClose">
+                    <span class="track"></span>闲置自动关闭 B站浏览器
+                </span>
+                <input class="blt-input mono" type="number" min="1" max="120" step="1" style="width:76px"
+                       @bind="_idleMin" @bind:after="SaveIdleSoon" disabled="@(!_idleCloseOn)" />
+                <span class="blt-hint" style="margin:0">分钟（1~120）</span>
+            </div>
+            @if (_idleNote.Length > 0)
+            {
+                <div class="blt-hint" style="color:var(--amber);margin:6px 0 0">@_idleNote</div>
+            }
+            <div class="blt-hint">
+                窗口打开时约占 150MB~0.8GB 内存；闲置（无跳转、未播放视频）超过该时长会自动关闭释放内存，再点『打开B站浏览器』可重新打开。
+            </div>
         </div>
     </div>
 
@@ -339,6 +356,19 @@
     private DateTime? _savedAt;
     private string _saveMsg = "";
 
+    // 闲置自动关闭 B站浏览器（biliBrowser.idleCloseMin；0 = 关闭该行为）。
+    private const int DefaultIdleMin = 10;
+    private const int MaxIdleMin = 120;
+    private bool _idleCloseOn = true;
+    private int _idleMin = DefaultIdleMin;
+    private string _idleNote = "";
+    private long _idleSeenAt;   // last observed MainPage.BiliIdleClosedAt (notice de-dup)
+
+    // Repaint batching: OnEvent only marks a dirty counter; this 300 ms timer turns a
+    // burst of hub events into a single StateHasChanged.
+    private System.Threading.Timer? _flushTimer;
+    private int _pendingEvents;
+
     // Auto like state, refreshed by the 1 s poll below.
     private System.Threading.Timer? _likeTimer;
     private bool _likeRunning;
@@ -398,21 +428,63 @@
         var skin = (Config.GetNode("skin") as JsonValue)?.GetValue<string>() ?? "";
         if (skin.Length == 0 || skin == "default") skin = "console";
         if (Themes.Contains(skin)) _skin = skin;
+        LoadIdleCloseConfig();
+        _idleSeenAt = MainPage.Current?.BiliIdleClosedAt ?? 0;   // only new auto-closes raise the note
         Hub.OnEvent += OnEvent;
         Hub.StatusChanged += OnStatus;
         _likeTimer = new System.Threading.Timer(_ => _ = PollLikeStatus(), null,
             TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        _flushTimer = new System.Threading.Timer(_ => FlushTick(), null,
+            TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(300));
         _ = PollLikeStatus();   // first paint gets the current counters without waiting 1 s
         _ = LoadFoldersAsync();
         _ = LoadUpdateStatusAsync();
     }
 
-    private void OnEvent(LiveEvent ev) => InvokeAsync(() =>
+    /// <summary>
+    /// Hub events are frequent (弹幕 bursts): append the row on the renderer thread and
+    /// only mark the dirty counter — FlushTick coalesces the repaint into one 300 ms beat.
+    /// </summary>
+    private void OnEvent(LiveEvent ev)
     {
-        _view.Insert(0, ev);
-        if (_view.Count > 200) _view.RemoveAt(_view.Count - 1);
-        StateHasChanged();
-    });
+        _ = InvokeAsync(() =>
+        {
+            _view.Insert(0, ev);
+            if (_view.Count > 200) _view.RemoveAt(_view.Count - 1);
+            Interlocked.Exchange(ref _pendingEvents, 1);
+        });
+    }
+
+    /// <summary>300 ms flush: repaint when events arrived, and pick up idle auto-close notices.</summary>
+    private void FlushTick()
+    {
+        var noteChanged = CheckIdleCloseNotice();
+        var dirty = Interlocked.Exchange(ref _pendingEvents, 0) != 0;
+        if (!dirty && !noteChanged) return;
+        try { _ = InvokeAsync(StateHasChanged); } catch { /* renderer already gone */ }
+    }
+
+    /// <summary>Raises the notice once per new idle auto-close reported by MainPage.</summary>
+    private bool CheckIdleCloseNotice()
+    {
+        var page = MainPage.Current;
+        if (page == null) return false;
+        try
+        {
+            // Any page can reopen the browser — then the notice no longer applies.
+            if (_idleNote.Length > 0 && page.IsBiliVisible)
+            {
+                _idleNote = "";
+                return true;
+            }
+            var at = page.BiliIdleClosedAt;
+            if (at <= _idleSeenAt) return false;
+            _idleSeenAt = at;
+            _idleNote = page.BiliIdleCloseNote();
+            return _idleNote.Length > 0;
+        }
+        catch { return false; }
+    }
 
     private void OnStatus(LiveStatusInfo st) => InvokeAsync(StateHasChanged);
 
@@ -486,6 +558,7 @@
         {
             var doc = Config.Snapshot();
             doc["autoConnect"] = _autoConnectBool;
+            WriteIdleCloseConfig(doc);   // biliBrowser.idleCloseMin rides the same debounced write
             var rid = _roomId.Trim();
             if (rid.Length > 0) doc["roomId"] = rid;   // never wipe a stored id from an empty box
             Config.ReplaceFrom(doc);
@@ -496,6 +569,44 @@
         {
             _saveMsg = ex.Message;
         }
+    }
+
+    // ---- 闲置自动关闭 B站浏览器（biliBrowser.idleCloseMin；0 = 关掉该行为）----
+
+    /// <summary>Reads biliBrowser.idleCloseMin: absent → default 10 min (on), 0 → switch off.</summary>
+    private void LoadIdleCloseConfig()
+    {
+        var mins = DefaultIdleMin;
+        try
+        {
+            if (Config.GetNode("biliBrowser") is JsonObject bb
+                && bb.TryGetPropertyValue("idleCloseMin", out var v)
+                && v is JsonValue jv
+                && jv.TryGetValue<double>(out var d))
+                mins = (int)Math.Round(d);
+        }
+        catch { }
+        _idleCloseOn = mins > 0;
+        _idleMin = _idleCloseOn ? Math.Clamp(mins, 1, MaxIdleMin) : DefaultIdleMin;
+    }
+
+    private string IdleSwitchClass() => _idleCloseOn ? "on" : "";
+
+    private void ToggleIdleClose()
+    {
+        _idleCloseOn = !_idleCloseOn;
+        SaveRoomConfigSoon();
+    }
+
+    private void SaveIdleSoon() => SaveRoomConfigSoon();
+
+    /// <summary>Writes the switch + minutes into the snapshot (0 = the switch is off).</summary>
+    private void WriteIdleCloseConfig(JsonObject doc)
+    {
+        var bb = doc["biliBrowser"] as JsonObject ?? new JsonObject();
+        if (_idleCloseOn) _idleMin = Math.Clamp(_idleMin, 1, MaxIdleMin);
+        bb["idleCloseMin"] = _idleCloseOn ? _idleMin : 0;
+        doc["biliBrowser"] = bb;
     }
 
     private string AutoSaveText()
@@ -915,6 +1026,7 @@
         var rid = Live.IsRunning ? Hub.LastStatus.RealRoomId : _roomId.Trim();
         var url = long.TryParse(rid, out _) ? $"https://live.bilibili.com/{rid}" : "https://live.bilibili.com/";
         MainPage.Current?.ShowBiliBrowser(url);
+        _idleNote = "";   // the user reopened it — the idle notice no longer applies
     }
 
     private void HideBiliBrowser() => MainPage.Current?.HideBiliBrowser();
@@ -1088,5 +1200,7 @@
         Hub.StatusChanged -= OnStatus;
         _likeTimer?.Dispose();
         _likeTimer = null;
+        _flushTimer?.Dispose();
+        _flushTimer = null;
     }
 }

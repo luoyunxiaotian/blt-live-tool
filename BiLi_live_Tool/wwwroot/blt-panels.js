@@ -60,6 +60,24 @@
   } catch (e) { }
   setInterval(applyAll, 1200);
 
+
+  // ── 顶栏时钟：就地更新，避免整个 Blazor 布局每秒重渲染（内存/CPU 优化）──────
+  var clockTimer = null;
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+  function tickClock() {
+    var el = document.getElementById('blt-clock');
+    if (!el) return;
+    var d = new Date();
+    el.textContent = pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+  window.bltStartClock = function () {
+    if (clockTimer) return true;
+    tickClock();
+    clockTimer = setInterval(tickClock, 1000);
+    return true;
+  };
+  window.bltStopClock = function () { if (clockTimer) { clearInterval(clockTimer); clockTimer = null; } return true; };
+
   window.bltFold = { apply: applyAll, clear: function () { localStorage.removeItem(LS_KEY); } };
   document.addEventListener('DOMContentLoaded', applyAll);
   applyAll();

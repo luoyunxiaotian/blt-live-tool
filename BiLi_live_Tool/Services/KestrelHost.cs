@@ -58,17 +58,26 @@ public sealed class KestrelHost
 
     private static string BuildVersionText()
     {
-        string v = "1.0.0";
+        // Read the build-injected version straight off the assembly: MAUI's
+        // AppInfo.VersionString reports a stale value for unpackaged Windows apps,
+        // which made the reported version disagree with the release tag.
+        string v = "";
         try
         {
-            var s = Microsoft.Maui.ApplicationModel.AppInfo.Current.VersionString;
-            if (!string.IsNullOrWhiteSpace(s)) v = s.Trim();
+            var asm = typeof(KestrelHost).Assembly;
+            var info = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(asm)?.InformationalVersion;
+            v = !string.IsNullOrWhiteSpace(info)
+                ? info
+                : asm.GetName().Version?.ToString() ?? "";
         }
         catch { }
-        // Unpackaged Windows reports display+build ("1.0.0.1"); keep three segments so
-        // the string matches the release tag convention (vX.Y.Z-maui).
-        var parts = v.Split('.');
-        if (parts.Length > 3) v = string.Join(".", parts.Take(3));
+        if (string.IsNullOrWhiteSpace(v))
+        {
+            try { v = Microsoft.Maui.ApplicationModel.AppInfo.Current.VersionString; } catch { }
+        }
+        if (string.IsNullOrWhiteSpace(v)) v = "0.1.0";
+        var plus = v.IndexOf('+');                 // "0.1.0+e672cec" → "0.1.0"
+        if (plus > 0) v = v[..plus];
         return v + AppIdentity.ChannelSuffix;
     }
 

@@ -16,7 +16,7 @@ namespace BiLi_live_Tool
         {
             var window = new Window(new MainPage())
             {
-                Title = "B站直播助手",
+                Title = AppIdentity.Name,
                 Width = 1100,
                 Height = 700,
                 MinimumWidth = 900,
@@ -46,7 +46,7 @@ namespace BiLi_live_Tool
                 var (bgHex, fgHex) = TitleBarColors(skin);
                 window.TitleBar = new Microsoft.Maui.Controls.TitleBar
                 {
-                    Title = "B站直播助手",
+                    Title = AppIdentity.Name,
                     BackgroundColor = Color.FromArgb(bgHex),
                     ForegroundColor = Color.FromArgb(fgHex),
                 };
@@ -272,7 +272,7 @@ namespace BiLi_live_Tool
                 // on the concrete TitleBar we install in CreateWindow.
                 if (win.TitleBar is not Microsoft.Maui.Controls.TitleBar tb)
                 {
-                    tb = new Microsoft.Maui.Controls.TitleBar { Title = "B站直播助手" };
+                    tb = new Microsoft.Maui.Controls.TitleBar { Title = AppIdentity.Name };
                     win.TitleBar = tb;
                 }
                 tb.BackgroundColor = Color.FromArgb(bgHex);

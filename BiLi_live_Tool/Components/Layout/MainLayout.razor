@@ -15,7 +15,7 @@
 
 <div class="blt-app">
     <div class="blt-side">
-        <div class="blt-brand"><b>B站直播助手</b><span>BLT CONSOLE · MAUI</span></div>
+        <div class="blt-brand"><b>@AppIdentity.Name</b><span>@AppIdentity.BrandTagline</span></div>
 
         <div class="blt-navgroup @Fold("live")" @onclick="ToggleLive">直播控制</div>
         <div class="blt-navfold @FoldHide("live")">
@@ -145,7 +145,7 @@
 
     private async Task CopyAuthorUid()
     {
-        var text = "B站UID " + VerifyService.AuthorUid + "（B站直播助手作者）";
+        var text = AppIdentity.AuthorContact;
         try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", text); _verifyNote = "已复制作者B站ID"; }
         catch { _verifyNote = "复制失败，请手动记下 UID " + VerifyService.AuthorUid; }
         StateHasChanged();

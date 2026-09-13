@@ -96,7 +96,7 @@ namespace BiLi_live_Tool
 
 #if WINDOWS
             // Tray icon must be created on the WinUI UI thread (message pump lives here).
-            TrayService.Initialize("B站直播助手 (MAUI Demo)",
+            TrayService.Initialize(AppIdentity.Name,
                 onToggleVisible: App.ToggleMainWindow,
                 onQuit: App.QuitForReal);   // real exit: X only minimizes to tray
 #endif

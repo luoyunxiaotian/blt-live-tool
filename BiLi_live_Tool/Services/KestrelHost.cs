@@ -46,7 +46,24 @@ public sealed class KestrelHost
     private readonly Random _rand = new();
     private WebApplication? _app;
 
-    public const string VersionText = "1.0.0-maui";
+    /// <summary>
+    /// Build-injected version (csproj ApplicationDisplayVersion) + the MAUI channel
+    /// suffix. Was a hardcoded constant, which risked drifting from the release tag
+    /// and making the updater report a wrong "new version" forever.
+    /// </summary>
+    public static string VersionText { get; } = BuildVersionText();
+
+    private static string BuildVersionText()
+    {
+        string v = "1.0.0";
+        try
+        {
+            var s = Microsoft.Maui.ApplicationModel.AppInfo.Current.VersionString;
+            if (!string.IsNullOrWhiteSpace(s)) v = s.Trim();
+        }
+        catch { }
+        return v + AppIdentity.ChannelSuffix;
+    }
 
     public bool IsRunning { get; private set; }
     public string? LastError { get; private set; }
@@ -739,7 +756,7 @@ public sealed class KestrelHost
                 }
             }
 
-            var httpHeaders = new Dictionary<string, string> { ["User-Agent"] = "Mozilla/5.0 bili-live-tool" };
+            var httpHeaders = new Dictionary<string, string> { ["User-Agent"] = "Mozilla/5.0 " + AppIdentity.CodeName };
             if (cookie.Length > 0) httpHeaders["Cookie"] = cookie;
             var room_ = room;
             var results = new List<object>
@@ -759,8 +776,8 @@ public sealed class KestrelHost
                         return new { state = "warn", detail = "网络可达，但接口返回 code=" + (j?["code"]?.ToString() ?? "?") + (cookie.Length == 0 ? "（未登录可能被拒）" : "") };
                     }),
                 await Probe("授权验证服务器", "https://ai-daynews.xyz/", null, (_, _) => new { detail = "可达" }),
-                await Probe("GitHub 更新源", "https://api.github.com/repos/luoyunxiaotian/bili-live-tool/releases/latest",
-                    new Dictionary<string, string> { ["User-Agent"] = "bili-live-tool" },
+                await Probe("GitHub 更新源", AppIdentity.ReleasesApiUrl + "/latest",
+                    new Dictionary<string, string> { ["User-Agent"] = AppIdentity.CodeName },
                     (j, _) => new { detail = "可达 · 最新发布 " + (j?["tag_name"]?.GetValue<string>() ?? "未知") }),
                 await Probe("网易云音乐源（点歌）", "https://music.163.com/", null, (_, _) => new { detail = "可达" }),
                 await Probe("Edge TTS 语音服务（本机 8020）", "http://127.0.0.1:8020/", null, (_, status) => new { detail = "服务运行中 · HTTP " + status }),
@@ -860,7 +877,7 @@ public sealed class KestrelHost
                     }, JsonWeb);
                 case "update/open-page":
                 {
-                    var url = "https://github.com/luoyunxiaotian/bili-live-tool/releases/latest";
+                    var url = AppIdentity.ReleasesLatestPageUrl;
                     try
                     {
                         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });

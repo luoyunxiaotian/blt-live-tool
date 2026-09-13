@@ -426,7 +426,7 @@
 
     private async Task CopyAuthorUid2()
     {
-        var text = "B站UID " + VerifyService.AuthorUid + "（B站直播助手作者）";
+        var text = AppIdentity.AuthorContact;
         try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", text); _verifyNote2 = "已复制作者B站ID"; }
         catch { _verifyNote2 = "复制失败，请手动记下 UID " + VerifyService.AuthorUid; }
         StateHasChanged();

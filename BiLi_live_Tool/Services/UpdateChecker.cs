@@ -25,9 +25,10 @@ namespace BiLi_live_Tool.Services;
 
 public sealed class UpdateChecker
 {
-    private const string ReleasesUrl = "https://api.github.com/repos/luoyunxiaotian/bili-live-tool/releases?per_page=30";
-    private const string ReleasePageUrl = "https://github.com/luoyunxiaotian/bili-live-tool/releases";
-    private const string ChannelSuffix = "-maui";
+    // Repository + channel come from AppIdentity so a rename/re-home is one edit.
+    private static string ReleasesUrl => AppIdentity.ReleasesApiUrl + "?per_page=30";
+    private static string ReleasePageUrl => AppIdentity.ReleasesPageUrl;
+    private const string ChannelSuffix = AppIdentity.ChannelSuffix;
     private static readonly TimeSpan Throttle = TimeSpan.FromHours(6);
 
     private static readonly JsonSerializerOptions JsonWeb = new(JsonSerializerDefaults.Web)
@@ -42,7 +43,7 @@ public sealed class UpdateChecker
         Timeout = TimeSpan.FromSeconds(12),
         DefaultRequestHeaders =
         {
-            UserAgent = { new ProductInfoHeaderValue("bili-live-tool-maui", "1.0") },
+            UserAgent = { new ProductInfoHeaderValue(AppIdentity.CodeName, "1.0") },
             Accept = { new MediaTypeWithQualityHeaderValue("application/vnd.github+json") },
         },
     };

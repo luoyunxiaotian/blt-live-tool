@@ -16,8 +16,23 @@ public static class SingleInstance
 /// </summary>
 public static class SingleInstance
 {
-    private const string MutexName = @"Local\BiLi_live_Tool_MAUI_SingleInstance";
-    private const string ShowEventName = @"Local\BiLi_live_Tool_MAUI_Show";
+    // Names are scoped to the installation folder: two copies (e.g. a development
+    // build and a packaged build) must be able to run side by side, while two
+    // launches of the *same* copy still collapse into one instance.
+    private static readonly string MutexName = @"Local\BiLi_live_Tool_MAUI_SingleInstance_" + FolderKey();
+    private static readonly string ShowEventName = @"Local\BiLi_live_Tool_MAUI_Show_" + FolderKey();
+
+    private static string FolderKey()
+    {
+        try
+        {
+            var dir = (AppContext.BaseDirectory ?? "").TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar).ToLowerInvariant();
+            using var sha = System.Security.Cryptography.SHA1.Create();
+            var hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(dir));
+            return Convert.ToHexString(hash, 0, 6);
+        }
+        catch { return "default"; }
+    }
 
     private static Mutex? _mutex;
     private static EventWaitHandle? _showEvent;

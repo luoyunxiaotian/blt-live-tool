@@ -93,6 +93,23 @@ public sealed class KestrelHost
         _verify = verify;
     }
 
+    /// <summary>First free port at or after <paramref name="preferred"/> (up to +9).</summary>
+    private static int ResolveFreePort(int preferred)
+    {
+        for (var p = preferred; p <= preferred + 9; p++)
+        {
+            try
+            {
+                var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, p);
+                listener.Start();
+                listener.Stop();
+                return p;
+            }
+            catch { }
+        }
+        return preferred;
+    }
+
     public void StartInBackground()
     {
         _ = Task.Run(async () =>
@@ -110,7 +127,18 @@ public sealed class KestrelHost
             WebRootPath = "wwwroot",
         });
         builder.Logging.ClearProviders();
-        builder.WebHost.UseUrls($"http://127.0.0.1:{_config.Port}");
+        // Port resolution happens before the first bind attempt: if the configured
+        // port is already taken (another copy of the app, an OBS overlay session),
+        // walk forward instead of dying with "address already in use" — the old
+        // behaviour left the window stuck on the loading page.
+        var port = ResolveFreePort(_config.Port);
+        if (port != _config.Port)
+        {
+            var doc = _config.Snapshot();
+            doc["port"] = port;
+            _config.ReplaceFrom(doc);
+        }
+        builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
 
         var app = builder.Build();
         app.UseWebSockets();

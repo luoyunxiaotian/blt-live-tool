@@ -104,4 +104,20 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
     </ItemGroup>
 
+
+  <!-- The Build-time copy above lands in bin; publish would otherwise ship without
+       tray.ico / blindbox defaults / viewer template / KeyView defaults / the legacy
+       bridge patch. Mirror the same copies into the publish folder. -->
+  <Target Name="CopyBltAssetsOnPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_BltPublishAsset Include="Assets\blindbox-default.json" />
+      <_BltPublishAsset Include="Assets\viewer-template.html" />
+      <_BltPublishAsset Include="Assets\keyview-default.json" />
+      <_BltPublishAsset Include="Assets\tray.ico" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BltPublishAsset)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="Assets\maui-bridge.js" DestinationFiles="$(PublishDir)wwwroot\legacy\maui-bridge.js"
+          SkipUnchangedFiles="true" Condition="Exists('$(PublishDir)wwwroot\legacy')" />
+  </Target>
+
 </Project>

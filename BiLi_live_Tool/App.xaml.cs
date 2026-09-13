@@ -277,13 +277,62 @@ namespace BiLi_live_Tool
                 }
                 tb.BackgroundColor = Color.FromArgb(bgHex);
                 tb.ForegroundColor = Color.FromArgb(fgHex);
-                TitleBarDebug = $"theme={theme} bg={bgHex} fg={fgHex}";
+
+                // Caption buttons (min / max / close) are drawn by the system, not by
+                // MAUI's TitleBar, so they keep the OS palette unless the button colors
+                // are set explicitly — that is why they used to clash with the skin.
+                var btnInfo = "btn=-";
+                if (win.Handler?.PlatformView is Microsoft.UI.Xaml.Window winUi
+                    && winUi.AppWindow is { } appWindow)
+                {
+                    var bar = appWindow.TitleBar;
+                    var bg = HexToUi(bgHex);
+                    var fg = HexToUi(fgHex);
+                    var dim = Blend(bg, fg, 0.45);      // inactive glyphs
+                    var hover = Blend(bg, fg, 0.14);    // hover plate
+                    var pressed = Blend(bg, fg, 0.24);
+                    bar.BackgroundColor = bg;
+                    bar.InactiveBackgroundColor = bg;
+                    bar.ForegroundColor = fg;
+                    bar.InactiveForegroundColor = dim;
+                    bar.ButtonBackgroundColor = bg;
+                    bar.ButtonInactiveBackgroundColor = bg;
+                    bar.ButtonForegroundColor = fg;
+                    bar.ButtonInactiveForegroundColor = dim;
+                    bar.ButtonHoverBackgroundColor = hover;
+                    bar.ButtonHoverForegroundColor = fg;
+                    bar.ButtonPressedBackgroundColor = pressed;
+                    bar.ButtonPressedForegroundColor = fg;
+                    btnInfo = $"btn=bg{bgHex}/hover";
+                }
+                TitleBarDebug = $"theme={theme} bg={bgHex} fg={fgHex} {btnInfo}";
             }
             catch (Exception ex)
             {
                 TitleBarDebug = "theme-error: " + ex.Message;
             }
         }
+
+        /// <summary>#RRGGBB → WinUI color.</summary>
+        private static Windows.UI.Color HexToUi(string hex)
+        {
+            var s = hex.TrimStart('#');
+            if (s.Length == 3) s = string.Concat(s[0], s[0], s[1], s[1], s[2], s[2]);
+            var r = Convert.ToByte(s.Substring(0, 2), 16);
+            var g = Convert.ToByte(s.Substring(2, 2), 16);
+            var b = Convert.ToByte(s.Substring(4, 2), 16);
+            return Tc(r, g, b);
+        }
+
+        /// <summary>Linear mix of two colors (t = weight of the second).</summary>
+        private static Windows.UI.Color Blend(Windows.UI.Color a, Windows.UI.Color b, double t)
+            => new()
+            {
+                A = 255,
+                R = (byte)Math.Clamp(a.R + (b.R - a.R) * t, 0, 255),
+                G = (byte)Math.Clamp(a.G + (b.G - a.G) * t, 0, 255),
+                B = (byte)Math.Clamp(a.B + (b.B - a.B) * t, 0, 255),
+            };
 
         private static void StyleTitleBarOnce(Window window, int attempt)
         {

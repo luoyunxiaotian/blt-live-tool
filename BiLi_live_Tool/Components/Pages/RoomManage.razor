@@ -211,6 +211,40 @@
         </div>
     </div>
 
+    @* 🆕 检查更新 — MAUI 通道：只比较以 -maui 结尾的 Release 标签。 *@
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t">🆕 检查更新</span><span class="en">UPDATE</span>
+            <span class="right"><span>@UpdateChannelText()</span></span>
+        </div>
+        <div class="blt-panel-body">
+            <div class="blt-kv"><span class="k">当前版本</span><span class="v">@KestrelHost.VersionText</span></div>
+            <div class="blt-kv"><span class="k">最新版本</span><span class="v @UpdValueCls()">@UpdLatestText()</span></div>
+            <div class="blt-kv"><span class="k">上次检查</span><span class="v">@(_updateTime.Length > 0 ? _updateTime : "尚未检查")</span></div>
+            @if (_updateMsg.Length > 0)
+            {
+                <div class="blt-hint" style="color:@UpdNoteColor();margin:8px 0 0">@_updateMsg</div>
+            }
+            @if (_updateNotes.Length > 0)
+            {
+                <div class="blt-log" style="max-height:150px;margin-top:10px;white-space:pre-wrap">
+                    <div class="blt-logrow"><span class="txt">@_updateNotes</span></div>
+                </div>
+            }
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+                <button class="blt-btn primary" @onclick="CheckUpdateNow" disabled="@_updateBusy">@(_updateBusy ? "检查中…" : "立即检查")</button>
+                <button class="blt-btn" @onclick="OpenReleasePage">打开发布页</button>
+                <button class="blt-btn" @onclick="DownloadUpdateNow" disabled="@(!_updateHasAsset)">@DownloadBtnText()</button>
+            </div>
+            <div class="blt-hint">
+                检查结果缓存 6 小时，启动时会静默检查一次；版本比较只看 <b>-maui</b> 结尾的 Release 标签（如 v1.2.0-maui），不会把 Electron 线的版本当成新版。
+                @if (_updateHasAsset)
+                {
+                    <span> 已附带更新包：<b>@_updateAssetName</b>（@UpdateAssetSizeText()）。</span>
+                }
+            </div>
+        </div>
+    </div>
+
     <div class="blt-panel">
         <div class="blt-panel-head"><span class="t">🖥 服务端</span><span class="en">SERVER</span></div>
         <div class="blt-panel-body">
@@ -307,6 +341,18 @@
     private string _skin = "console";
     private string _foldMsg = "";
 
+    // ---- 检查更新（MAUI 通道）----
+    private string _updateTime = "";
+    private string _updateLatest = "";
+    private string _updateMsg = "";
+    private string _updateNotes = "";
+    private string _updateAssetName = "";
+    private long _updateAssetSize;
+    private bool _updateBusy;
+    private bool _updateHasUpdate;
+    private bool _updateHasAsset;
+    private bool _updateLoaded;
+
     private bool EdgeRunning => GetProp(Tts.EdgeStatus(), "running");
     private bool MossRunning => GetProp(Tts.MossStatus(), "running");
 
@@ -329,6 +375,7 @@
             TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         _ = PollLikeStatus();   // first paint gets the current counters without waiting 1 s
         _ = LoadFoldersAsync();
+        _ = LoadUpdateStatusAsync();
     }
 
     private void OnEvent(LiveEvent ev) => InvokeAsync(() =>
@@ -677,6 +724,103 @@
         {
             // component disposed while the poll was in flight
         }
+    }
+
+    // ---- 检查更新：只读缓存 + 手动强制检查 + 打开发布页 ----
+
+    private string UpdateChannelText() => _updateHasUpdate ? "有可用更新" : "MAUI 通道";
+
+    private string UpdValueCls()
+        => _updateLatest.Length == 0 ? "" : _updateHasUpdate ? "amber" : "green";
+
+    private string UpdLatestText()
+        => _updateLatest.Length > 0 ? _updateLatest : (_updateLoaded ? "（无 MAUI 版本）" : "—");
+
+    private string UpdNoteColor()
+        => _updateHasUpdate ? "var(--amber)" : _updateMsg.StartsWith("检查失败") ? "var(--red)" : "var(--ink-3)";
+
+    private string DownloadBtnText()
+    {
+        if (!_updateHasAsset) return "下载并安装（待打包方案）";
+        if (_updateAssetSize <= 0) return "下载并安装 " + _updateAssetName;
+        return $"下载并安装 {_updateAssetName}（{UpdateAssetSizeText()}）";
+    }
+
+    private string UpdateAssetSizeText()
+        => _updateAssetSize <= 0 ? "" : (_updateAssetSize / 1048576.0).ToString("0.0") + " MB";
+
+    private async Task LoadUpdateStatusAsync()
+    {
+        try
+        {
+            var o = await PostJsonReadAsync("/api/maui/update/status", new JsonObject());
+            if (o == null) { _updateMsg = "状态接口无响应"; _updateLoaded = true; return; }
+            _updateTime = o["lastCheckAt"] is JsonValue tv && tv.TryGetValue<string>(out var ts) ? ts ?? "" : "";
+            if (o["info"] is JsonObject info) ApplyUpdateInfo(info);
+            _updateLoaded = true;
+        }
+        catch (Exception ex) { _updateMsg = "状态加载失败：" + ex.Message; _updateLoaded = true; }
+    }
+
+    private async Task CheckUpdateNow()
+    {
+        _updateBusy = true;
+        _updateMsg = "正在检查…";
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.PostAsync(Base + "/api/maui/update/check",
+                new StringContent("{\"force\":true}", Encoding.UTF8, "application/json"));
+            var txt = await resp.Content.ReadAsStringAsync();
+            if (JsonNode.Parse(txt) is JsonObject o)
+            {
+                ApplyUpdateInfo(o);
+                _updateTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            }
+        }
+        catch (Exception ex)
+        {
+            _updateMsg = "检查失败：" + ex.Message;
+        }
+        finally
+        {
+            _updateBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyUpdateInfo(JsonObject o)
+    {
+        _updateHasUpdate = o["hasUpdate"] is JsonValue hv && hv.TryGetValue<bool>(out var hb) && hb;
+        _updateLatest = o["latest"] is JsonValue lv && lv.TryGetValue<string>(out var ls) ? ls ?? "" : "";
+        _updateMsg = o["message"] is JsonValue mv && mv.TryGetValue<string>(out var ms) ? ms ?? "" : "";
+        _updateNotes = o["notes"] is JsonValue nv && nv.TryGetValue<string>(out var ns) ? ns ?? "" : "";
+        _updateAssetName = o["assetName"] is JsonValue av && av.TryGetValue<string>(out var ans) ? ans ?? "" : "";
+        _updateHasAsset = _updateAssetName.Length > 0;
+        _updateAssetSize = o["assetSize"] is JsonValue sv && sv.TryGetValue<long>(out var sz) ? sz : 0;
+        _updateLoaded = true;
+    }
+
+    private Task OpenReleasePage() => PostJsonAsync("/api/maui/update/open-page", new JsonObject());
+
+    private Task DownloadUpdateNow()
+    {
+        _updateMsg = "下载安装属于第二步（依赖打包方案），当前请用「打开发布页」手动下载。";
+        return Task.CompletedTask;
+    }
+
+    /// <summary>POST to the MAUI bridge and read the JSON reply (bridge is POST-only).</summary>
+    private async Task<JsonObject?> PostJsonReadAsync(string path, JsonObject body)
+    {
+        try
+        {
+            using var resp = await Http.PostAsync(Base + path,
+                new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"));
+            var txt = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode) return null;
+            return JsonNode.Parse(txt) as JsonObject;
+        }
+        catch { return null; }
     }
 
     private async Task<JsonObject?> GetJsonAsync(string path)

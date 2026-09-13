@@ -10,6 +10,7 @@
 @inject PanelSoundPlayer Sounds
 @inject SongPlayer Song
 @inject UiBridge Ui
+@inject UpdateChecker Upd
 
 <div class="blt-app">
     <div class="blt-side">
@@ -78,6 +79,10 @@
                     <option value="editorial">H 杂志编辑风</option>
                 </select>
             </span>
+            @if (UpdateBadgeVisible())
+            {
+                <span class="seg amber" title="@UpdateBadgeTitle()">🆕 有新版本</span>
+            }
             <span class="seg amber">BUILD @KestrelHost.VersionText</span>
             <span class="seg" style="margin-left:auto">🕒 @DateTime.Now.ToString("HH:mm:ss")</span>
         </div>
@@ -104,6 +109,14 @@
     // Sidebar group fold state (localStorage 'blt_nav_fold', like the legacy panel).
     private readonly Dictionary<string, bool> _fold = new();
     private bool _foldLoaded;
+
+    private bool UpdateBadgeVisible() => Upd.LastResult?.HasUpdate == true;
+
+    private string UpdateBadgeTitle()
+    {
+        var info = Upd.LastResult;
+        return info == null ? "" : $"有新版本 {info.Latest}（当前 {info.Current}）· 到「房间管理 → 检查更新」处理";
+    }
 
     private string Fold(string g) => _fold.TryGetValue(g, out var v) && v ? "folded" : "";
     private string FoldHide(string g) => _fold.TryGetValue(g, out var v) && v ? "hidden" : "";

@@ -38,7 +38,7 @@ public sealed class KestrelHost
     private readonly TtsSpeaker _speaker;
     private readonly SongPlayer _songPlayer;
     private readonly UiBridge _ui;
-    private readonly UpdateChecker _updateChecker = new(VersionText);
+    private readonly UpdateChecker _updateChecker;
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
     private readonly ConcurrentDictionary<Guid, WebSocket> _keyviewClients = new();
     private readonly HttpClient _proxy = new() { Timeout = TimeSpan.FromSeconds(180) };
@@ -51,7 +51,7 @@ public sealed class KestrelHost
     public string? LastError { get; private set; }
     public int Port => _config.Port;
 
-    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui)
+    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker)
     {
         _config = config;
         _hub = hub;
@@ -64,6 +64,7 @@ public sealed class KestrelHost
         _speaker = speaker;
         _songPlayer = songPlayer;
         _ui = ui;
+        _updateChecker = updateChecker;
     }
 
     public void StartInBackground()
@@ -835,7 +836,21 @@ public sealed class KestrelHost
                 case "autolaunch/get":
                     return Results.Json(new { enabled = AutoLaunchService.Get() }, JsonWeb);
                 case "update/check":
-                    return Results.Json(await _updateChecker.CheckAsync(ctx.RequestAborted), JsonWeb);
+                {
+                    // body.force = 用户点「立即检查」→ 忽略 6 小时节流
+                    var force = body["force"] is JsonValue fv && fv.TryGetValue<bool>(out var fb) && fb;
+                    return Results.Json(await _updateChecker.CheckAsync(ctx.RequestAborted, force), JsonWeb);
+                }
+                case "update/status":
+                    // 只读缓存（不发网络请求），页面/顶栏用
+                    return Results.Json(new
+                    {
+                        ok = true,
+                        lastCheckAt = _updateChecker.LastCheckAt == default
+                            ? ""
+                            : _updateChecker.LastCheckAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
+                        info = _updateChecker.LastResult,
+                    }, JsonWeb);
                 case "update/open-page":
                 {
                     var url = "https://github.com/luoyunxiaotian/bili-live-tool/releases/latest";

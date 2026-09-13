@@ -33,6 +33,9 @@ namespace BiLi_live_Tool
             builder.Services.AddSingleton<PanelSoundPlayer>();
             builder.Services.AddSingleton<SongPlayer>();
             builder.Services.AddSingleton<UiBridge>();
+            // Update probe: shared by the panel card, the top strip badge and the
+            // silent start-up check (6h throttle, see UpdateChecker).
+            builder.Services.AddSingleton(sp => new UpdateChecker(KestrelHost.VersionText));
             builder.Services.AddSingleton<DebouncedSaver>();
             builder.Services.AddSingleton<KestrelHost>();
 
@@ -53,6 +56,22 @@ namespace BiLi_live_Tool
 #endif
 
             app.Services.GetRequiredService<KestrelHost>().StartInBackground();
+
+            // Silent update check on start-up (Electron parity: src/main.js R2). Throttled
+            // to one probe per 6h and fully detached — failures never affect startup.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var checker = app.Services.GetRequiredService<UpdateChecker>();
+                    var info = await checker.CheckAsync(CancellationToken.None);
+                    if (info.HasUpdate)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[update] 发现新版本 {info.Latest}");
+                    }
+                }
+                catch { }
+            });
             app.Services.GetRequiredService<LivePipeline>().Start();
             app.Services.GetRequiredService<TtsHost>().StartEdge();
 

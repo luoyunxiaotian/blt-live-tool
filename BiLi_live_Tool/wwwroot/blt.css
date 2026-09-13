@@ -21,7 +21,7 @@
   --blue:#57a6ff;
   --blue-dim:rgba(87,166,255,.12);
   --r:4px;
-  --mono:Consolas,"Cascadia Mono",monospace;
+  --mono:"Noto Sans SC","Source Han Sans SC","思源黑体",Consolas,"Cascadia Mono",monospace;
   --accent-ink:#1a1300;          /* text on the accent color (footer, primary btn) */
   --shadow:none;                 /* panel shadow (themes may add) */
   --side-blur:none;              /* sidebar backdrop filter (themes may add) */
@@ -31,7 +31,8 @@
 html,body{
   height:100%;
   margin:0;
-  font:13px/1.55 "Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif;
+  /* 思源黑体（Noto Sans SC）· Medium 字重，提升可读性 */
+  font:500 13px/1.6 "Noto Sans SC","Source Han Sans SC","思源黑体","Microsoft YaHei UI","Microsoft YaHei",sans-serif;
   color:var(--ink);
   background:var(--bg);
   overflow:hidden;

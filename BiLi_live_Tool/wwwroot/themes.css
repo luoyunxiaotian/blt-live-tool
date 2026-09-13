@@ -114,7 +114,7 @@ html[data-theme="editorial"]{
   --red:#b03a2e; --red-dim:rgba(176,58,46,.10);
   --blue:#2e4a68; --blue-dim:rgba(46,74,104,.10);
   --r:2px; --accent-ink:#fdfbf6;
-  --heading-font:Georgia,"Times New Roman","Songti SC","SimSun",serif;
+  /* 用户要求全站思源黑体：原衬线报头改为思源黑体（保留字重/字号排版差异） */
 }
 html[data-theme="editorial"] .blt-pagehead h1{font-size:20px;font-weight:600}
 html[data-theme="editorial"] .blt-brand b{font-size:17px;letter-spacing:0}

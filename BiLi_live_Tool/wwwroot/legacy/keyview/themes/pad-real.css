@@ -1,0 +1,102 @@
+/* Theme: pad-real — realistic SVG gamepad with Xbox/PS/Nintendo layouts. Gamepad only. */
+:root {
+  --kv-pad-bg: #2a2d35;
+  --kv-pad-bg2: #1a1d24;
+  --kv-pad-edge: #3a3e48;
+  --kv-pad-fg: #e8ecf2;
+  --kv-t: calc(60ms / var(--kv-anim-speed, 1));
+}
+
+#kv { gap: 8px; }
+.kv-section:empty { display: none; }
+.kv-key, .kv-ripple, .kv-wheel, .kv-mouse-label { display: none; }
+
+/* ---- container ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg {
+  display: block;
+  width: 360px;
+  height: auto;
+  filter: drop-shadow(0 6px 20px rgba(0,0,0,0.5));
+}
+
+/* ---- body ---- */
+.kv-gp-body { fill: var(--kv-pad-bg); stroke: var(--kv-pad-edge); stroke-width: 3; }
+
+/* ---- triggers ---- */
+.kv-gp-trig {
+  fill: var(--kv-pad-bg2); stroke: var(--kv-pad-edge); stroke-width: 2;
+  opacity: calc(0.4 + var(--tv, 0) * 0.6);
+  transition: opacity var(--kv-t) ease;
+}
+.kv-gp-trig.active { fill: #4caf50; stroke: #4caf50; opacity: 1; filter: drop-shadow(0 0 6px #4caf50); }
+.kv-gp-trig-fill { fill: #4caf50; opacity: 0.75; }
+.kv-gp-trig-text {
+  fill: rgba(255,255,255,0.4); font-size: 10px; font-weight: 700; text-anchor: middle;
+  font-family: "Segoe UI", sans-serif; pointer-events: none;
+}
+
+/* ---- shoulders ---- */
+.kv-gp-shoulder {
+  fill: var(--kv-pad-bg2); stroke: var(--kv-pad-edge); stroke-width: 2;
+  transition: all var(--kv-t) ease;
+}
+.kv-gp-shoulder.active { fill: var(--kv-pad-edge); filter: drop-shadow(0 0 5px rgba(255,255,255,0.4)); }
+.kv-gp-shoulder-text {
+  fill: rgba(255,255,255,0.5); font-size: 10px; font-weight: 700; text-anchor: middle;
+  font-family: "Segoe UI", sans-serif; pointer-events: none;
+}
+
+/* ---- sticks ---- */
+.kv-gp-stick-outer { fill: var(--kv-pad-bg2); stroke: var(--kv-pad-edge); stroke-width: 2; }
+.kv-gp-stick-inner {
+  fill: #4a4e58; stroke: var(--kv-pad-bg); stroke-width: 2;
+  transition: all var(--kv-t) ease;
+}
+.kv-gp-stick-ring { fill: none; stroke: rgba(0,0,0,0.15); stroke-width: 2; }
+.kv-gp-stick-dot { fill: rgba(255,255,255,0.15); stroke: none; }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner,
+.kv-gp-stick-r-g.active .kv-gp-stick-inner {
+  fill: #6a6e78; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));
+}
+
+/* ---- D-pad ---- */
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c {
+  fill: var(--kv-pad-bg2); stroke: var(--kv-pad-edge); stroke-width: 1;
+  transition: all var(--kv-t) ease;
+}
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active {
+  fill: var(--kv-pad-edge); filter: drop-shadow(0 0 4px rgba(255,255,255,0.4));
+}
+
+/* ---- ABXY face buttons ---- */
+.kv-gp-face {
+  fill: var(--kv-pad-bg2); stroke: var(--face-c, var(--kv-pad-edge)); stroke-width: 2.5;
+  transition: all var(--kv-t) ease;
+}
+.kv-gp-face.active {
+  fill: var(--face-c, var(--kv-pad-edge));
+  filter: drop-shadow(0 0 8px var(--face-c, rgba(255,255,255,0.5)));
+}
+.kv-gp-face-text {
+  fill: var(--face-c, rgba(255,255,255,0.5)); font-size: 12px; font-weight: 900; text-anchor: middle;
+  font-family: "Segoe UI", sans-serif; pointer-events: none;
+  transition: fill var(--kv-t) ease;
+}
+.kv-gp-face.active + .kv-gp-face-text { fill: #1a1d24; }
+
+/* ---- menu buttons ---- */
+.kv-gp-menu-btn {
+  fill: var(--kv-pad-bg2); stroke: var(--kv-pad-edge); stroke-width: 1.5;
+  transition: all var(--kv-t) ease;
+}
+.kv-gp-menu-btn.active { fill: var(--kv-pad-edge); filter: drop-shadow(0 0 4px rgba(255,255,255,0.3)); }
+.kv-gp-menu-text {
+  fill: rgba(255,255,255,0.35); font-size: 7px; font-weight: 600; text-anchor: middle;
+  font-family: "Segoe UI", sans-serif; pointer-events: none;
+}
+
+/* PS guide button: blue glow */
+.kv-gp[data-layout="ps"] .kv-gp-menu-guide { stroke: rgba(0,176,240,0.4); }
+.kv-gp[data-layout="ps"] .kv-gp-menu-guide.active { fill: #00b0f0; stroke: #00b0f0; filter: drop-shadow(0 0 8px #00b0f0); }
+.kv-gp[data-layout="ps"] .kv-gp-guide-text { fill: rgba(0,176,240,0.6); }

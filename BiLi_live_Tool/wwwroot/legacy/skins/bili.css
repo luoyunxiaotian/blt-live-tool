@@ -1,0 +1,93 @@
+/* ============================================================
+   皮肤 D · B站应援（bili）
+   白底大圆角 · 粉蓝双主色 · 胶囊按钮 · 粉调软阴影，活泼亲和
+   ============================================================ */
+
+html[data-skin="bili"]{
+  --bg:#fff8fb; --panel:#ffffff; --panel2:#fff2f6; --panel3:#ffe6ee;
+  --line:#ffe3ec; --line-strong:#ffc9da;
+  --text:#4a4550; --text-strong:#2e2a33; --muted:#a89aa2;
+  --accent:#fb7299; --accent-hover:#f05a83; --accent-soft:rgba(251,114,153,.10); --accent-line:rgba(251,114,153,.5);
+  --success:#1fbf75; --success-bright:#0f9d5c; --success-soft:rgba(31,191,117,.10);
+  --warning:#ff9f2e; --warning-bright:#c56e00; --warning-soft:rgba(255,159,46,.12);
+  --danger:#f05a6e; --danger-bright:#d23c50; --danger-soft:rgba(240,90,110,.10);
+  --info:#00a1d6; --info-bright:#0086b3; --info-soft:rgba(0,161,214,.10);
+  --primary:#fb7299; --primary-soft:rgba(251,114,153,.10);
+  --r-sm:8px; --r-md:12px; --r-lg:16px;
+  --shadow-1:0 4px 16px rgba(251,114,153,.09);
+  --shadow-2:0 14px 36px rgba(251,114,153,.16);
+  --shadow-hover:0 8px 24px rgba(251,114,153,.13);
+  --shadow-glow:0 0 0 3px rgba(251,114,153,.18);
+  --inner-shadow:none;
+}
+
+/* 顶部浅粉渐变氛围 */
+html[data-skin="bili"] body{
+  background:linear-gradient(180deg,#fff1f7 0%,#fdfbff 280px,#faf6f9 100%);
+}
+html[data-skin="bili"] .content{background:transparent;}
+html[data-skin="bili"] .sidebar{background:transparent;}
+html[data-skin="bili"] .topbar{background:rgba(255,255,255,.75);backdrop-filter:blur(10px);}
+
+/* 胶囊按钮 */
+html[data-skin="bili"] .btn{border-radius:99px;}
+html[data-skin="bili"] .btn.primary,
+html[data-skin="bili"] .btn-primary{
+  background:linear-gradient(90deg,#fb7299,#ff92ae);
+  border-color:transparent;
+  box-shadow:0 4px 14px rgba(251,114,153,.35);
+}
+html[data-skin="bili"] .btn.primary:hover,
+html[data-skin="bili"] .btn-primary:hover{
+  background:linear-gradient(90deg,#f05a83,#fb7299);
+  box-shadow:0 6px 18px rgba(251,114,153,.45);
+}
+html[data-skin="bili"] .btn.success,
+html[data-skin="bili"] .btn-success{background:linear-gradient(90deg,#00a1d6,#3db8e0);border-color:transparent;}
+html[data-skin="bili"] .nav-item{border-left:none;border-radius:99px;margin:2px 10px;padding-left:14px;}
+html[data-skin="bili"] .nav-item:hover{padding-left:17px;}
+html[data-skin="bili"] .nav-item.active{
+  background:linear-gradient(90deg,#fb7299,#ff92ae);color:#fff;border-left-color:transparent;
+  box-shadow:0 4px 12px rgba(251,114,153,.3);
+}
+html[data-skin="bili"] .nav-item.active:hover{padding-left:17px;}
+
+/* 粉调圆角卡片 */
+html[data-skin="bili"] .box,
+html[data-skin="bili"] .card,
+html[data-skin="bili"] .modal,
+html[data-skin="bili"] .info-box{border-radius:16px;border-color:#ffe4ec;}
+html[data-skin="bili"] .box.box-primary{border-top:none;border:1px solid #ffd0de;}
+html[data-skin="bili"] .brand{color:var(--accent);}
+html[data-skin="bili"] .rt-item,
+html[data-skin="bili"] .conn-bar{background:#fffafc;border-color:#ffe9f0;border-radius:12px;}
+html[data-skin="bili"] .form-control,
+html[data-skin="bili"] .input,
+html[data-skin="bili"] .field input,
+html[data-skin="bili"] .field select,
+html[data-skin="bili"] .field textarea{border-radius:12px;background:#fffafc;}
+html[data-skin="bili"] .form-control:focus,
+html[data-skin="bili"] .input:focus,
+html[data-skin="bili"] .field input:focus,
+html[data-skin="bili"] .field select:focus,
+html[data-skin="bili"] .field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(251,114,153,.14);}
+
+/* 开关 */
+html[data-skin="bili"] .switch .track{background:#f3dfe7;box-shadow:none;}
+html[data-skin="bili"] .switch input:checked + .track{box-shadow:0 3px 10px rgba(251,114,153,.4);}
+
+/* 杂项硬编码色修正 */
+html[data-skin="bili"] .app-footer{background:#fff0f5;border-top:1px solid #ffe3ec;}
+html[data-skin="bili"] .field select option,
+html[data-skin="bili"] .form-control option,
+html[data-skin="bili"] .field select optgroup,
+html[data-skin="bili"] .form-control optgroup{background:#ffffff;color:#2e2a33;}
+html[data-skin="bili"] ::-webkit-scrollbar-thumb{background:rgba(251,114,153,.35);}
+html[data-skin="bili"] ::-webkit-scrollbar-thumb:hover{background:rgba(251,114,153,.55);}
+html[data-skin="bili"] .dot.idle,
+html[data-skin="bili"] .nav-dot.off{background:rgba(51,42,51,.22);}
+html[data-skin="bili"] .onb-dots span{background:rgba(51,42,51,.18);}
+html[data-skin="bili"] .badge.superchat{background:rgba(255,184,64,.18);color:#9a6a00;}
+html[data-skin="bili"] .badge.blindbox{background:rgba(197,125,242,.15);color:#7a3fb8;}
+html[data-skin="bili"] #biliCookieInline{background:rgba(251,114,153,.06)!important;}
+html[data-skin="bili"] .tbl th{background:#fff5f8;}

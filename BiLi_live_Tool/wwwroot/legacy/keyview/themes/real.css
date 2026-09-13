@@ -1,0 +1,120 @@
+/* Theme: real — transparent outlined keyboard + mouse, always visible.
+   Only key outlines and labels show; background is transparent so OBS
+   can see through to the game/scene. Pressing a key animates that key. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --kv-line: rgba(255, 255, 255, 0.38);
+  --kv-line-strong: rgba(255, 255, 255, 0.78);
+  --kv-fg: rgba(255, 255, 255, 0.9);
+  --kv-fg-shadow: 0 1px 2px rgba(0, 0, 0, 0.85), 0 0 1px rgba(0, 0, 0, 0.9);
+  --kv-tint: rgba(0, 0, 0, 0.14);
+  --kv-active: #36d7e8;
+  --kv-active-glow: rgba(54, 215, 232, 0.85);
+}
+
+#kv {
+  bottom: 18px;
+  gap: 12px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 14px;
+}
+.kv-section:empty { display: none; }
+
+/* keyboard — no board background, fully transparent */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+
+/* outlined keycap: border + label only */
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  border-radius: 7px;
+  background: var(--kv-tint);
+  border: 1.5px solid var(--kv-line);
+  color: var(--kv-fg);
+  text-shadow: var(--kv-fg-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  letter-spacing: 0.2px;
+  user-select: none;
+  box-sizing: border-box;
+  transition: transform calc(70ms / var(--kv-anim-speed)) ease,
+              box-shadow calc(70ms / var(--kv-anim-speed)) ease,
+              border-color calc(70ms / var(--kv-anim-speed)) ease,
+              color calc(70ms / var(--kv-anim-speed)) ease,
+              background calc(70ms / var(--kv-anim-speed)) ease;
+}
+.kv-real-key.active {
+  background: rgba(54, 215, 232, 0.2);
+  border-color: var(--kv-active);
+  color: #ffffff;
+  transform: translateY(2px);
+  box-shadow: 0 0 16px var(--kv-active-glow), inset 0 0 8px rgba(54, 215, 232, 0.4);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* mouse — outlined, transparent */
+.kv-real-mouse-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.kv-real-mouse {
+  width: 93px;
+  height: 112px;
+  transition: transform calc(90ms / var(--kv-anim-speed)) ease;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+}
+.kv-mouse-part { transition: fill calc(60ms / var(--kv-anim-speed)) ease; fill: var(--kv-tint); }
+.kv-mouse-wheel { transition: transform calc(70ms / var(--kv-anim-speed)) ease, fill calc(70ms / var(--kv-anim-speed)) ease; }
+.kv-mouse-outline { fill: none; stroke: var(--kv-line-strong); stroke-width: 1.5; }
+.kv-mouse-sep { stroke: var(--kv-line); stroke-width: 1; }
+
+.kv-mouse-l.active { fill: var(--kv-active); filter: drop-shadow(0 0 6px var(--kv-active-glow)); }
+.kv-mouse-r.active { fill: var(--kv-active); filter: drop-shadow(0 0 6px var(--kv-active-glow)); }
+.kv-mouse-wheel.active { fill: var(--kv-active); }
+
+/* side buttons (X1/X2) on left edge */
+.kv-mouse-side { fill: var(--kv-tint); stroke: var(--kv-line); stroke-width: 1; transition: fill calc(60ms / var(--kv-anim-speed)) ease, stroke calc(60ms / var(--kv-anim-speed)) ease; }
+.kv-mouse-side.active { fill: var(--kv-active); stroke: var(--kv-active); filter: drop-shadow(0 0 4px var(--kv-active-glow)); }
+
+/* wheel halves: up = top half lit on wheel-up, down = bottom half lit on wheel-down */
+.kv-mouse-wheel-half { fill: transparent; transition: fill calc(70ms / var(--kv-anim-speed)) ease; }
+.kv-mouse-wheel-up.active { fill: var(--kv-active); filter: drop-shadow(0 0 4px var(--kv-active-glow)); }
+.kv-mouse-wheel-down.active { fill: var(--kv-active); filter: drop-shadow(0 0 4px var(--kv-active-glow)); }
+
+/* 8-direction indicator inside mouse body (lower half) */
+.kv-mouse-dir { opacity: 0; transition: opacity calc(120ms / var(--kv-anim-speed)) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--kv-active); filter: drop-shadow(0 0 4px var(--kv-active-glow)); }
+
+.kv-mouse-label {
+  font-size: 11px;
+  color: var(--kv-fg);
+  text-shadow: var(--kv-fg-shadow);
+  opacity: 0.9;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  min-height: 14px;
+  letter-spacing: 0.5px;
+}

@@ -1,0 +1,102 @@
+/* Theme: macaron — French pastry soft pastel. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --mc-pink: #ff9eb5;
+  --mc-mint: #a8e6cf;
+  --mc-lav: #d4b5f9;
+  --mc-cream: #ffd9a8;
+  --mc-sky: #a8d8ff;
+  --mc-bg: #fff5f8;
+  --mc-text: #6b4a6b;
+  --mc-shadow: rgba(255, 158, 181, 0.4);
+  --kv-t: calc(80ms / var(--kv-anim-speed, 1));
+  --mc-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--mc-pink) 0%, #e88aa0 100%);
+  border: none;
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  font-family: "Segoe UI", "Comic Sans MS", rounded;
+  user-select: none; box-sizing: border-box;
+  box-shadow: 0 4px 0 #d17890, 0 6px 12px var(--mc-shadow);
+  transition: all var(--kv-t) var(--mc-bounce);
+}
+.kv-real-key:nth-child(3n+1) { background: linear-gradient(180deg, var(--mc-mint) 0%, #88d4b5 100%); box-shadow: 0 4px 0 #6dba9a, 0 6px 12px rgba(168,230,207,0.4); }
+.kv-real-key:nth-child(3n+2) { background: linear-gradient(180deg, var(--mc-sky) 0%, #88c4e8 100%); box-shadow: 0 4px 0 #6da8cc, 0 6px 12px rgba(168,216,255,0.4); }
+.kv-real-key:nth-child(3n+3) { background: linear-gradient(180deg, var(--mc-lav) 0%, #b89de0 100%); box-shadow: 0 4px 0 #9a80c0, 0 6px 12px rgba(212,181,249,0.4); }
+.kv-real-key.active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 transparent, 0 2px 8px var(--mc-shadow);
+  filter: brightness(1.15);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; transition: transform var(--kv-t) var(--mc-bounce); filter: drop-shadow(0 6px 12px var(--mc-shadow)); }
+.kv-mouse-part { transition: fill var(--kv-t) ease; fill: var(--mc-pink); }
+.kv-mouse-wheel { transition: fill var(--kv-t) ease; fill: var(--mc-cream); }
+.kv-mouse-outline { fill: none; stroke: var(--mc-pink); stroke-width: 2; }
+.kv-mouse-sep { stroke: rgba(255,158,181,0.5); stroke-width: 1; }
+.kv-mouse-l.active { fill: var(--mc-lav); }
+.kv-mouse-r.active { fill: var(--mc-lav); }
+.kv-mouse-wheel.active { fill: var(--mc-mint); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--kv-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--mc-mint); }
+.kv-mouse-wheel-down.active { fill: var(--mc-mint); }
+.kv-mouse-side { fill: var(--mc-sky); stroke: rgba(168,216,255,0.5); stroke-width: 1; transition: fill var(--kv-t) ease; }
+.kv-mouse-side.active { fill: var(--mc-lav); stroke: var(--mc-lav); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--kv-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--mc-pink); }
+.kv-mouse-label { font-size: 11px; color: var(--mc-text); font-family: "Segoe UI", rounded; min-height: 14px; }
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 6px 16px var(--mc-shadow)); }
+.kv-gp-body { fill: var(--mc-bg); stroke: var(--mc-pink); stroke-width: 3; }
+.kv-gp-trig { fill: var(--mc-pink); stroke: #e88aa0; stroke-width: 2; opacity: calc(0.5 + var(--tv, 0) * 0.5); transition: opacity var(--kv-t) ease; }
+.kv-gp-trig.active { fill: var(--mc-lav); stroke: var(--mc-lav); opacity: 1; }
+.kv-gp-trig-fill { fill: var(--mc-lav); opacity: 0.6; }
+.kv-gp-trig-text { fill: #fff; font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Segoe UI", rounded; pointer-events: none; }
+.kv-gp-shoulder { fill: var(--mc-mint); stroke: #88d4b5; stroke-width: 2; transition: all var(--kv-t) ease; }
+.kv-gp-shoulder.active { fill: var(--mc-lav); }
+.kv-gp-shoulder-text { fill: #fff; font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Segoe UI", rounded; pointer-events: none; }
+.kv-gp-stick-outer { fill: var(--mc-bg); stroke: var(--mc-sky); stroke-width: 2; }
+.kv-gp-stick-inner { fill: var(--mc-sky); stroke: #88c4e8; stroke-width: 1.5; transition: all var(--kv-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(168,216,255,0.3); stroke-width: 1; }
+.kv-gp-stick-dot { fill: #fff; stroke: none; }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--mc-lav); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: var(--mc-cream); stroke: #e8c490; stroke-width: 1.5; transition: all var(--kv-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--mc-pink); }
+.kv-gp-face { fill: var(--mc-bg); stroke: var(--face-c, var(--mc-pink)); stroke-width: 2.5; transition: all var(--kv-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--mc-pink)); }
+.kv-gp-face-text { fill: var(--mc-text); font-size: 12px; font-weight: 900; text-anchor: middle; font-family: "Segoe UI", rounded; pointer-events: none; transition: fill var(--kv-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #fff; }
+.kv-gp-menu-btn { fill: var(--mc-cream); stroke: #e8c490; stroke-width: 1.5; transition: all var(--kv-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--mc-mint); }
+.kv-gp-menu-text { fill: var(--mc-text); font-size: 7px; font-weight: 600; text-anchor: middle; font-family: "Segoe UI", rounded; pointer-events: none; }

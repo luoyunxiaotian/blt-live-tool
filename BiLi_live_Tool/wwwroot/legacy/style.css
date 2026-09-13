@@ -1,0 +1,563 @@
+/* ============================================================
+   B站直播助手 · 管理面板样式（AdminLTE 风格 · 深色 · B站粉）
+   参考 AdminLTE 组件结构，零依赖手写复刻，保持深色主题
+   旧类名全部兼容，新增 AdminLTE 组件类
+   ============================================================ */
+
+:root{
+  /* 背景 & 面板层次（4 级深浅） */
+  --bg:#0e0f13; --panel:#17181d; --panel2:#1e2026; --panel3:#25272f;
+  --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.14);
+  /* 文本 */
+  --text:rgba(255,255,255,.84); --text-strong:rgba(255,255,255,.95); --muted:rgba(255,255,255,.42);
+  /* 品牌主色：B站粉 */
+  --accent:#fb7299; --accent-hover:#fc8bab; --accent-soft:rgba(251,114,153,.14); --accent-line:rgba(251,114,153,.45);
+  /* 语义色（AdminLTE 风格） */
+  --success:#00a65a; --success-bright:#63e2b7; --success-soft:rgba(0,166,90,.16);
+  --warning:#f39c12; --warning-bright:#f2c97d; --warning-soft:rgba(243,156,18,.16);
+  --danger:#dd4b39; --danger-bright:#e88080; --danger-soft:rgba(221,75,57,.16);
+  --info:#00a7d0; --info-bright:#63a6ff; --info-soft:rgba(0,167,208,.16);
+  --primary:#fb7299; --primary-soft:rgba(251,114,153,.14);
+  /* 圆角 & 阴影（多层组合：环境光 + 关键光） */
+  --r-sm:4px; --r-md:6px; --r-lg:10px;
+  --shadow-1:0 1px 3px rgba(0,0,0,.24),0 2px 8px rgba(0,0,0,.18);
+  --shadow-2:0 4px 12px rgba(0,0,0,.28),0 12px 32px rgba(0,0,0,.32);
+  --shadow-hover:0 2px 6px rgba(0,0,0,.22),0 8px 24px rgba(0,0,0,.3);
+  --shadow-glow:0 0 12px rgba(251,114,153,.22);
+  --inner-shadow:inset 0 1px 2px rgba(0,0,0,.25);
+  /* 缓动曲线 */
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragana Sans GB","Microsoft YaHei",sans-serif;font-size:14px;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{color:var(--accent-hover);}
+::selection{background:var(--accent-soft);color:var(--text-strong);}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ============================================================
+   布局（AdminLTE: wrapper > main-header + main-sidebar + content-wrapper）
+   兼容现有 .app > .sidebar + .main > .topbar + .content 结构
+   ============================================================ */
+.app{display:flex;height:100vh;overflow:hidden;}
+
+/* ---------- 侧栏（main-sidebar 风格） ---------- */
+.sidebar{width:220px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0;transition:width .2s;}
+.sidebar .brand{padding:16px 18px;font-size:17px;font-weight:700;color:var(--text-strong);letter-spacing:.5px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;}
+.brand .en{color:var(--muted);font-size:11px;font-weight:400;margin-left:4px;letter-spacing:1px;}
+.brand-sub{padding:0 18px 10px;font-size:11px;color:var(--muted);}
+.brand-sub .dot{margin-right:4px;}
+.nav{flex:1;overflow-y:auto;padding:8px 0;}
+/* sidebar-menu header 分组 */
+.nav-group{padding:14px 18px 6px;font-size:11px;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase;font-weight:600;}
+/* sidebar-menu item */
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 18px;cursor:pointer;color:var(--text);border-left:3px solid transparent;transition:background .2s var(--ease-out),color .2s,padding-left .2s var(--ease-out),border-color .2s;user-select:none;font-size:14px;}
+.nav-item:hover{background:var(--panel2);color:var(--text-strong);padding-left:21px;}
+.nav-item.active{color:var(--text-strong);border-left-color:var(--accent);background:var(--panel2);font-weight:600;box-shadow:inset 3px 0 8px -3px var(--accent-line);}
+.nav-item .ico{width:18px;height:18px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:15px;}
+.nav-child{padding-left:42px;font-size:13px;}
+.nav-dot{width:7px;height:7px;border-radius:50%;margin-left:auto;flex-shrink:0;}
+.nav-dot.on{background:var(--success-bright);box-shadow:0 0 6px var(--success-bright);}
+.nav-dot.off{background:rgba(255,255,255,.18);}
+.nav-rec-badge{margin-left:auto;}
+.sidebar-foot{padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;}
+.side-version{margin-top:4px;font-size:11px;color:var(--muted);}
+
+/* ---------- 主区（content-wrapper 风格） ---------- */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+/* main-header navbar */
+.topbar{min-height:54px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0;flex-wrap:wrap;}
+.topbar .title{font-size:18px;font-weight:700;color:var(--text-strong);}
+.topbar .sub{color:var(--muted);font-size:13px;}
+.topbar .spacer{flex:1;}
+/* 顶栏连接状态（navbar badge 风格） */
+.top-status{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:var(--r-sm);background:var(--panel2);border:1px solid var(--line);font-size:13px;color:var(--muted);white-space:nowrap;}
+.top-status .dot{margin-right:0;}
+.top-status.ok{color:var(--success-bright);border-color:rgba(99,226,183,.3);background:var(--success-soft);}
+.top-status.warn{color:var(--warning-bright);border-color:rgba(242,201,125,.3);background:var(--warning-soft);}
+.top-status.err{color:var(--danger-bright);border-color:rgba(232,128,128,.3);background:var(--danger-soft);}
+.content{flex:1;overflow-y:auto;padding:20px;background:var(--bg);box-sizing:border-box;}
+/* content-header（breadcrumb 区，可选） */
+.content-header{padding:8px 0 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.content-header h1{margin:0;font-size:20px;font-weight:600;color:var(--text-strong);}
+.content-header h1 small{font-size:13px;color:var(--muted);font-weight:400;margin-left:8px;}
+.breadcrumb{display:inline-flex;align-items:center;gap:6px;list-style:none;margin:0;padding:0;font-size:13px;}
+.breadcrumb li{color:var(--muted);}
+.breadcrumb li a{color:var(--accent);}
+.breadcrumb li+li::before{content:"/";margin-right:6px;color:var(--muted);}
+.breadcrumb li.active{color:var(--text);}
+
+/* Electron 窄栏模式 */
+body.electron-mode .main{max-width:35vw;flex:none;width:35vw;flex-shrink:0;}
+body.electron-mode .content{width:100%;padding:14px;}
+body.electron-mode .sidebar{width:170px;}
+body.electron-mode .topbar{padding:0 14px;gap:10px;}
+body.electron-mode-no-browser .main{flex:1;max-width:none;width:auto;}
+body.electron-mode-no-browser .sidebar{width:220px;}
+
+/* ============================================================
+   Box 组件（AdminLTE 核心）
+   .box > .box-header > .box-title + .box-tools
+   .box-body
+   .box-footer
+   ============================================================ */
+.box{background:var(--panel);border-radius:var(--r-md);border:1px solid var(--line);margin-bottom:18px;box-shadow:var(--shadow-1);overflow:hidden;transition:box-shadow .25s var(--ease-out),border-color .25s,transform .25s var(--ease-out);}
+.box:hover{border-color:var(--line-strong);box-shadow:var(--shadow-hover);}
+.box-header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.box-header.with-border{border-bottom:1px solid var(--line);}
+.box-title{margin:0;font-size:15px;font-weight:600;color:var(--text-strong);display:flex;align-items:center;gap:8px;}
+.box-title .title-hint{font-size:12px;font-weight:400;color:var(--muted);}
+.box-tools{display:flex;align-items:center;gap:4px;}
+.btn-box-tool{background:var(--panel2);border:1px solid var(--line-strong);color:var(--text-strong);cursor:pointer;width:26px;height:26px;border-radius:var(--r-sm);font-size:16px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:color .18s,background .18s,border-color .18s,transform .25s var(--ease-out);}
+.btn-box-tool:hover{color:#fff;background:var(--accent);border-color:var(--accent);transform:scale(1.05);}
+.box-body{padding:16px;}
+.box-body.no-padding{padding:0;}
+.box-footer{padding:10px 16px;border-top:1px solid var(--line);background:var(--panel);}
+.box-footer.no-padding{padding:0;background:transparent;border:none;}
+/* box 状态色（左边框强调） */
+.box.box-success{border-top:3px solid var(--success);}
+.box.box-warning{border-top:3px solid var(--warning);}
+.box.box.box-danger{border-top:3px solid var(--danger);}
+.box.box-info{border-top:3px solid var(--info);}
+.box.box-primary{border-top:3px solid var(--accent);}
+.box.collapsed .box-body{display:none;}
+
+/* ---------- card 兼容（映射到 box 风格） ---------- */
+.card{background:var(--panel);border-radius:var(--r-md);border:1px solid var(--line);padding:0;margin-bottom:18px;box-shadow:var(--shadow-1);overflow:hidden;transition:box-shadow .25s var(--ease-out),border-color .25s,transform .25s var(--ease-out);}
+.card:hover{border-color:var(--line-strong);box-shadow:var(--shadow-hover);transform:translateY(-1px);}
+.card-title{font-size:15px;font-weight:600;margin:0;padding:12px 16px;border-bottom:1px solid var(--line);color:var(--text-strong);display:flex;align-items:center;gap:8px;background:var(--panel);}
+.card-title::before{content:'';width:3px;height:14px;border-radius:1px;background:var(--accent);flex-shrink:0;}
+.card-title .title-hint{font-size:12px;font-weight:400;color:var(--muted);}
+/* card 内直接放内容时补 padding */
+.card > .form-grid,.card > .row,.card > div:not(.card-title):not(.box-header){padding:16px;}
+.card > .card-title + .form-grid,.card > .card-title + .row,.card > .card-title + div{padding:16px;}
+
+/* ============================================================
+   Info Box（AdminLTE 小信息卡）
+   ============================================================ */
+.info-box{display:flex;align-items:center;background:var(--panel);border-radius:var(--r-md);border:1px solid var(--line);box-shadow:var(--shadow-1);margin-bottom:16px;overflow:hidden;}
+.info-box-icon{width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;flex-shrink:0;}
+.info-box-content{padding:10px 14px;flex:1;min-width:0;}
+.info-box-text{font-size:13px;color:var(--muted);display:block;}
+.info-box-number{font-size:22px;font-weight:700;color:var(--text-strong);display:block;margin-top:2px;}
+.info-box-number small{font-size:14px;font-weight:400;}
+.bg-aqua{background:var(--info)!important;}
+.bg-red{background:var(--danger)!important;}
+.bg-green{background:var(--success)!important;}
+.bg-yellow{background:var(--warning)!important;}
+.bg-blue{background:#0073b7!important;}
+.bg-primary{background:var(--accent)!important;}
+.bg-orange{background:#e67e22!important;}
+.text-aqua{color:var(--info-bright);}
+.text-red{color:var(--danger-bright);}
+.text-green{color:var(--success-bright);}
+.text-yellow{color:var(--warning-bright);}
+.text-blue{color:var(--info-bright);}
+
+/* ============================================================
+   表单（AdminLTE form-group / form-control）
+   ============================================================ */
+.form-group{margin-bottom:15px;}
+.form-group label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500;}
+.form-control{width:100%;height:34px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--panel2);color:var(--text);padding:6px 10px;font-size:14px;font-family:inherit;transition:border-color .18s,box-shadow .18s;box-shadow:var(--inner-shadow);}
+.form-control:hover{border-color:var(--muted);}
+.form-control:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft),var(--inner-shadow);}
+textarea.form-control{height:auto;padding:8px 10px;resize:vertical;line-height:1.5;}
+/* 兼容旧 .field */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px 18px;}
+.field{margin-bottom:0;}
+.field label:not(.switch){display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500;}
+.field input,.field select,.field textarea{width:100%;height:34px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--panel2);color:var(--text);padding:6px 10px;font-size:14px;font-family:inherit;transition:border-color .18s,box-shadow .18s;box-shadow:var(--inner-shadow);}
+.field input:hover,.field select:hover,.field textarea:hover{border-color:var(--muted);}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft),var(--inner-shadow);}
+.field textarea{height:64px;padding:8px 10px;resize:vertical;line-height:1.5;}
+.input{width:100%;height:34px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--panel2);color:var(--text);padding:6px 10px;font-size:14px;font-family:inherit;transition:border-color .18s,box-shadow .18s;box-shadow:var(--inner-shadow);}
+.input:hover{border-color:var(--muted);}
+.input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft),var(--inner-shadow);}
+textarea.input{height:auto;padding:8px 10px;resize:vertical;line-height:1.5;}
+.hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:5px;}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
+
+/* ============================================================
+   按钮（AdminLTE btn 体系）
+   ============================================================ */
+.btn{height:34px;padding:0 14px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--panel2);color:var(--text);cursor:pointer;font-size:14px;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:all .18s var(--ease-out);white-space:nowrap;}
+.btn:hover{border-color:var(--muted);color:var(--text-strong);background:var(--panel3);transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.2);}
+.btn:active{transform:translateY(1px);box-shadow:none;transition:all .08s;}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn.primary,.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;box-shadow:0 1px 3px rgba(251,114,153,.3);}
+.btn.primary:hover,.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#fff;box-shadow:var(--shadow-glow),0 2px 8px rgba(251,114,153,.3);}
+.btn.success,.btn-success{background:var(--success);color:#fff;border-color:var(--success);font-weight:600;box-shadow:0 1px 3px rgba(0,166,90,.3);}
+.btn.success:hover,.btn-success:hover{background:#008d4c;border-color:#008d4c;color:#fff;box-shadow:0 0 10px rgba(99,226,183,.2),0 2px 8px rgba(0,166,90,.3);}
+.btn.danger,.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger);font-weight:600;box-shadow:0 1px 3px rgba(221,75,57,.3);}
+.btn.danger:hover,.btn-danger:hover{background:#d73925;border-color:#d73925;color:#fff;box-shadow:0 0 10px rgba(232,128,128,.2),0 2px 8px rgba(221,75,57,.3);}
+.btn.warning,.btn-warning{background:var(--warning);color:#fff;border-color:var(--warning);font-weight:600;}
+.btn.warning:hover,.btn-warning:hover{background:#e08e0b;border-color:#e08e0b;color:#fff;}
+.btn.info,.btn-info{background:var(--info);color:#fff;border-color:var(--info);font-weight:600;}
+.btn.info:hover,.btn-info:hover{background:#008db5;border-color:#008db5;color:#fff;}
+.btn.default,.btn-default{background:var(--panel2);color:var(--text);border-color:var(--line-strong);}
+.btn.default:hover,.btn-default:hover{background:var(--panel3);color:var(--text-strong);}
+.btn.sm,.btn-sm{height:30px;padding:0 10px;font-size:13px;}
+.btn.lg,.btn-lg{height:42px;padding:0 18px;font-size:15px;}
+.btn.xs,.btn-xs{height:24px;padding:0 8px;font-size:12px;}
+.btn.flat,.btn-flat{border-color:transparent;background:transparent;}
+.btn.flat:hover,.btn-flat:hover{background:var(--panel2);}
+.btn.ghost{border-color:transparent;background:transparent;}
+.btn.ghost:hover{background:var(--panel2);}
+.btn.block,.btn-block{display:flex;width:100%;justify-content:center;}
+/* 保存按钮成功反馈 */
+.btn.saved{background:var(--success);border-color:var(--success);color:#fff;}
+.btn.saved:hover{background:var(--success);border-color:var(--success);color:#fff;}
+
+/* ============================================================
+   Switch 开关（AdminLTE 风格滑块）
+   ============================================================ */
+.switch{position:relative;display:inline-flex;align-items:center;cursor:pointer;gap:12px;user-select:none;vertical-align:middle;}
+.switch input{position:absolute;opacity:0;width:0;height:0;}
+.switch .track{width:46px;height:26px;border-radius:13px;background:rgba(255,255,255,.1);border:1px solid var(--line-strong);position:relative;transition:background .25s var(--ease-out),border-color .25s,box-shadow .25s;flex-shrink:0;box-shadow:inset 0 1px 2px rgba(0,0,0,.3);}
+.switch .track::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .3s var(--ease-spring),background .2s,box-shadow .2s;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.switch input:checked + .track{background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px rgba(251,114,153,.4),inset 0 1px 2px rgba(0,0,0,.2);}
+.switch input:checked + .track::after{transform:translateX(20px);background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35),0 0 6px rgba(255,255,255,.3);}
+.switch input:focus-visible + .track{outline:2px solid var(--accent-line);outline-offset:2px;}
+.switch .sw-label{font-size:13px;color:var(--text);}
+.switch.sm .track{width:36px;height:20px;border-radius:10px;}
+.switch.sm .track::after{width:14px;height:14px;top:3px;left:3px;}
+.switch.sm input:checked + .track::after{transform:translateX(16px);}
+/* Switch 行内布局 */
+.switch-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+.switch-row:last-child{border-bottom:none;}
+.switch-row .sr-title{font-weight:600;color:var(--text-strong);min-width:80px;}
+
+/* ============================================================
+   Label / Badge（AdminLTE 标签徽章）
+   ============================================================ */
+.label{display:inline-flex;align-items:center;font-size:11px;padding:3px 8px;border-radius:3px;font-weight:600;white-space:nowrap;line-height:1.4;}
+.label-default{background:var(--panel3);color:var(--text);}
+.label-primary{background:var(--accent);color:#fff;}
+.label-success{background:var(--success);color:#fff;}
+.label-warning{background:var(--warning);color:#fff;}
+.label-danger{background:var(--danger);color:#fff;}
+.label-info{background:var(--info);color:#fff;}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;font-size:11px;font-weight:700;white-space:nowrap;background:var(--panel3);color:var(--text);}
+/* 兼容旧 badge-pill */
+.badge-pill{display:inline-flex;align-items:center;font-size:11px;padding:3px 8px;border-radius:3px;font-weight:600;white-space:nowrap;}
+.badge-pill.off{background:var(--panel3);color:var(--muted);}
+.badge-pill.on{background:var(--success);color:#fff;}
+.badge-pill.warn{background:var(--warning);color:#fff;}
+.badge-pill.err{background:var(--danger);color:#fff;}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:3px;font-weight:500;}
+
+/* ============================================================
+   表格（AdminLTE .table）
+   ============================================================ */
+.table{width:100%;border-collapse:collapse;font-size:14px;}
+.table th{padding:10px 12px;text-align:left;color:var(--text-strong);font-weight:600;border-bottom:2px solid var(--line-strong);white-space:nowrap;}
+.table td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;max-width:360px;overflow:hidden;text-overflow:ellipsis;}
+.table tbody tr:hover{background:var(--panel2);}
+.table.no-margin{margin:0;}
+.table-responsive{overflow-x:auto;}
+/* 兼容旧 .tbl */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r-sm);border:1px solid var(--line);}
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px;}
+.tbl th,.tbl td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;max-width:360px;overflow:hidden;text-overflow:ellipsis;}
+.tbl th{background:var(--panel2);color:var(--text-strong);font-weight:600;position:sticky;top:0;}
+.tbl tbody tr:hover{background:var(--panel2);}
+.tbl .num{font-variant-numeric:tabular-nums;}
+
+/* ============================================================
+   进度条（AdminLTE .progress）
+   ============================================================ */
+.progress{height:20px;background:var(--panel3);border-radius:var(--r-sm);overflow:hidden;margin-bottom:10px;position:relative;}
+.progress.sm{height:10px;}
+.progress.xs{height:6px;}
+.progress-bar{height:100%;background:var(--accent);border-radius:var(--r-sm);transition:width .3s;}
+.progress-bar-success{background:var(--success);}
+.progress-bar-warning{background:var(--warning);}
+.progress-bar-danger{background:var(--danger);}
+.progress-bar-info{background:var(--info);}
+.progress-bar-aqua{background:var(--info);}
+.progress-bar-green{background:var(--success);}
+.progress-bar-red{background:var(--danger);}
+.progress-bar-yellow{background:var(--warning);}
+.progress-bar-primary{background:var(--accent);}
+.progress-group{margin-bottom:12px;}
+.progress-text{font-size:13px;color:var(--text);}
+.progress-number{float:right;color:var(--muted);font-size:13px;}
+
+/* ============================================================
+   提示横幅 / Callout
+   ============================================================ */
+.callout{padding:12px 16px;border-radius:var(--r-sm);border-left:4px solid var(--line-strong);background:var(--panel2);margin-bottom:16px;font-size:14px;}
+.callout h4{margin:0 0 6px;font-size:15px;font-weight:600;}
+.callout.callout-success{border-left-color:var(--success);background:var(--success-soft);}
+.callout.callout-warning{border-left-color:var(--warning);background:var(--warning-soft);}
+.callout.callout-danger{border-left-color:var(--danger);background:var(--danger-soft);}
+.callout.callout-info{border-left-color:var(--info);background:var(--info-soft);}
+.callout.callout-primary{border-left-color:var(--accent);background:var(--accent-soft);}
+/* 兼容旧 .banner */
+.banner{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--r-sm);font-size:13px;line-height:1.55;margin-bottom:16px;border:1px solid;border-left-width:4px;}
+.banner .bn-icon{flex-shrink:0;font-size:16px;line-height:1.4;}
+.banner .bn-body{flex:1;min-width:0;}
+.banner .bn-actions{margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;}
+.banner.warn{background:var(--warning-soft);border-color:rgba(242,201,125,.3);color:var(--warning-bright);}
+.banner.info{background:var(--info-soft);border-color:rgba(99,166,255,.3);color:var(--info-bright);}
+.banner.ok{background:var(--success-soft);border-color:rgba(99,226,183,.3);color:var(--success-bright);}
+.banner .btn{height:28px;padding:0 12px;font-size:12.5px;}
+
+/* ---------- 连接状态栏 ---------- */
+.conn-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:12px;}
+.conn-bar .conn-state{min-width:110px;font-weight:600;}
+
+/* ============================================================
+   空状态 / 分页 / 状态点
+   ============================================================ */
+.empty{text-align:center;color:var(--muted);padding:44px;font-size:14px;}
+.empty .empty-icon{font-size:34px;display:block;margin-bottom:10px;opacity:.6;}
+.empty .empty-action{margin-top:14px;}
+.pager{display:flex;align-items:center;gap:10px;margin-top:16px;flex-wrap:wrap;}
+.pager .info{color:var(--muted);font-size:13px;}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;flex-shrink:0;}
+.dot.ok{background:var(--success-bright);box-shadow:0 0 6px rgba(99,226,183,.5);}
+.dot.warn{background:var(--warning-bright);box-shadow:0 0 6px rgba(242,201,125,.4);}
+.dot.err{background:var(--danger-bright);box-shadow:0 0 6px rgba(232,128,128,.4);}
+.dot.idle{background:rgba(255,255,255,.25);}
+.dot.pending{background:var(--info-bright);animation:pulse 1.2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+/* ============================================================
+   Tabs
+   ============================================================ */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--line-strong);margin-bottom:18px;flex-wrap:wrap;}
+.tab{padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s;user-select:none;font-size:14px;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+
+/* ============================================================
+   实时列表 / 直接聊天风格
+   ============================================================ */
+.rt-list{display:flex;flex-direction:column;gap:8px;max-height:560px;overflow-y:auto;}
+.rt-item{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;font-size:13.5px;display:flex;gap:10px;align-items:flex-start;transition:border-color .15s;}
+.rt-item:hover{border-color:var(--line-strong);}
+.rt-item .badge{flex-shrink:0;font-size:11px;padding:2px 8px;border-radius:3px;font-weight:600;}
+.badge.danmu{background:var(--info-soft);color:var(--info-bright);}
+.badge.gifts{background:var(--warning-soft);color:var(--warning-bright);}
+.badge.guard{background:var(--danger-soft);color:var(--danger-bright);}
+.badge.superchat{background:rgba(255,184,64,.2);color:#ffb840;}
+.badge.blindbox{background:rgba(197,125,242,.2);color:#c57df2;}
+.rt-item .rt-main{flex:1;min-width:0;}
+.rt-item .rt-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.rt-item .uname{font-weight:600;color:var(--text-strong);}
+.rt-item .time{color:var(--muted);font-size:12px;}
+.rt-item .rt-body{margin-top:3px;color:var(--text);word-break:break-word;}
+.rt-item .rt-sub{color:var(--muted);font-size:12px;margin-top:2px;}
+/* 直接聊天（日志/弹幕流） */
+.direct-chat-msg{display:flex;gap:10px;margin-bottom:14px;}
+.direct-chat-msg.right{flex-direction:row-reverse;}
+.direct-chat-info{font-size:12px;color:var(--muted);margin-bottom:3px;}
+.direct-chat-name{font-weight:600;color:var(--text-strong);}
+.direct-chat-timestamp{float:right;color:var(--muted);}
+.direct-chat-text{background:var(--panel2);border-radius:var(--r-sm);padding:8px 12px;font-size:13.5px;line-height:1.5;color:var(--text);display:inline-block;max-width:80%;word-break:break-word;}
+
+/* ---------- 礼物预览卡 ---------- */
+.gift-preview{background:linear-gradient(135deg,#2b1a4a,#1a2b4a);border-radius:var(--r-md);padding:22px;color:#fff;max-width:420px;position:relative;overflow:hidden;}
+.gift-preview .gift-head{display:flex;align-items:center;gap:12px;}
+.gift-preview .gift-icon{width:48px;height:48px;border-radius:var(--r-sm);background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:26px;}
+.gift-preview .gift-name{font-size:18px;font-weight:700;}
+.gift-preview .gift-count{font-size:13px;color:rgba(255,255,255,.7);}
+.gift-preview .gift-amount{font-size:30px;font-weight:800;margin-top:14px;color:#ffe08a;}
+.gift-preview .gift-meta{margin-top:10px;font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;}
+
+/* ============================================================
+   弹窗
+   ============================================================ */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(3px);}
+.modal-mask.open{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--line-strong);border-radius:var(--r-md);width:560px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:var(--shadow-2);}
+.modal-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-weight:600;color:var(--text-strong);font-size:15px;}
+.modal-body{padding:16px 18px;overflow-y:auto;}
+.modal-body .fs-list{display:flex;flex-direction:column;gap:2px;max-height:300px;overflow-y:auto;}
+.fs-row{display:flex;padding:8px 10px;cursor:pointer;border-radius:var(--r-sm);align-items:center;gap:8px;}
+.fs-row:hover{background:var(--panel2);}
+
+.muted{color:var(--muted);}
+.mono{font-family:ui-monospace,Consolas,monospace;}
+
+/* ============================================================
+   Toast
+   ============================================================ */
+.toast{position:fixed;top:18px;right:18px;z-index:1100;display:flex;flex-direction:column;gap:8px;max-width:380px;}
+.toast .t-item{background:var(--panel);border:1px solid var(--line-strong);border-left:4px solid var(--success);padding:10px 16px;border-radius:var(--r-sm);font-size:13px;box-shadow:var(--shadow-2);animation:toast-in .2s ease-out;}
+.toast .t-item.err{border-left-color:var(--danger);}
+.toast .t-item.warn{border-left-color:var(--warning);}
+@keyframes toast-in{from{opacity:0;transform:translateX(14px);}to{opacity:1;transform:none;}}
+.toast .t-item.update{border-left-color:var(--warning);background:linear-gradient(135deg,var(--warning-soft),var(--panel));}
+.toast .t-item .t-actions{margin-top:8px;display:flex;gap:6px;}
+.toast .t-item .t-actions button{font-size:12px;padding:4px 10px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--panel2);color:var(--text);cursor:pointer;transition:background .15s;}
+.toast .t-item .t-actions button:hover{background:var(--panel3);}
+.toast .t-item .t-actions button.primary{background:var(--warning);border-color:var(--warning);color:#fff;font-weight:600;}
+.toast .t-item .t-actions button.primary:hover{background:#e08e0b;}
+.toast .t-item .t-progress{margin-top:6px;height:4px;background:var(--panel3);border-radius:2px;overflow:hidden;}
+.toast .t-item .t-progress .bar{height:100%;background:var(--warning);width:0%;transition:width .2s;}
+
+/* ---------- 页脚 ---------- */
+.app-footer{position:fixed;left:0;right:0;bottom:0;padding:6px 12px;background:rgba(16,17,20,.94);color:var(--muted);font-size:11px;text-align:center;z-index:900;border-top:1px solid var(--line);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.content{padding-bottom:38px;}
+
+/* ---------- 下拉框 option 修复 ---------- */
+.field select,.form-control{color:var(--text);}
+.field select option,.field select optgroup,.form-control option,.form-control optgroup{background:#1e1e1e;color:#eee;}
+.field select:focus,.form-control:focus{color:var(--text);}
+
+/* ============================================================
+   响应式
+   ============================================================ */
+@media(max-width:900px){.two-col{grid-template-columns:1fr;}}
+@media(max-width:640px){
+  .content{padding:14px;}
+  .box-body{padding:12px;}
+  .topbar{padding:0 12px;}
+  .topbar .sub{display:none;}
+  .form-grid{grid-template-columns:1fr;}
+  .sidebar{width:160px;}
+  body.electron-mode .sidebar{width:140px;}
+  .nav-child{padding-left:32px;}
+  .info-box-icon{width:48px;height:48px;font-size:20px;}
+}
+
+/* ============================================================
+   点歌功能
+   ============================================================ */
+.sr-disclaimer{background:var(--warning-soft,#3a3020);border:1px solid var(--warning,#f0ad4e);border-radius:var(--r-sm);padding:12px 14px;font-size:12px;line-height:1.6;color:var(--text);margin-bottom:10px;}
+.sr-disclaimer b{color:var(--warning,#f0ad4e);}
+.sr-search-list{margin:8px 0;border:1px solid var(--line);border-radius:var(--r-sm);max-height:200px;overflow-y:auto;}
+.sr-search-item{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);font-size:13px;}
+.sr-search-item:last-child{border-bottom:none;}
+.sr-search-item:hover{background:var(--panel2);}
+.pl-row{cursor:grab;}
+.pl-row:active{cursor:grabbing;}
+.pl-row[draggable="true"]{transition:opacity .15s;}
+#sr-playlist-body .pl-row td:first-child{font-weight:500;}
+.sr-cookie-status{display:inline-flex;gap:12px;font-size:12px;}
+.sr-cookie-status span{padding:2px 8px;border-radius:var(--r-sm);background:var(--panel2);}
+.sr-badge-platform{display:inline-block;padding:0 6px;border-radius:8px;border:1px solid currentColor;font-size:11px;line-height:1.5;margin-left:6px;vertical-align:middle;white-space:nowrap;}
+.sr-badge-vip{display:inline-block;padding:0 6px;border-radius:8px;background:#c0392b;color:#fff;font-size:11px;line-height:1.5;margin-left:4px;vertical-align:middle;white-space:nowrap;}
+.sr-badge-free{display:inline-block;padding:0 6px;border-radius:8px;background:#27ae60;color:#fff;font-size:11px;line-height:1.5;margin-left:4px;vertical-align:middle;white-space:nowrap;}
+
+/* ============================================================
+   入场动画（Stagger · 渐入上移 · 交错延迟）
+   ============================================================ */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+#content > .box,#content > .card,#content > .two-col{animation:fadeInUp .35s var(--ease-out) both;}
+#content > .box:nth-child(2),#content > .card:nth-child(2),#content > .two-col:nth-child(2){animation-delay:.06s;}
+#content > .box:nth-child(3),#content > .card:nth-child(3),#content > .two-col:nth-child(3){animation-delay:.12s;}
+#content > .box:nth-child(4),#content > .card:nth-child(4),#content > .two-col:nth-child(4){animation-delay:.18s;}
+#content > .box:nth-child(5),#content > .card:nth-child(5),#content > .two-col:nth-child(5){animation-delay:.24s;}
+#content > .box:nth-child(6),#content > .card:nth-child(6),#content > .two-col:nth-child(6){animation-delay:.3s;}
+#content > .box:nth-child(n+7),#content > .card:nth-child(n+7),#content > .two-col:nth-child(n+7){animation-delay:.36s;}
+/* 导航项入场 */
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+.nav-item{animation:slideInLeft .3s var(--ease-out) both;}
+.nav-item:nth-child(2){animation-delay:.04s;}
+.nav-item:nth-child(3){animation-delay:.08s;}
+.nav-item:nth-child(4){animation-delay:.12s;}
+.nav-item:nth-child(5){animation-delay:.16s;}
+.nav-item:nth-child(n+6){animation-delay:.2s;}
+/* 连接状态点脉冲 */
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+.dot.running{animation:pulse 2s ease-in-out infinite;}
+
+/* ============================================================
+   Tooltip（data-tip 属性 · JS 动态定位，自动避免视口溢出）
+   用法：给元素加 data-tip="提示文本" 即可
+   ============================================================ */
+.blt-tooltip{
+  position:fixed;display:none;z-index:99999;pointer-events:none;
+  background:var(--panel3);color:var(--text);border:1px solid var(--line-strong);
+  border-radius:var(--r-sm);padding:6px 10px;font-size:12px;line-height:1.5;
+  max-width:300px;white-space:normal;word-break:break-all;
+  box-shadow:var(--shadow-2);opacity:0;transition:opacity .12s ease;
+}
+.blt-tooltip.show{opacity:1;}
+
+/* ============================================================
+   v1.1.9 易用性组件（loading / 步骤条 / 高亮引导 / 自动保存提示）
+   ============================================================ */
+
+/* ---------- 按钮异步 loading（spinner 覆盖 :disabled 的暗淡） ---------- */
+.btn.loading{opacity:.8;pointer-events:none;}
+.btn-spinner{width:13px;height:13px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:blt-spin .7s linear infinite;display:inline-block;vertical-align:-2px;flex-shrink:0;}
+.btn.default .btn-spinner,.btn.btn-default .btn-spinner{border-color:rgba(255,255,255,.2);border-top-color:var(--text);}
+@keyframes blt-spin{to{transform:rotate(360deg);}}
+
+/* ---------- 连接流程步骤条 ---------- */
+.conn-steps{display:flex;align-items:center;flex-wrap:wrap;gap:2px;margin:10px 0 2px 0;user-select:none;}
+.conn-step{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);transition:color .25s;}
+.conn-step .cs-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--line-strong);display:inline-flex;align-items:center;justify-content:center;font-size:10px;background:var(--panel2);color:var(--muted);transition:all .25s var(--ease-out);flex-shrink:0;font-weight:600;}
+.conn-step.active{color:var(--info-bright);}
+.conn-step.active .cs-dot{border-color:var(--info-bright);color:var(--info-bright);box-shadow:0 0 8px rgba(99,166,255,.35);animation:pulse 1.2s infinite;}
+.conn-step.done{color:var(--success-bright);}
+.conn-step.done .cs-dot{border-color:var(--success-bright);background:var(--success);border-color:var(--success);color:#fff;}
+.conn-step.fail{color:var(--danger-bright);}
+.conn-step.fail .cs-dot{border-color:var(--danger-bright);color:var(--danger-bright);box-shadow:0 0 8px rgba(232,128,128,.35);}
+.conn-step-arrow{color:var(--line-strong);margin:0 6px;font-size:11px;flex-shrink:0;}
+
+/* ---------- 引导跳转：目标卡片高亮脉冲 ---------- */
+@keyframes highlightPulse{0%{box-shadow:0 0 0 0 rgba(251,114,153,.5);}70%{box-shadow:0 0 0 10px rgba(251,114,153,0);}100%{box-shadow:0 0 0 0 rgba(251,114,153,0);}}
+.highlight-pulse{animation:highlightPulse 1.1s var(--ease-out) 2;border-color:var(--accent-line)!important;box-shadow:var(--shadow-glow)!important;}
+
+/* ---------- 顶栏自动保存指示 ---------- */
+.autosave-hint{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--success-bright);opacity:0;transition:opacity .35s;pointer-events:none;white-space:nowrap;}
+.autosave-hint.show{opacity:1;}
+
+/* ---------- 设置页分组小标题 ---------- */
+.settings-group-title{display:flex;align-items:center;gap:10px;margin:20px 0 10px 0;font-size:12px;color:var(--muted);letter-spacing:1.2px;font-weight:600;}
+.settings-group-title:first-child{margin-top:4px;}
+.settings-group-title::after{content:'';flex:1;height:1px;background:var(--line);}
+.settings-group-title .sg-hint{font-size:11px;letter-spacing:0;font-weight:400;color:var(--muted);opacity:.8;}
+
+/* ---------- 侧栏"记录中/停用"徽章可供性（可点击） ---------- */
+.nav-rec-badge{cursor:pointer;transition:filter .15s,transform .15s var(--ease-out);}
+.nav-rec-badge:hover{filter:brightness(1.25);transform:scale(1.06);}
+.nav-rec-badge:active{transform:scale(.94);}
+.nav-rec-badge.on::before{content:'⏹ ';}
+.nav-rec-badge.off::before{content:'▶ ';}
+
+/* ---------- 首次启动向导 ---------- */
+.onb-mask{position:fixed;inset:0;background:rgba(8,9,12,.78);backdrop-filter:blur(4px);z-index:2000;display:flex;align-items:center;justify-content:center;animation:fadeIn .25s ease-out;}
+.onb-card{width:560px;max-width:92vw;background:var(--panel);border:1px solid var(--line-strong);border-radius:var(--r-lg);box-shadow:var(--shadow-2);overflow:hidden;animation:fadeInUp .35s var(--ease-out);}
+.onb-head{padding:26px 28px 0;text-align:center;}
+.onb-emoji{font-size:42px;line-height:1;}
+.onb-title{font-size:20px;font-weight:700;color:var(--text-strong);margin-top:10px;}
+.onb-body{padding:18px 28px 4px;min-height:200px;}
+.onb-step-item{display:flex;gap:12px;padding:11px 13px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--panel2);margin-bottom:10px;align-items:flex-start;text-align:left;}
+.onb-step-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.onb-step-item b{color:var(--text-strong);display:block;font-size:14px;margin-bottom:2px;}
+.onb-step-item .onb-desc{font-size:12px;line-height:1.55;color:var(--muted);}
+.onb-foot{padding:14px 28px 20px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);margin-top:14px;}
+.onb-dots{display:flex;gap:6px;}
+.onb-dots span{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.18);transition:all .2s var(--ease-out);}
+.onb-dots span.active{background:var(--accent);transform:scale(1.25);box-shadow:0 0 6px rgba(251,114,153,.5);}
+.onb-actions{display:flex;gap:8px;}
+.onb-go-col{display:flex;flex-direction:column;gap:6px;flex-shrink:0;}
+/* Electron 窄栏模式（B站浏览器占右侧 65vw）时，向导在可见面板内居中 */
+body.electron-mode .onb-mask{padding-right:65vw;box-sizing:border-box;}
+body.electron-mode .onb-card{width:100%;max-width:440px;}
+
+/* ============================================================
+   v1.1.12 侧栏分组折叠（默认收起「日志记录」，点击组标题展开/收起）
+   ============================================================ */
+.nav-group{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;}
+.nav-group > span:first-child{flex:1;}
+.nav-group::after{content:'▾';margin-left:auto;font-size:14px;line-height:1;color:var(--text);font-weight:700;transition:transform .18s var(--ease-out);}
+.nav-group.folded::after{content:'▸';}
+.nav-group:hover{color:var(--text-strong);}
+.nav-group-body.folded{display:none;}
+.nav-group-rec-dot{width:7px;height:7px;border-radius:50%;background:var(--danger-bright);box-shadow:0 0 6px rgba(232,128,128,.55);display:none;flex-shrink:0;}
+.nav-group.has-rec .nav-group-rec-dot{display:inline-block;}

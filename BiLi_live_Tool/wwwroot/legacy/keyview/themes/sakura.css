@@ -1,0 +1,102 @@
+/* Theme: sakura — Japanese cherry blossom, soft pink & rounded. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --sk-pink: #ff9ebb;
+  --sk-deep: #e5698c;
+  --sk-pale: #fff0f4;
+  --sk-cream: #fff7f9;
+  --sk-fg: #8c5567;
+  --sk-t: calc(60ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff, var(--sk-pale));
+  border: 1.5px solid rgba(255, 158, 187, 0.6);
+  color: var(--sk-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-weight: 600;
+  user-select: none; box-sizing: border-box;
+  box-shadow: 0 2px 5px rgba(229, 105, 140, 0.15);
+  transition: all var(--sk-t) ease;
+}
+.kv-real-key.active {
+  background: linear-gradient(180deg, var(--sk-pink), var(--sk-deep));
+  border-color: var(--sk-deep);
+  color: #fff;
+  transform: translateY(2px) scale(0.96);
+  box-shadow: 0 0 16px rgba(255, 158, 187, 0.8), inset 0 -3px 6px rgba(0,0,0,0.1);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; filter: drop-shadow(0 3px 10px rgba(229, 105, 140, 0.25)); }
+.kv-mouse-part { transition: fill var(--sk-t) ease; fill: var(--sk-pale); }
+.kv-mouse-wheel { transition: fill var(--sk-t) ease; fill: var(--sk-pink); }
+.kv-mouse-outline { fill: none; stroke: var(--sk-deep); stroke-width: 2; }
+.kv-mouse-sep { stroke: rgba(229, 105, 140, 0.4); stroke-width: 1; }
+.kv-mouse-l.active { fill: var(--sk-pink); filter: drop-shadow(0 0 7px rgba(255, 158, 187, 0.9)); }
+.kv-mouse-r.active { fill: var(--sk-deep); filter: drop-shadow(0 0 7px rgba(229, 105, 140, 0.9)); }
+.kv-mouse-wheel.active { fill: var(--sk-deep); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--sk-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--sk-pink); filter: drop-shadow(0 0 5px var(--sk-pink)); }
+.kv-mouse-wheel-down.active { fill: var(--sk-pink); filter: drop-shadow(0 0 5px var(--sk-pink)); }
+.kv-mouse-side { fill: var(--sk-pale); stroke: var(--sk-pink); stroke-width: 1.5; transition: all var(--sk-t) ease; }
+.kv-mouse-side.active { fill: var(--sk-pink); stroke: var(--sk-deep); filter: drop-shadow(0 0 5px var(--sk-pink)); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--sk-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--sk-deep); filter: drop-shadow(0 0 5px var(--sk-deep)); }
+.kv-mouse-label {
+  font-size: 11px; color: var(--sk-fg); min-height: 14px; letter-spacing: 1px;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-weight: 600;
+}
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 4px 16px rgba(229, 105, 140, 0.3)); }
+.kv-gp-body { fill: rgba(255, 240, 244, 0.92); stroke: var(--sk-deep); stroke-width: 3; }
+.kv-gp-trig { fill: var(--sk-pink); stroke: var(--sk-deep); stroke-width: 2; opacity: calc(0.4 + var(--tv, 0) * 0.6); transition: opacity var(--sk-t) ease; }
+.kv-gp-trig.active { fill: var(--sk-deep); stroke: var(--sk-deep); opacity: 1; filter: drop-shadow(0 0 8px var(--sk-deep)); }
+.kv-gp-trig-fill { fill: var(--sk-deep); opacity: 0.6; }
+.kv-gp-trig-text { fill: var(--sk-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; }
+.kv-gp-shoulder { fill: var(--sk-pink); stroke: var(--sk-deep); stroke-width: 2; transition: all var(--sk-t) ease; }
+.kv-gp-shoulder.active { fill: var(--sk-deep); filter: drop-shadow(0 0 6px var(--sk-deep)); }
+.kv-gp-shoulder-text { fill: var(--sk-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; }
+.kv-gp-stick-outer { fill: var(--sk-cream); stroke: var(--sk-deep); stroke-width: 2; }
+.kv-gp-stick-inner { fill: var(--sk-pink); stroke: #fff; stroke-width: 2; transition: all var(--sk-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(229, 105, 140, 0.3); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: #fff; stroke: none; filter: drop-shadow(0 0 3px rgba(255, 158, 187, 0.8)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--sk-deep); filter: drop-shadow(0 0 6px var(--sk-deep)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: var(--sk-pink); stroke: var(--sk-deep); stroke-width: 1.5; transition: all var(--sk-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--sk-deep); filter: drop-shadow(0 0 6px var(--sk-deep)); }
+.kv-gp-face { fill: #fff; stroke: var(--face-c, var(--sk-pink)); stroke-width: 2.5; transition: all var(--sk-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--sk-pink)); filter: drop-shadow(0 0 10px var(--face-c, var(--sk-pink))); }
+.kv-gp-face-text { fill: var(--sk-fg); font-size: 12px; font-weight: 900; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; transition: fill var(--sk-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #fff; }
+.kv-gp-menu-btn { fill: var(--sk-pink); stroke: var(--sk-deep); stroke-width: 1.5; transition: all var(--sk-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--sk-deep); filter: drop-shadow(0 0 5px var(--sk-deep)); }
+.kv-gp-menu-text { fill: var(--sk-fg); font-size: 7px; font-weight: 600; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; }

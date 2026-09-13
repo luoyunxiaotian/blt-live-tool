@@ -1,0 +1,71 @@
+{
+  "_comment": "B站盲盒内置数据库 - 期望收入=Σ(price×chance%)/1000，price为电池(1000电池=1元)。由 blindFirstWin/getInfo API 获取，可通过 /api/blindbox/detect 刷新。",
+  "_updatedAt": "2026-08-31",
+  "幸运盲盒": {
+    "giftId": 35206,
+    "cost": 5,
+    "expectIncome": 4.84,
+    "gifts": [
+      {"name": "幸运泡泡", "price": 1500, "chance": "14.8%"},
+      {"name": "好运柚叶", "price": 2500, "chance": "25%"},
+      {"name": "星光铃铛", "price": 5200, "chance": "52.1%"},
+      {"name": "梦雾纸签", "price": 10000, "chance": "5%"},
+      {"name": "福灵小兽", "price": 20000, "chance": "2.7%"},
+      {"name": "星愿花园", "price": 60000, "chance": "0.4%"}
+    ]
+  },
+  "欧气盲盒": {
+    "giftId": 35642,
+    "cost": 9,
+    "expectIncome": 8.92,
+    "gifts": [
+      {"name": "谢谢参与", "price": 3000, "chance": "6%"},
+      {"name": "又歪了吧", "price": 6000, "chance": "47.02%"},
+      {"name": "再来一发", "price": 10000, "chance": "43.58%"},
+      {"name": "净手开盒", "price": 25000, "chance": "2.62%"},
+      {"name": "这把稳了", "price": 88000, "chance": "0.58%"},
+      {"name": "浪漫小堡", "price": 199000, "chance": "0.2%"}
+    ]
+  },
+  "偷塔盲盒": {
+    "giftId": 35643,
+    "cost": 9,
+    "expectIncome": 9.00,
+    "gifts": [
+      {"name": "嘴硬喇叭", "price": 9000, "chance": "6%"},
+      {"name": "偷分爪爪", "price": 9000, "chance": "47.02%"},
+      {"name": "声浪冲线", "price": 9000, "chance": "43.58%"},
+      {"name": "偷家警报", "price": 9000, "chance": "2.62%"},
+      {"name": "拆塔重锤", "price": 9000, "chance": "0.58%"},
+      {"name": "绝杀火箭", "price": 9000, "chance": "0.2%"}
+    ]
+  },
+  "心动盲盒": {
+    "giftId": 32251,
+    "cost": 15,
+    "expectIncome": 14.07,
+    "gifts": [
+      {"name": "电影票", "price": 2000, "chance": "6%"},
+      {"name": "棉花糖", "price": 9000, "chance": "44.5%"},
+      {"name": "爱心抱枕", "price": 16000, "chance": "45.56%"},
+      {"name": "绮彩权杖", "price": 40000, "chance": "3.7%"},
+      {"name": "时空之站", "price": 100000, "chance": "0.12%"},
+      {"name": "神驹宝玺", "price": 200000, "chance": "0.08%"},
+      {"name": "浪漫城堡", "price": 2233000, "chance": "0.04%"}
+    ]
+  },
+  "羁绊宝盒": {
+    "giftId": 35461,
+    "cost": 33,
+    "expectIncome": 32.34,
+    "gifts": [
+      {"name": "暖心陪伴", "price": 5000, "chance": "6%"},
+      {"name": "星光点点", "price": 20000, "chance": "45.02%"},
+      {"name": "甜蜜契约", "price": 35000, "chance": "44.58%"},
+      {"name": "守护之翼", "price": 100000, "chance": "4.12%"},
+      {"name": "心电共鸣", "price": 200000, "chance": "0.1%"},
+      {"name": "时光羁绊", "price": 800000, "chance": "0.1%"},
+      {"name": "命运交响", "price": 2888000, "chance": "0.08%"}
+    ]
+  }
+}

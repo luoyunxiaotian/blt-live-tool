@@ -1,0 +1,105 @@
+/* Theme: candy — gummy jelly keys with squash & stretch. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 7px;
+  --cd-pink: #ff6b9d;
+  --cd-orange: #ffa94d;
+  --cd-purple: #9775fa;
+  --cd-fg: #ffffff;
+  --cd-t: calc(60ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard: jelly capsules ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent; border: none; box-shadow: none; outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffb3ca 0%, var(--cd-pink) 40%, #e85588 100%);
+  border: none;
+  color: var(--cd-fg);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-weight: 700;
+  user-select: none; box-sizing: border-box;
+  box-shadow: inset 0 3px 5px rgba(255,255,255,0.5), inset 0 -4px 6px rgba(0,0,0,0.15), 0 4px 10px rgba(255, 107, 157, 0.4);
+  transition: transform calc(80ms / var(--kv-anim-speed, 1)) ease;
+}
+/* rotate jelly flavors across keys */
+.kv-real-key:nth-child(3n+2) { background: linear-gradient(180deg, #ffd3a3 0%, var(--cd-orange) 40%, #f08c00 100%); box-shadow: inset 0 3px 5px rgba(255,255,255,0.5), inset 0 -4px 6px rgba(0,0,0,0.15), 0 4px 10px rgba(255, 169, 77, 0.4); }
+.kv-real-key:nth-child(3n) { background: linear-gradient(180deg, #cabffa 0%, var(--cd-purple) 40%, #7950f2 100%); box-shadow: inset 0 3px 5px rgba(255,255,255,0.5), inset 0 -4px 6px rgba(0,0,0,0.15), 0 4px 10px rgba(151, 117, 250, 0.4); }
+.kv-real-key.active {
+  animation: jelly-squash calc(450ms / var(--kv-anim-speed, 1)) ease;
+}
+@keyframes jelly-squash {
+  0% { transform: scale(1, 1); }
+  25% { transform: scale(1.2, 0.75); }
+  50% { transform: scale(0.9, 1.15); }
+  70% { transform: scale(1.08, 0.92); }
+  100% { transform: scale(1, 1); }
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; filter: drop-shadow(0 5px 12px rgba(255, 107, 157, 0.35)); }
+.kv-mouse-part { transition: fill var(--cd-t) ease; fill: rgba(255, 107, 157, 0.75); }
+.kv-mouse-r { fill: rgba(151, 117, 250, 0.75); }
+.kv-mouse-wheel { transition: fill var(--cd-t) ease; fill: rgba(255, 169, 77, 0.85); }
+.kv-mouse-outline { fill: none; stroke: rgba(255, 255, 255, 0.6); stroke-width: 2; }
+.kv-mouse-sep { stroke: rgba(255, 255, 255, 0.4); stroke-width: 1.5; }
+.kv-mouse-l.active { fill: #ff8fb0; filter: drop-shadow(0 0 8px var(--cd-pink)); }
+.kv-mouse-r.active { fill: #b39dfa; filter: drop-shadow(0 0 8px var(--cd-purple)); }
+.kv-mouse-wheel.active { fill: #ffc078; }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--cd-t) ease; }
+.kv-mouse-wheel-up.active { fill: #ffc078; filter: drop-shadow(0 0 5px var(--cd-orange)); }
+.kv-mouse-wheel-down.active { fill: #ffc078; filter: drop-shadow(0 0 5px var(--cd-orange)); }
+.kv-mouse-side { fill: rgba(255, 169, 77, 0.75); stroke: rgba(255,255,255,0.5); stroke-width: 1; transition: all var(--cd-t) ease; }
+.kv-mouse-side.active { fill: #ffc078; filter: drop-shadow(0 0 5px var(--cd-orange)); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--cd-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: #ffffff; filter: drop-shadow(0 0 4px #fff); }
+.kv-mouse-label {
+  font-size: 11px; color: #fff; min-height: 14px; letter-spacing: 1px;
+  font-family: "Segoe UI", sans-serif; font-weight: 700;
+  text-shadow: 0 1px 4px rgba(255, 107, 157, 0.7);
+}
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 5px 14px rgba(255, 107, 157, 0.35)); }
+.kv-gp-body { fill: rgba(255, 143, 176, 0.85); stroke: #e85588; stroke-width: 3; }
+.kv-gp-trig { fill: var(--cd-pink); stroke: #e85588; stroke-width: 2; opacity: calc(0.4 + var(--tv, 0) * 0.6); transition: opacity var(--cd-t) ease; }
+.kv-gp-trig.active { fill: #ff8fb0; stroke: #fff; opacity: 1; filter: drop-shadow(0 0 8px var(--cd-pink)); }
+.kv-gp-trig-fill { fill: rgba(255,255,255,0.5); opacity: 0.6; }
+.kv-gp-trig-text { fill: #fff; font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; }
+.kv-gp-shoulder { fill: var(--cd-purple); stroke: #7950f2; stroke-width: 2; transition: all var(--cd-t) ease; }
+.kv-gp-shoulder.active { fill: #b39dfa; filter: drop-shadow(0 0 6px var(--cd-purple)); }
+.kv-gp-shoulder-text { fill: #fff; font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; }
+.kv-gp-stick-outer { fill: rgba(232, 85, 136, 0.9); stroke: #fff; stroke-width: 2; }
+.kv-gp-stick-inner { fill: var(--cd-orange); stroke: rgba(255,255,255,0.6); stroke-width: 2; transition: all var(--cd-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(255,255,255,0.4); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: #fff; stroke: none; filter: drop-shadow(0 0 3px #fff); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: #ffc078; filter: drop-shadow(0 0 6px var(--cd-orange)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: rgba(151, 117, 250, 0.9); stroke: rgba(255,255,255,0.5); stroke-width: 1.5; transition: all var(--cd-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: #b39dfa; filter: drop-shadow(0 0 6px var(--cd-purple)); }
+.kv-gp-face { fill: var(--face-c, var(--cd-pink)); stroke: rgba(255,255,255,0.7); stroke-width: 2.5; transition: all var(--cd-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--cd-pink)); filter: drop-shadow(0 0 10px var(--face-c, #fff)); }
+.kv-gp-face-text { fill: #fff; font-size: 12px; font-weight: 900; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; }
+.kv-gp-menu-btn { fill: var(--cd-orange); stroke: rgba(255,255,255,0.6); stroke-width: 1.5; transition: all var(--cd-t) ease; }
+.kv-gp-menu-btn.active { fill: #ffc078; filter: drop-shadow(0 0 5px var(--cd-orange)); }
+.kv-gp-menu-text { fill: #fff; font-size: 7px; font-weight: 600; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; }

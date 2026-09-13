@@ -1,0 +1,118 @@
+/* Theme: steampunk — brass & copper gauges, riveted keycaps, gear-spin press. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --sp-brass: #c9942a;
+  --sp-copper: #b87333;
+  --sp-dark: #2a2019;
+  --sp-leather: #3d2e1f;
+  --sp-fg: #f0dcb0;
+  --sp-t: calc(60ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard: riveted brass plates ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent; border: none; box-shadow: none; outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  position: relative;
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 6px;
+  background: linear-gradient(160deg, #6b4e2e 0%, var(--sp-leather) 50%, #241a10 100%);
+  border: 2px solid var(--sp-brass);
+  color: var(--sp-fg);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-family: "Georgia", "Times New Roman", serif;
+  font-weight: bold;
+  user-select: none; box-sizing: border-box;
+  box-shadow: inset 0 1px 0 rgba(240, 220, 176, 0.25), inset 0 -2px 4px rgba(0,0,0,0.5), 0 2px 5px rgba(0,0,0,0.45);
+  transition: all var(--sp-t) ease;
+}
+/* corner rivets via background gradients */
+.kv-real-key::before {
+  content: '';
+  position: absolute; inset: 2px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle 2px at 3px 3px, var(--sp-brass) 45%, transparent 55%),
+    radial-gradient(circle 2px at calc(100% - 3px) 3px, var(--sp-brass) 45%, transparent 55%),
+    radial-gradient(circle 2px at 3px calc(100% - 3px), var(--sp-brass) 45%, transparent 55%),
+    radial-gradient(circle 2px at calc(100% - 3px) calc(100% - 3px), var(--sp-brass) 45%, transparent 55%);
+}
+.kv-real-key.active {
+  background: linear-gradient(160deg, var(--sp-brass) 0%, #a3761f 50%, #6b4e2e 100%);
+  border-color: var(--sp-fg);
+  color: var(--sp-dark);
+  text-shadow: none;
+  box-shadow: 0 0 16px rgba(201, 148, 42, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  animation: gear-spin calc(350ms / var(--kv-anim-speed, 1)) ease;
+}
+@keyframes gear-spin {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(-4deg) scale(0.95); }
+  100% { transform: rotate(0deg); }
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; filter: drop-shadow(0 3px 10px rgba(0,0,0,0.5)); }
+.kv-mouse-part { transition: fill var(--sp-t) ease; fill: var(--sp-leather); }
+.kv-mouse-wheel { transition: fill var(--sp-t) ease; fill: var(--sp-copper); }
+.kv-mouse-outline { fill: none; stroke: var(--sp-brass); stroke-width: 2.5; }
+.kv-mouse-sep { stroke: var(--sp-brass); stroke-width: 1; }
+.kv-mouse-l.active { fill: var(--sp-copper); filter: drop-shadow(0 0 7px var(--sp-copper)); }
+.kv-mouse-r.active { fill: var(--sp-copper); filter: drop-shadow(0 0 7px var(--sp-copper)); }
+.kv-mouse-wheel.active { fill: var(--sp-brass); filter: drop-shadow(0 0 6px var(--sp-brass)); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--sp-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--sp-brass); filter: drop-shadow(0 0 5px var(--sp-brass)); }
+.kv-mouse-wheel-down.active { fill: var(--sp-brass); filter: drop-shadow(0 0 5px var(--sp-brass)); }
+.kv-mouse-side { fill: var(--sp-leather); stroke: var(--sp-brass); stroke-width: 1; transition: all var(--sp-t) ease; }
+.kv-mouse-side.active { fill: var(--sp-brass); stroke: var(--sp-fg); filter: drop-shadow(0 0 5px var(--sp-brass)); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--sp-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--sp-brass); filter: drop-shadow(0 0 4px var(--sp-brass)); }
+.kv-mouse-label {
+  font-size: 11px; color: var(--sp-fg); min-height: 14px; letter-spacing: 1px;
+  font-family: "Georgia", serif;
+  text-transform: uppercase;
+}
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.5)); }
+.kv-gp-body { fill: var(--sp-dark); stroke: var(--sp-brass); stroke-width: 3; }
+.kv-gp-trig { fill: var(--sp-leather); stroke: var(--sp-brass); stroke-width: 2; opacity: calc(0.4 + var(--tv, 0) * 0.6); transition: opacity var(--sp-t) ease; }
+.kv-gp-trig.active { fill: var(--sp-copper); stroke: var(--sp-fg); opacity: 1; filter: drop-shadow(0 0 8px var(--sp-copper)); }
+.kv-gp-trig-fill { fill: var(--sp-brass); opacity: 0.7; }
+.kv-gp-trig-text { fill: var(--sp-fg); font-size: 10px; font-weight: bold; text-anchor: middle; font-family: "Georgia", serif; pointer-events: none; }
+.kv-gp-shoulder { fill: var(--sp-leather); stroke: var(--sp-brass); stroke-width: 2; transition: all var(--sp-t) ease; }
+.kv-gp-shoulder.active { fill: var(--sp-brass); filter: drop-shadow(0 0 6px var(--sp-brass)); }
+.kv-gp-shoulder-text { fill: var(--sp-fg); font-size: 10px; font-weight: bold; text-anchor: middle; font-family: "Georgia", serif; pointer-events: none; }
+.kv-gp-stick-outer { fill: #1a1208; stroke: var(--sp-brass); stroke-width: 2; }
+.kv-gp-stick-inner { fill: var(--sp-leather); stroke: var(--sp-copper); stroke-width: 2; transition: all var(--sp-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(201, 148, 42, 0.35); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--sp-brass); stroke: none; filter: drop-shadow(0 0 3px var(--sp-brass)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--sp-copper); filter: drop-shadow(0 0 6px var(--sp-copper)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: var(--sp-leather); stroke: var(--sp-brass); stroke-width: 1.5; transition: all var(--sp-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--sp-copper); filter: drop-shadow(0 0 6px var(--sp-copper)); }
+.kv-gp-face { fill: var(--sp-leather); stroke: var(--face-c, var(--sp-brass)); stroke-width: 2.5; transition: all var(--sp-t) ease; }
+.kv-gp-face.active { fill: var(--sp-brass); filter: drop-shadow(0 0 10px var(--sp-brass)); }
+.kv-gp-face-text { fill: var(--sp-fg); font-size: 12px; font-weight: bold; text-anchor: middle; font-family: "Georgia", serif; pointer-events: none; transition: fill var(--sp-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: var(--sp-dark); }
+.kv-gp-menu-btn { fill: var(--sp-leather); stroke: var(--sp-brass); stroke-width: 1.5; transition: all var(--sp-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--sp-brass); filter: drop-shadow(0 0 5px var(--sp-brass)); }
+.kv-gp-menu-text { fill: var(--sp-fg); font-size: 7px; font-weight: 600; text-anchor: middle; font-family: "Georgia", serif; pointer-events: none; }

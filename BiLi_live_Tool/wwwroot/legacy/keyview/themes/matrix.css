@@ -1,0 +1,102 @@
+/* Theme: matrix — hacker terminal, phosphor green on black. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --mx-green: #00ff41;
+  --mx-dim: #008f11;
+  --mx-dark: #001a04;
+  --mx-fg: #00cc33;
+  --mx-t: calc(60ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 2px;
+  background: rgba(0, 40, 8, 0.5);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  color: var(--mx-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-weight: bold;
+  text-shadow: 0 0 4px rgba(0, 255, 65, 0.6);
+  user-select: none; box-sizing: border-box;
+  transition: all var(--mx-t) ease;
+}
+.kv-real-key.active {
+  background: rgba(0, 255, 65, 0.3);
+  border-color: var(--mx-green);
+  color: #baffc9;
+  text-shadow: 0 0 8px var(--mx-green), 0 0 16px rgba(0, 255, 65, 0.8);
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.6), inset 0 0 8px rgba(0, 255, 65, 0.3);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; filter: drop-shadow(0 0 10px rgba(0, 255, 65, 0.15)); }
+.kv-mouse-part { transition: fill var(--mx-t) ease; fill: rgba(0, 40, 8, 0.6); }
+.kv-mouse-wheel { transition: fill var(--mx-t) ease; fill: rgba(0, 70, 14, 0.8); }
+.kv-mouse-outline { fill: none; stroke: rgba(0, 255, 65, 0.5); stroke-width: 1.5; }
+.kv-mouse-sep { stroke: rgba(0, 255, 65, 0.25); stroke-width: 1; }
+.kv-mouse-l.active { fill: var(--mx-green); filter: drop-shadow(0 0 8px var(--mx-green)); }
+.kv-mouse-r.active { fill: var(--mx-green); filter: drop-shadow(0 0 8px var(--mx-green)); }
+.kv-mouse-wheel.active { fill: var(--mx-green); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--mx-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--mx-green); filter: drop-shadow(0 0 5px var(--mx-green)); }
+.kv-mouse-wheel-down.active { fill: var(--mx-green); filter: drop-shadow(0 0 5px var(--mx-green)); }
+.kv-mouse-side { fill: rgba(0, 40, 8, 0.6); stroke: rgba(0, 255, 65, 0.35); stroke-width: 1; transition: all var(--mx-t) ease; }
+.kv-mouse-side.active { fill: var(--mx-green); stroke: var(--mx-green); filter: drop-shadow(0 0 5px var(--mx-green)); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--mx-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--mx-green); filter: drop-shadow(0 0 5px var(--mx-green)); }
+.kv-mouse-label {
+  font-size: 11px; color: var(--mx-fg); min-height: 14px; letter-spacing: 1px;
+  font-family: "Consolas", "Courier New", monospace;
+  text-shadow: 0 0 4px rgba(0, 255, 65, 0.5);
+}
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 0 16px rgba(0, 255, 65, 0.2)); }
+.kv-gp-body { fill: rgba(0, 20, 3, 0.85); stroke: var(--mx-dim); stroke-width: 3; }
+.kv-gp-trig { fill: rgba(0, 50, 10, 0.8); stroke: var(--mx-dim); stroke-width: 2; opacity: calc(0.4 + var(--tv, 0) * 0.6); transition: opacity var(--mx-t) ease; }
+.kv-gp-trig.active { fill: var(--mx-green); stroke: var(--mx-green); opacity: 1; filter: drop-shadow(0 0 8px var(--mx-green)); }
+.kv-gp-trig-fill { fill: var(--mx-green); opacity: 0.65; }
+.kv-gp-trig-text { fill: var(--mx-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; }
+.kv-gp-shoulder { fill: rgba(0, 50, 10, 0.8); stroke: var(--mx-dim); stroke-width: 2; transition: all var(--mx-t) ease; }
+.kv-gp-shoulder.active { fill: var(--mx-green); filter: drop-shadow(0 0 6px var(--mx-green)); }
+.kv-gp-shoulder-text { fill: var(--mx-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; }
+.kv-gp-stick-outer { fill: rgba(0, 15, 2, 0.9); stroke: var(--mx-dim); stroke-width: 2; }
+.kv-gp-stick-inner { fill: rgba(0, 50, 10, 0.9); stroke: var(--mx-dark); stroke-width: 2; transition: all var(--mx-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(0, 255, 65, 0.2); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--mx-green); stroke: none; filter: drop-shadow(0 0 4px var(--mx-green)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--mx-green); filter: drop-shadow(0 0 6px var(--mx-green)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: rgba(0, 50, 10, 0.9); stroke: var(--mx-dim); stroke-width: 1.5; transition: all var(--mx-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--mx-green); filter: drop-shadow(0 0 6px var(--mx-green)); }
+.kv-gp-face { fill: rgba(0, 20, 3, 0.9); stroke: var(--face-c, var(--mx-dim)); stroke-width: 2.5; transition: all var(--mx-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--mx-green)); filter: drop-shadow(0 0 10px var(--face-c, var(--mx-green))); }
+.kv-gp-face-text { fill: var(--mx-fg); font-size: 12px; font-weight: 900; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; transition: fill var(--mx-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #001a04; }
+.kv-gp-menu-btn { fill: rgba(0, 50, 10, 0.9); stroke: var(--mx-dim); stroke-width: 1.5; transition: all var(--mx-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--mx-green); filter: drop-shadow(0 0 5px var(--mx-green)); }
+.kv-gp-menu-text { fill: var(--mx-fg); font-size: 7px; font-weight: 600; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; }

@@ -1,0 +1,108 @@
+/* Theme: ink — Chinese ink wash painting, rice-paper & vermilion seal. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --ik-paper: rgba(247, 243, 233, 0.85);
+  --ik-black: #2b2b2b;
+  --ik-gray: #6e6a62;
+  --ik-seal: #c23b22;
+  --ik-fg: #3d3a34;
+  --ik-t: calc(60ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(110, 106, 98, 0.4);
+  color: var(--ik-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  font-family: "KaiTi", "STKaiti", "SimSun", serif;
+  font-weight: bold;
+  user-select: none; box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(43, 43, 43, 0.12);
+  transition: all var(--ik-t) ease;
+}
+.kv-real-key.active {
+  background: var(--ik-black);
+  border-color: var(--ik-black);
+  color: var(--ik-paper);
+  transform: translateY(2px);
+  box-shadow: 0 0 12px rgba(43, 43, 43, 0.55), 0 0 4px rgba(43, 43, 43, 0.4);
+  animation: ink-spread 300ms ease;
+}
+@keyframes ink-spread {
+  0% { box-shadow: 0 0 0 0 rgba(43, 43, 43, 0.5); }
+  60% { box-shadow: 0 0 18px 6px rgba(43, 43, 43, 0.35); }
+  100% { box-shadow: 0 0 12px rgba(43, 43, 43, 0.55); }
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; filter: drop-shadow(0 2px 8px rgba(43, 43, 43, 0.2)); }
+.kv-mouse-part { transition: fill var(--ik-t) ease; fill: rgba(255, 255, 255, 0.55); }
+.kv-mouse-wheel { transition: fill var(--ik-t) ease; fill: var(--ik-gray); }
+.kv-mouse-outline { fill: none; stroke: var(--ik-black); stroke-width: 2; }
+.kv-mouse-sep { stroke: rgba(110, 106, 98, 0.5); stroke-width: 1; }
+.kv-mouse-l.active { fill: var(--ik-seal); filter: drop-shadow(0 0 6px rgba(194, 59, 34, 0.7)); }
+.kv-mouse-r.active { fill: var(--ik-black); filter: drop-shadow(0 0 6px rgba(43, 43, 43, 0.7)); }
+.kv-mouse-wheel.active { fill: var(--ik-seal); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--ik-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--ik-seal); filter: drop-shadow(0 0 5px rgba(194, 59, 34, 0.7)); }
+.kv-mouse-wheel-down.active { fill: var(--ik-seal); filter: drop-shadow(0 0 5px rgba(194, 59, 34, 0.7)); }
+.kv-mouse-side { fill: rgba(255, 255, 255, 0.55); stroke: var(--ik-gray); stroke-width: 1; transition: all var(--ik-t) ease; }
+.kv-mouse-side.active { fill: var(--ik-seal); stroke: var(--ik-seal); filter: drop-shadow(0 0 5px rgba(194, 59, 34, 0.7)); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--ik-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--ik-black); filter: drop-shadow(0 0 4px rgba(43, 43, 43, 0.6)); }
+.kv-mouse-label {
+  font-size: 11px; color: var(--ik-fg); min-height: 14px; letter-spacing: 2px;
+  font-family: "KaiTi", "STKaiti", "SimSun", serif;
+}
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 3px 14px rgba(43, 43, 43, 0.25)); }
+.kv-gp-body { fill: var(--ik-paper); stroke: var(--ik-black); stroke-width: 3; }
+.kv-gp-trig { fill: var(--ik-gray); stroke: var(--ik-black); stroke-width: 2; opacity: calc(0.4 + var(--tv, 0) * 0.6); transition: opacity var(--ik-t) ease; }
+.kv-gp-trig.active { fill: var(--ik-seal); stroke: var(--ik-black); opacity: 1; filter: drop-shadow(0 0 8px rgba(194, 59, 34, 0.7)); }
+.kv-gp-trig-fill { fill: var(--ik-seal); opacity: 0.65; }
+.kv-gp-trig-text { fill: var(--ik-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "KaiTi", serif; pointer-events: none; }
+.kv-gp-shoulder { fill: var(--ik-gray); stroke: var(--ik-black); stroke-width: 2; transition: all var(--ik-t) ease; }
+.kv-gp-shoulder.active { fill: var(--ik-seal); filter: drop-shadow(0 0 6px rgba(194, 59, 34, 0.7)); }
+.kv-gp-shoulder-text { fill: var(--ik-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "KaiTi", serif; pointer-events: none; }
+.kv-gp-stick-outer { fill: rgba(235, 230, 218, 0.95); stroke: var(--ik-black); stroke-width: 2; }
+.kv-gp-stick-inner { fill: var(--ik-gray); stroke: #fff; stroke-width: 2; transition: all var(--ik-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(110, 106, 98, 0.4); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--ik-black); stroke: none; filter: drop-shadow(0 0 3px rgba(43, 43, 43, 0.6)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--ik-black); filter: drop-shadow(0 0 6px rgba(43, 43, 43, 0.7)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: var(--ik-gray); stroke: var(--ik-black); stroke-width: 1.5; transition: all var(--ik-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--ik-seal); filter: drop-shadow(0 0 6px rgba(194, 59, 34, 0.7)); }
+.kv-gp-face { fill: rgba(255, 255, 255, 0.8); stroke: var(--face-c, var(--ik-black)); stroke-width: 2.5; transition: all var(--ik-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--ik-seal)); filter: drop-shadow(0 0 10px rgba(194, 59, 34, 0.6)); }
+.kv-gp-face-text { fill: var(--ik-fg); font-size: 12px; font-weight: 900; text-anchor: middle; font-family: "KaiTi", serif; pointer-events: none; transition: fill var(--ik-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #fff; }
+.kv-gp-menu-btn { fill: var(--ik-gray); stroke: var(--ik-black); stroke-width: 1.5; transition: all var(--ik-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--ik-seal); filter: drop-shadow(0 0 5px rgba(194, 59, 34, 0.7)); }
+.kv-gp-menu-text { fill: var(--ik-fg); font-size: 7px; font-weight: 600; text-anchor: middle; font-family: "KaiTi", serif; pointer-events: none; }

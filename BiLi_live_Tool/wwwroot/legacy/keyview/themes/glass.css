@@ -1,0 +1,80 @@
+/* Theme: glass (毛玻璃极简) — frosted glass, macOS-like, soft accent. */
+:root {
+  --kv-bg: rgba(28, 30, 42, 0.45);
+  --kv-fg: #f5f7fa;
+  --kv-accent: #5ad1ff;
+  --kv-radius: 16px;
+  --kv-blur: 22px;
+  --kv-shadow: 0 10px 34px rgba(0, 0, 0, 0.32), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+}
+
+#kv {
+  gap: 12px;
+  filter: saturate(1.05);
+}
+
+/* keyboard: pill keys with subtle border highlight */
+.kv-key {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.10);
+  box-shadow: var(--kv-shadow);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.kv-key-down {
+  background: linear-gradient(180deg, rgba(90, 209, 255, 0.95), rgba(90, 209, 255, 0.75));
+  color: #062433;
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 22px rgba(90, 209, 255, 0.65), 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+
+/* mouse: soft ripples */
+.kv-ripple {
+  border-width: 2px;
+  box-shadow: 0 0 12px rgba(90, 209, 255, 0.4);
+}
+.kv-mouse-label {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 12px;
+}
+.kv-wheel {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--kv-accent);
+}
+
+/* gamepad: frosted panel */
+.kv-gp {
+  border-radius: var(--kv-radius);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: var(--kv-shadow);
+}
+.kv-gp-btn {
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.kv-gp-btn.active {
+  background: linear-gradient(180deg, rgba(90, 209, 255, 0.95), rgba(90, 209, 255, 0.7));
+  color: #062433;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+.kv-gp-stick {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.kv-gp-stick::after {
+  background: var(--kv-accent);
+  box-shadow: 0 0 8px rgba(90, 209, 255, 0.6);
+}
+.kv-gp-trig {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.kv-gp-trig::after {
+  background: linear-gradient(0deg, rgba(90, 209, 255, 0.9), rgba(90, 209, 255, 0.6));
+}

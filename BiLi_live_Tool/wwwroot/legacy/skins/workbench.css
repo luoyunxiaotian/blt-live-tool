@@ -1,0 +1,69 @@
+/* ============================================================
+   皮肤 B · 清爽工作台（workbench）
+   浅灰白底 · 白卡细边框 · 蓝主色 · 紧凑克制（Linear/Notion 气质）
+   浅色皮肤：所有「为深色底设计」的硬编码色都要修正
+   ============================================================ */
+
+html[data-skin="workbench"]{
+  --bg:#f7f8fa; --panel:#ffffff; --panel2:#f2f4f8; --panel3:#e9edf3;
+  --line:#e6e8ee; --line-strong:#d5dae3;
+  --text:#3a3f4a; --text-strong:#171a21; --muted:#8a93a3;
+  --accent:#2f6bff; --accent-hover:#2456d6; --accent-soft:rgba(47,107,255,.10); --accent-line:rgba(47,107,255,.45);
+  --success:#18a05a; --success-bright:#0e8a4c; --success-soft:rgba(24,160,90,.10);
+  --warning:#e08e0b; --warning-bright:#a56c00; --warning-soft:rgba(224,142,11,.10);
+  --danger:#d54941; --danger-bright:#b93a32; --danger-soft:rgba(213,73,65,.09);
+  --info:#0e7490; --info-bright:#0e7490; --info-soft:rgba(14,116,144,.09);
+  --primary:#2f6bff; --primary-soft:rgba(47,107,255,.10);
+  --r-sm:6px; --r-md:8px; --r-lg:10px;
+  --shadow-1:0 1px 2px rgba(16,24,40,.05);
+  --shadow-2:0 12px 32px rgba(16,24,40,.14);
+  --shadow-hover:0 2px 8px rgba(16,24,40,.09);
+  --shadow-glow:0 0 0 3px rgba(47,107,255,.15);
+  --inner-shadow:none;
+}
+
+html[data-skin="workbench"] .sidebar{background:#ffffff;}
+html[data-skin="workbench"] .topbar{background:#ffffff;}
+html[data-skin="workbench"] .box,
+html[data-skin="workbench"] .card{box-shadow:0 1px 2px rgba(16,24,40,.04);}
+html[data-skin="workbench"] .box:hover,
+html[data-skin="workbench"] .card:hover{transform:none;}
+html[data-skin="workbench"] .rt-item,
+html[data-skin="workbench"] .conn-bar{background:#fbfcfe;}
+html[data-skin="workbench"] .tbl th{background:#f7f8fa;}
+html[data-skin="workbench"] .form-control,
+html[data-skin="workbench"] .input,
+html[data-skin="workbench"] .field input,
+html[data-skin="workbench"] .field select,
+html[data-skin="workbench"] .field textarea{background:#fbfcfe;}
+
+/* 按钮：收掉重阴影与位移 */
+html[data-skin="workbench"] .btn{box-shadow:none;}
+html[data-skin="workbench"] .btn:hover{box-shadow:none;transform:none;}
+html[data-skin="workbench"] .btn.primary,
+html[data-skin="workbench"] .btn-primary{box-shadow:none;}
+html[data-skin="workbench"] .btn.primary:hover,
+html[data-skin="workbench"] .btn-primary:hover{box-shadow:0 1px 4px rgba(47,107,255,.3);}
+html[data-skin="workbench"] .nav-item.active{background:#eef3ff;color:#2456d6;box-shadow:none;}
+
+/* 开关 */
+html[data-skin="workbench"] .switch .track{background:#dfe3ea;box-shadow:none;}
+html[data-skin="workbench"] .switch input:checked + .track{box-shadow:none;}
+html[data-skin="workbench"] .switch .track::after{box-shadow:0 1px 2px rgba(0,0,0,.2);}
+
+/* 硬编码色修正（浅色底） */
+html[data-skin="workbench"] .app-footer{background:#f0f2f6;border-top:1px solid #e6e8ee;}
+html[data-skin="workbench"] .field select option,
+html[data-skin="workbench"] .form-control option,
+html[data-skin="workbench"] .field select optgroup,
+html[data-skin="workbench"] .form-control optgroup{background:#ffffff;color:#171a21;}
+html[data-skin="workbench"] ::-webkit-scrollbar-thumb{background:rgba(0,0,0,.20);}
+html[data-skin="workbench"] ::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.32);}
+html[data-skin="workbench"] .dot.idle,
+html[data-skin="workbench"] .nav-dot.off{background:rgba(0,0,0,.22);}
+html[data-skin="workbench"] .onb-dots span{background:rgba(0,0,0,.18);}
+html[data-skin="workbench"] .badge.superchat{background:rgba(255,184,64,.18);color:#9a6a00;}
+html[data-skin="workbench"] .badge.blindbox{background:rgba(197,125,242,.15);color:#7a3fb8;}
+html[data-skin="workbench"] #biliCookieInline{background:rgba(0,0,0,.04)!important;}
+html[data-skin="workbench"] .banner.info{border-color:rgba(14,116,144,.3);}
+html[data-skin="workbench"] .modal{box-shadow:var(--shadow-2);}

@@ -1,0 +1,113 @@
+/* ============================================================
+   皮肤 F · 新粗野主义（brutal）
+   奶油纸底 · 2.5px 粗黑描边 · 硬投影（无模糊）· 高饱和撞色 · 超粗字重
+   ============================================================ */
+
+html[data-skin="brutal"]{
+  --bg:#f3eee2; --panel:#ffffff; --panel2:#f6f1e4; --panel3:#ebe4d2;
+  --line:#141414; --line-strong:#141414;
+  --text:#33302a; --text-strong:#141414; --muted:#8a8474;
+  --accent:#ffd02f; --accent-hover:#ffdb5c; --accent-soft:rgba(255,208,47,.28); --accent-line:rgba(255,208,47,.95);
+  --success:#a4e04a; --success-bright:#4f8f0a; --success-soft:rgba(164,224,74,.25);
+  --warning:#ff9f2e; --warning-bright:#b26a00; --warning-soft:rgba(255,159,46,.18);
+  --danger:#ff5a5a; --danger-bright:#d23434; --danger-soft:rgba(255,90,90,.16);
+  --info:#90d5ff; --info-bright:#1f76b3; --info-soft:rgba(144,213,255,.22);
+  --primary:#ffd02f; --primary-soft:rgba(255,208,47,.28);
+  --r-sm:6px; --r-md:10px; --r-lg:14px;
+  --shadow-1:4px 4px 0 #141414;
+  --shadow-2:8px 8px 0 #141414;
+  --shadow-hover:5px 5px 0 #141414;
+  --shadow-glow:4px 4px 0 #141414;
+  --inner-shadow:none;
+}
+
+html[data-skin="brutal"] body{font-weight:600;}
+html[data-skin="brutal"] .box-title,
+html[data-skin="brutal"] .card-title,
+html[data-skin="brutal"] .topbar .title,
+html[data-skin="brutal"] .content-header h1{font-weight:900;}
+
+/* 粗黑描边 + 硬投影 */
+html[data-skin="brutal"] .sidebar{border-right:2.5px solid #141414;background:#f3eee2;}
+html[data-skin="brutal"] .topbar{border-bottom:2.5px solid #141414;background:#f3eee2;}
+html[data-skin="brutal"] .box,
+html[data-skin="brutal"] .card,
+html[data-skin="brutal"] .info-box{border:2.5px solid #141414;}
+html[data-skin="brutal"] .modal{border:2.5px solid #141414;box-shadow:8px 8px 0 #141414;}
+html[data-skin="brutal"] .toast .t-item{border:2px solid #141414;box-shadow:4px 4px 0 #141414;}
+html[data-skin="brutal"] .callout{border:2px solid #141414;border-left-width:6px;background:#fff;}
+html[data-skin="brutal"] .rt-item,
+html[data-skin="brutal"] .conn-bar{border:2px solid #141414;background:#fff;}
+html[data-skin="brutal"] .tbl-wrap{border:2px solid #141414;}
+html[data-skin="brutal"] .table th{border-bottom:2.5px solid #141414;}
+html[data-skin="brutal"] .table td,
+html[data-skin="brutal"] .tbl th,
+html[data-skin="brutal"] .tbl td{border-bottom:2px dashed rgba(20,20,20,.25);}
+
+/* 按钮：黑描边 + 硬投影 + 按压位移（不设 background，保留基类/语义色按钮的底色） */
+html[data-skin="brutal"] .btn{border:2px solid #141414;font-weight:800;box-shadow:3px 3px 0 #141414;}
+html[data-skin="brutal"] .btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 #141414;border-color:#141414;}
+html[data-skin="brutal"] .btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #141414;}
+html[data-skin="brutal"] .btn:not(.primary):not(.btn-primary):not(.danger):not(.btn-danger):not(.success):not(.btn-success):not(.warning):not(.btn-warning):not(.info):not(.btn-info):not(.saved){background:#fff;color:#141414;}
+html[data-skin="brutal"] .btn.primary,
+html[data-skin="brutal"] .btn-primary{background:#141414;color:#ffd02f;border-color:#141414;box-shadow:3px 3px 0 rgba(20,20,20,.35);}
+html[data-skin="brutal"] .btn.primary:hover,
+html[data-skin="brutal"] .btn-primary:hover{background:#141414;color:#ffd02f;transform:translate(-1px,-1px);}
+html[data-skin="brutal"] .btn.danger,
+html[data-skin="brutal"] .btn-danger{border-color:#141414;box-shadow:3px 3px 0 #141414;}
+html[data-skin="brutal"] .btn.success,
+html[data-skin="brutal"] .btn-success,
+html[data-skin="brutal"] .btn.warning,
+html[data-skin="brutal"] .btn-warning,
+html[data-skin="brutal"] .btn.info,
+html[data-skin="brutal"] .btn-info{border-color:#141414;color:#141414;box-shadow:3px 3px 0 #141414;}
+html[data-skin="brutal"] .btn.flat,
+html[data-skin="brutal"] .btn.ghost{border-color:transparent;background:transparent;box-shadow:none;}
+html[data-skin="brutal"] .btn.flat:hover,
+html[data-skin="brutal"] .btn.ghost:hover{border-color:#141414;background:#fff;color:#141414;}
+
+/* 表单：白底黑框 */
+html[data-skin="brutal"] .form-control,
+html[data-skin="brutal"] .input,
+html[data-skin="brutal"] .field input,
+html[data-skin="brutal"] .field select,
+html[data-skin="brutal"] .field textarea{border:2px solid #141414;background:#fff;box-shadow:none;}
+html[data-skin="brutal"] .form-control:focus,
+html[data-skin="brutal"] .input:focus,
+html[data-skin="brutal"] .field input:focus,
+html[data-skin="brutal"] .field select:focus,
+html[data-skin="brutal"] .field textarea:focus{border-color:#141414;box-shadow:3px 3px 0 rgba(255,208,47,.9);}
+
+/* 导航：黄底黑框选中块 */
+html[data-skin="brutal"] .nav-item{margin:3px 10px;border:2px solid transparent;border-radius:9px;border-left:2px solid transparent;padding-left:14px;}
+html[data-skin="brutal"] .nav-item:hover{border-color:#141414;background:#fff;padding-left:16px;color:#141414;}
+html[data-skin="brutal"] .nav-item.active{
+  background:var(--accent);color:#141414;border-color:#141414;
+  box-shadow:3px 3px 0 #141414;font-weight:800;
+}
+
+/* 徽章 / 开关 / 顶栏状态 */
+html[data-skin="brutal"] .label,
+html[data-skin="brutal"] .badge,
+html[data-skin="brutal"] .badge-pill{border:1.5px solid #141414;border-radius:6px;font-weight:800;}
+html[data-skin="brutal"] .switch .track{background:#fff;border:2px solid #141414;border-radius:9px;box-shadow:none;}
+html[data-skin="brutal"] .switch input:checked + .track{background:var(--accent);border-color:#141414;box-shadow:none;}
+html[data-skin="brutal"] .switch .track::after{box-shadow:none;border:1.5px solid #141414;}
+html[data-skin="brutal"] .switch input:checked + .track::after{background:#fff;}
+html[data-skin="brutal"] .top-status{border:2px solid #141414;background:#fff;border-radius:8px;font-weight:700;}
+
+/* 杂项硬编码色修正 */
+html[data-skin="brutal"] .app-footer{background:#f3eee2;border-top:2.5px solid #141414;}
+html[data-skin="brutal"] .field select option,
+html[data-skin="brutal"] .form-control option,
+html[data-skin="brutal"] .field select optgroup,
+html[data-skin="brutal"] .form-control optgroup{background:#ffffff;color:#141414;}
+html[data-skin="brutal"] ::-webkit-scrollbar-thumb{background:#141414;border-radius:99px;border:2px solid #f3eee2;}
+html[data-skin="brutal"] .dot.idle,
+html[data-skin="brutal"] .nav-dot.off{background:rgba(20,20,20,.3);}
+html[data-skin="brutal"] .onb-dots span{background:rgba(20,20,20,.25);border:1.5px solid #141414;}
+html[data-skin="brutal"] .badge.superchat{background:#ffd02f;color:#141414;}
+html[data-skin="brutal"] .badge.blindbox{background:#c4b0ff;color:#141414;}
+html[data-skin="brutal"] #biliCookieInline{background:#f6f1e4!important;border:1.5px solid #141414;}
+html[data-skin="brutal"] .modal-mask{background:rgba(20,20,20,.5);}
+html[data-skin="brutal"] .switch-row{border-bottom:2px dashed rgba(20,20,20,.25);}

@@ -1,0 +1,44 @@
+{
+  "themes": [
+    {
+      "id": "glass",
+      "name": "毛玻璃极简",
+      "type": "original",
+      "devices": ["kb", "ms", "gp"],
+      "css": "themes/glass.css",
+      "preview": "半透明圆角卡片，macOS 毛玻璃风",
+      "params": [
+        { "key": "display.keyHoldMs", "label": "按键显示时长", "min": 200, "max": 3000, "step": 50, "unit": "ms" },
+        { "key": "display.animSpeed", "label": "动画速度", "min": 0.2, "max": 3, "step": 0.1, "unit": "x" }
+      ]
+    },
+    { "id": "real", "name": "写实键盘鼠标", "type": "borrow", "devices": ["kb", "ms"], "css": "themes/real.css", "preview": "完整键盘+鼠标图，按键/点击/滚轮高亮动画", "render": "layout", "params": [] },
+    { "id": "kb-stream", "name": "流式按键序列", "type": "borrow", "devices": ["kb"], "css": "themes/kb-stream.css", "preview": "气泡从右向左滚动", "params": [] },
+    { "id": "pad-real", "name": "写实手柄", "type": "borrow", "devices": ["gp"], "css": "themes/pad-real.css", "preview": "Xbox/PS5 手柄按键发光", "params": [] },
+    { "id": "kb-heatmap", "name": "KPS 热力图", "type": "borrow", "devices": ["kb"], "css": "themes/kb-heatmap.css", "preview": "按键频率热力着色", "render": "heatmap", "params": [] },
+    { "id": "mouse-trail", "name": "鼠标轨迹", "type": "borrow", "devices": ["ms"], "css": "themes/mouse-trail.css", "preview": "点击涟漪+移动轨迹", "render": "trail", "params": [] },
+    { "id": "neon", "name": "霓虹赛博朋克", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/neon.css", "preview": "霓虹发光+故障特效", "render": "layout", "params": [] },
+    { "id": "mech", "name": "机械轴体", "type": "original", "devices": ["kb"], "css": "themes/mech.css", "preview": "机械轴下陷+RGB 背光", "render": "layout", "params": [] },
+    { "id": "pixel", "name": "像素复古", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/pixel.css", "preview": "8-bit 像素风", "render": "layout", "params": [] },
+    { "id": "sticky", "name": "手写便签", "type": "original", "devices": ["kb"], "css": "themes/sticky.css", "preview": "仿手写贴纸盖章", "render": "layout", "params": [] },
+    { "id": "pad-mech", "name": "手柄机甲", "type": "original", "devices": ["gp"], "css": "themes/pad-mech.css", "preview": "线框机甲风手柄", "params": [] },
+    { "id": "dashboard", "name": "统一仪表盘", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/dashboard.css", "preview": "一屏聚合 AdminLTE 卡片", "render": "layout", "params": [] },
+    { "id": "ds", "name": "饥荒手绘", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/ds.css", "preview": "羊皮纸+木牌按键，Don't Starve 素描风", "render": "layout", "params": [] },
+    { "id": "macaron", "name": "马卡龙甜点", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/macaron.css", "preview": "粉彩柔和+圆润弹性，法式甜点风", "render": "layout", "params": [] },
+    { "id": "dmc", "name": "鬼泣暗黑", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/dmc.css", "preview": "纯黑+血红发光，哥特魔咒风", "render": "layout", "params": [] },
+    { "id": "matrix", "name": "黑客矩阵", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/matrix.css", "preview": "磷光绿终端+扫描线，黑客帝国风", "render": "layout", "params": [] },
+    { "id": "vaporwave", "name": "蒸汽波", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/vaporwave.css", "preview": "紫粉青霓虹渐变，A E S T H E T I C", "render": "layout", "params": [] },
+    { "id": "sakura", "name": "日式樱花", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/sakura.css", "preview": "粉白圆润软萌，樱花绽放光晕", "render": "layout", "params": [] },
+    { "id": "gold", "name": "王者金", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/gold.css", "preview": "黑金奢华双线描边，流光金特效", "render": "layout", "params": [] },
+    { "id": "crt", "name": "复古终端", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/crt.css", "preview": "琥珀磷光+扫描线闪烁，老式CRT", "render": "layout", "params": [] },
+    { "id": "ink", "name": "水墨丹青", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/ink.css", "preview": "宣纸+墨晕+印章红，中国风水墨", "render": "layout", "params": [] },
+    { "id": "aqua", "name": "深海之光", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/aqua.css", "preview": "深渊蓝+生物荧光青，海底科技感", "render": "layout", "params": [] },
+    { "id": "hexgrid", "name": "蜂巢六边形", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/hexgrid.css", "preview": "六边形按键，按下旋转弹跳发光", "render": "layout", "params": [] },
+    { "id": "orb", "name": "魔法气泡", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/orb.css", "preview": "圆形气泡按键，果冻质感弹跳", "render": "layout", "params": [] },
+    { "id": "arcade", "name": "街机厅", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/arcade.css", "preview": "街机凸起按钮，糖果色循环，按压下沉", "render": "layout", "params": [] },
+    { "id": "holo", "name": "全息故障", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/holo.css", "preview": "全息线框+四角标，按下glitch故障", "render": "layout", "params": [] },
+    { "id": "gameboy", "name": "掌机液晶", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/gameboy.css", "preview": "GB四色绿液晶屏，像素阶梯动画", "render": "layout", "params": [] },
+    { "id": "candy", "name": "果冻软糖", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/candy.css", "preview": "软糖按键三种口味，按压Q弹压扁", "render": "layout", "params": [] },
+    { "id": "steampunk", "name": "蒸汽朋克", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/steampunk.css", "preview": "黄铜铆钉按键，齿轮旋转铜光", "render": "layout", "params": [] }
+  ]
+}

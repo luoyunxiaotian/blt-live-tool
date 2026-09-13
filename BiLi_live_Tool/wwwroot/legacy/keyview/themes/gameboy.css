@@ -1,0 +1,98 @@
+/* Theme: gameboy — Game Boy 4-shade green LCD with pixel keycaps. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 4px;
+  --gb-darkest: #0f380f;
+  --gb-dark: #306230;
+  --gb-light: #8bac0f;
+  --gb-lightest: #9bbc0f;
+  --gb-t: calc(70ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard: pixel LCD keys ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent; border: none; box-shadow: none; outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 0;
+  background: var(--gb-lightest);
+  border: 2px solid var(--gb-darkest);
+  color: var(--gb-darkest);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-family: "Courier New", monospace;
+  font-weight: bold;
+  user-select: none; box-sizing: border-box;
+  box-shadow: inset -2px -2px 0 var(--gb-light), inset 2px 2px 0 rgba(255,255,255,0.35);
+  image-rendering: pixelated;
+  transition: all var(--gb-t) steps(3, end);
+}
+.kv-real-key.active {
+  background: var(--gb-dark);
+  color: var(--gb-lightest);
+  box-shadow: inset 2px 2px 0 var(--gb-darkest);
+  transform: translate(2px, 2px);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; }
+.kv-mouse-part { transition: fill var(--gb-t) steps(3, end); fill: var(--gb-lightest); }
+.kv-mouse-wheel { transition: fill var(--gb-t) steps(3, end); fill: var(--gb-light); }
+.kv-mouse-outline { fill: none; stroke: var(--gb-darkest); stroke-width: 3; }
+.kv-mouse-sep { stroke: var(--gb-darkest); stroke-width: 2; }
+.kv-mouse-l.active { fill: var(--gb-dark); }
+.kv-mouse-r.active { fill: var(--gb-dark); }
+.kv-mouse-wheel.active { fill: var(--gb-darkest); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--gb-t) steps(3, end); }
+.kv-mouse-wheel-up.active { fill: var(--gb-dark); }
+.kv-mouse-wheel-down.active { fill: var(--gb-dark); }
+.kv-mouse-side { fill: var(--gb-light); stroke: var(--gb-darkest); stroke-width: 2; transition: all var(--gb-t) steps(3, end); }
+.kv-mouse-side.active { fill: var(--gb-dark); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--gb-t) steps(3, end); }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--gb-darkest); }
+.kv-mouse-label {
+  font-size: 11px; color: var(--gb-darkest); min-height: 14px; letter-spacing: 1px;
+  font-family: "Courier New", monospace;
+  font-weight: bold;
+}
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; }
+.kv-gp-body { fill: var(--gb-lightest); stroke: var(--gb-darkest); stroke-width: 4; }
+.kv-gp-trig { fill: var(--gb-light); stroke: var(--gb-darkest); stroke-width: 3; opacity: calc(0.4 + var(--tv, 0) * 0.6); transition: opacity var(--gb-t) steps(3, end); }
+.kv-gp-trig.active { fill: var(--gb-dark); opacity: 1; }
+.kv-gp-trig-fill { fill: var(--gb-dark); opacity: 1; }
+.kv-gp-trig-text { fill: var(--gb-darkest); font-size: 10px; font-weight: bold; text-anchor: middle; font-family: "Courier New", monospace; pointer-events: none; }
+.kv-gp-shoulder { fill: var(--gb-light); stroke: var(--gb-darkest); stroke-width: 3; transition: all var(--gb-t) steps(3, end); }
+.kv-gp-shoulder.active { fill: var(--gb-dark); }
+.kv-gp-shoulder-text { fill: var(--gb-darkest); font-size: 10px; font-weight: bold; text-anchor: middle; font-family: "Courier New", monospace; pointer-events: none; }
+.kv-gp-stick-outer { fill: var(--gb-lightest); stroke: var(--gb-darkest); stroke-width: 3; }
+.kv-gp-stick-inner { fill: var(--gb-light); stroke: var(--gb-darkest); stroke-width: 3; transition: all var(--gb-t) steps(3, end); }
+.kv-gp-stick-ring { fill: none; stroke: var(--gb-darkest); stroke-width: 2; stroke-dasharray: 6 4; }
+.kv-gp-stick-dot { fill: var(--gb-darkest); stroke: none; }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--gb-dark); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: var(--gb-dark); stroke: var(--gb-darkest); stroke-width: 2.5; transition: all var(--gb-t) steps(3, end); }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--gb-darkest); }
+.kv-gp-face { fill: var(--gb-light); stroke: var(--gb-darkest); stroke-width: 3.5; transition: all var(--gb-t) steps(3, end); }
+.kv-gp-face.active { fill: var(--gb-darkest); }
+.kv-gp-face-text { fill: var(--gb-darkest); font-size: 13px; font-weight: bold; text-anchor: middle; font-family: "Courier New", monospace; pointer-events: none; transition: fill var(--gb-t) steps(3, end); }
+.kv-gp-face.active + .kv-gp-face-text { fill: var(--gb-lightest); }
+.kv-gp-menu-btn { fill: var(--gb-dark); stroke: var(--gb-darkest); stroke-width: 2.5; transition: all var(--gb-t) steps(3, end); }
+.kv-gp-menu-btn.active { fill: var(--gb-darkest); }
+.kv-gp-menu-text { fill: var(--gb-lightest); font-size: 7px; font-weight: bold; text-anchor: middle; font-family: "Courier New", monospace; pointer-events: none; }

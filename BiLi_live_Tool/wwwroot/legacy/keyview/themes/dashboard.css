@@ -1,0 +1,141 @@
+/* Theme: dashboard — AdminLTE-style aggregated dashboard. All devices. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --kv-dash-card: #2c3b41;
+  --kv-dash-card2: #222d32;
+  --kv-dash-edge: #3c8dbc;
+  --kv-dash-cap: #36474f;
+  --kv-fg: #e8edf2;
+  --kv-active: #3c8dbc;
+  --kv-active-glow: rgba(60, 141, 188, 0.8);
+}
+
+#kv { bottom: 18px; gap: 12px; align-items: center; }
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 14px;
+}
+.kv-section:empty { display: none; }
+
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 4px;
+  background: var(--kv-dash-cap);
+  border: 1px solid rgba(60, 141, 188, 0.25);
+  color: var(--kv-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  letter-spacing: 0.2px;
+  user-select: none; box-sizing: border-box;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all calc(60ms / var(--kv-anim-speed)) ease;
+}
+.kv-real-key.active {
+  background: var(--kv-active);
+  color: #fff;
+  transform: translateY(2px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0.3), 0 0 16px var(--kv-active-glow), inset 0 0 6px rgba(255, 255, 255, 0.2);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+.kv-real-mouse-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px;
+  border-top: 3px solid var(--kv-dash-edge);
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--kv-dash-card) 0%, var(--kv-dash-card2) 100%);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+.kv-real-mouse {
+  width: 93px; height: 112px;
+  transition: transform calc(90ms / var(--kv-anim-speed)) ease;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+}
+.kv-mouse-part { transition: fill calc(60ms / var(--kv-anim-speed)) ease; fill: var(--kv-dash-cap); }
+.kv-mouse-wheel { transition: fill calc(70ms / var(--kv-anim-speed)) ease; fill: var(--kv-dash-cap); }
+.kv-mouse-outline { fill: none; stroke: rgba(60, 141, 188, 0.5); stroke-width: 1.5; }
+.kv-mouse-sep { stroke: rgba(0, 0, 0, 0.4); stroke-width: 1; }
+.kv-mouse-l.active { fill: var(--kv-active); filter: drop-shadow(0 0 6px var(--kv-active-glow)); }
+.kv-mouse-r.active { fill: var(--kv-active); filter: drop-shadow(0 0 6px var(--kv-active-glow)); }
+.kv-mouse-wheel.active { fill: var(--kv-active); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill calc(70ms / var(--kv-anim-speed)) ease; }
+.kv-mouse-wheel-up.active { fill: var(--kv-active); filter: drop-shadow(0 0 4px var(--kv-active-glow)); }
+.kv-mouse-wheel-down.active { fill: var(--kv-active); filter: drop-shadow(0 0 4px var(--kv-active-glow)); }
+.kv-mouse-side { fill: var(--kv-dash-cap); stroke: rgba(60, 141, 188, 0.5); stroke-width: 1; transition: fill calc(60ms / var(--kv-anim-speed)) ease; }
+.kv-mouse-side.active { fill: var(--kv-active); stroke: var(--kv-active); filter: drop-shadow(0 0 4px var(--kv-active-glow)); }
+.kv-mouse-dir { opacity: 0; transition: opacity calc(120ms / var(--kv-anim-speed)) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--kv-active); filter: drop-shadow(0 0 4px var(--kv-active-glow)); }
+.kv-mouse-label {
+  font-size: 11px; color: var(--kv-fg);
+  opacity: 0.85;
+  font-family: "Segoe UI", sans-serif;
+  min-height: 14px; letter-spacing: 0.5px;
+}
+
+.kv-gp {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border-top: 3px solid var(--kv-dash-edge);
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--kv-dash-card) 0%, var(--kv-dash-card2) 100%);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+.kv-gp-btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.kv-gp-btn {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  border: 1px solid rgba(60, 141, 188, 0.25);
+  background: var(--kv-dash-cap);
+  font-size: 9px; font-weight: 700; color: var(--kv-fg);
+  transition: all calc(60ms / var(--kv-anim-speed)) ease;
+}
+.kv-gp-btn.active {
+  background: var(--kv-active); color: #fff;
+  box-shadow: 0 0 12px var(--kv-active-glow);
+}
+.kv-gp-stick {
+  position: relative; width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(60, 141, 188, 0.3);
+  background: var(--kv-dash-cap);
+}
+.kv-gp-stick::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 12px; height: 12px; margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--kv-active);
+  box-shadow: 0 0 6px var(--kv-active-glow);
+  transform: translate(var(--sx, 0px), var(--sy, 0px));
+  transition: transform calc(60ms / var(--kv-anim-speed)) ease;
+}
+.kv-gp-trig {
+  width: 8px; height: 30px; border-radius: 3px;
+  border: 1px solid rgba(60, 141, 188, 0.25);
+  background: var(--kv-dash-cap); position: relative; overflow: hidden;
+}
+.kv-gp-trig::after {
+  content: ""; position: absolute; left: 0; bottom: 0; width: 100%;
+  height: var(--tv, 0%);
+  background: var(--kv-active);
+  box-shadow: 0 0 6px var(--kv-active-glow);
+  transition: height calc(60ms / var(--kv-anim-speed)) ease;
+}

@@ -1,0 +1,104 @@
+/* Theme: gold — royal black & gold luxury. Sharp edges, flowing light. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --gd-gold: #ffd700;
+  --gd-deep: #b8860b;
+  --gd-dark: #1a1a1a;
+  --gd-line: #8a6d1f;
+  --gd-fg: #e8d9a0;
+  --gd-t: calc(60ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(50, 44, 24, 0.8), rgba(24, 22, 12, 0.85));
+  border: 1px solid var(--gd-line);
+  box-shadow: inset 0 1px 0 rgba(255, 215, 0, 0.25), inset 0 -1px 0 rgba(0,0,0,0.5);
+  color: var(--gd-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  font-family: "Georgia", "Times New Roman", serif;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  user-select: none; box-sizing: border-box;
+  transition: all var(--gd-t) ease;
+}
+.kv-real-key.active {
+  background: linear-gradient(180deg, #ffe664, var(--gd-deep));
+  border-color: #fff2b0;
+  color: #1a1400;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 18px var(--gd-gold), 0 0 36px rgba(255, 215, 0, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.4);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; filter: drop-shadow(0 0 12px rgba(184, 134, 11, 0.35)); }
+.kv-mouse-part { transition: fill var(--gd-t) ease; fill: rgba(40, 36, 20, 0.85); }
+.kv-mouse-wheel { transition: fill var(--gd-t) ease; fill: var(--gd-deep); }
+.kv-mouse-outline { fill: none; stroke: var(--gd-line); stroke-width: 2; }
+.kv-mouse-sep { stroke: rgba(255, 215, 0, 0.25); stroke-width: 1; }
+.kv-mouse-l.active { fill: var(--gd-gold); filter: drop-shadow(0 0 8px var(--gd-gold)); }
+.kv-mouse-r.active { fill: var(--gd-gold); filter: drop-shadow(0 0 8px var(--gd-gold)); }
+.kv-mouse-wheel.active { fill: #fff2b0; filter: drop-shadow(0 0 6px #fff2b0); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--gd-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--gd-gold); filter: drop-shadow(0 0 5px var(--gd-gold)); }
+.kv-mouse-wheel-down.active { fill: var(--gd-gold); filter: drop-shadow(0 0 5px var(--gd-gold)); }
+.kv-mouse-side { fill: rgba(40, 36, 20, 0.85); stroke: var(--gd-line); stroke-width: 1; transition: all var(--gd-t) ease; }
+.kv-mouse-side.active { fill: var(--gd-gold); stroke: var(--gd-gold); filter: drop-shadow(0 0 5px var(--gd-gold)); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--gd-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--gd-gold); filter: drop-shadow(0 0 5px var(--gd-gold)); }
+.kv-mouse-label {
+  font-size: 11px; color: var(--gd-fg); min-height: 14px; letter-spacing: 1.5px;
+  font-family: "Georgia", serif;
+  text-transform: uppercase;
+  text-shadow: 0 0 4px rgba(255, 215, 0, 0.4);
+}
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 0 18px rgba(184, 134, 11, 0.4)); }
+.kv-gp-body { fill: rgba(12, 11, 6, 0.92); stroke: var(--gd-deep); stroke-width: 3; }
+.kv-gp-trig { fill: rgba(50, 44, 24, 0.9); stroke: var(--gd-line); stroke-width: 2; opacity: calc(0.4 + var(--tv, 0) * 0.6); transition: opacity var(--gd-t) ease; }
+.kv-gp-trig.active { fill: var(--gd-gold); stroke: #fff2b0; opacity: 1; filter: drop-shadow(0 0 8px var(--gd-gold)); }
+.kv-gp-trig-fill { fill: var(--gd-gold); opacity: 0.75; }
+.kv-gp-trig-text { fill: var(--gd-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Georgia", serif; pointer-events: none; }
+.kv-gp-shoulder { fill: rgba(50, 44, 24, 0.9); stroke: var(--gd-line); stroke-width: 2; transition: all var(--gd-t) ease; }
+.kv-gp-shoulder.active { fill: var(--gd-gold); filter: drop-shadow(0 0 6px var(--gd-gold)); }
+.kv-gp-shoulder-text { fill: var(--gd-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Georgia", serif; pointer-events: none; }
+.kv-gp-stick-outer { fill: rgba(8, 7, 4, 0.95); stroke: var(--gd-deep); stroke-width: 2; }
+.kv-gp-stick-inner { fill: rgba(50, 44, 24, 0.9); stroke: var(--gd-dark); stroke-width: 2; transition: all var(--gd-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(255, 215, 0, 0.2); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--gd-gold); stroke: none; filter: drop-shadow(0 0 4px var(--gd-gold)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--gd-deep); filter: drop-shadow(0 0 6px var(--gd-gold)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: rgba(50, 44, 24, 0.9); stroke: var(--gd-line); stroke-width: 1.5; transition: all var(--gd-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--gd-gold); filter: drop-shadow(0 0 6px var(--gd-gold)); }
+.kv-gp-face { fill: rgba(12, 11, 6, 0.95); stroke: var(--face-c, var(--gd-deep)); stroke-width: 2.5; transition: all var(--gd-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--gd-gold)); filter: drop-shadow(0 0 10px var(--face-c, var(--gd-gold))); }
+.kv-gp-face-text { fill: var(--gd-fg); font-size: 12px; font-weight: 900; text-anchor: middle; font-family: "Georgia", serif; pointer-events: none; transition: fill var(--gd-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #1a1400; }
+.kv-gp-menu-btn { fill: rgba(50, 44, 24, 0.9); stroke: var(--gd-line); stroke-width: 1.5; transition: all var(--gd-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--gd-gold); filter: drop-shadow(0 0 5px var(--gd-gold)); }
+.kv-gp-menu-text { fill: var(--gd-fg); font-size: 7px; font-weight: 600; text-anchor: middle; font-family: "Georgia", serif; pointer-events: none; }

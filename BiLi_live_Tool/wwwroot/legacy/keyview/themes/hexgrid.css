@@ -1,0 +1,96 @@
+/* Theme: hexgrid — hexagonal honeycomb keys, glow radiates on press. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 7px;
+  --hx-glow: #ffe14d;
+  --hx-line: rgba(255, 225, 77, 0.35);
+  --hx-fill: rgba(255, 225, 77, 0.08);
+  --hx-fg: #ffd34d;
+  --hx-t: calc(60ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard: hexagon keys via clip-path ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent; border: none; box-shadow: none; outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  background: var(--hx-fill);
+  border: none;
+  color: var(--hx-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-weight: 700;
+  user-select: none; box-sizing: border-box;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  transition: all var(--hx-t) ease;
+}
+.kv-real-key.active {
+  background: var(--hx-glow);
+  color: #1a1400;
+  animation: hex-pop calc(300ms / var(--kv-anim-speed, 1)) ease;
+}
+@keyframes hex-pop {
+  0% { transform: scale(1) rotate(0deg); filter: brightness(1); }
+  40% { transform: scale(1.18) rotate(6deg); filter: brightness(1.6); }
+  100% { transform: scale(1) rotate(0deg); filter: brightness(1); }
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse: hexagon parts ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; filter: drop-shadow(0 0 8px rgba(255, 225, 77, 0.2)); }
+.kv-mouse-part { transition: fill var(--hx-t) ease; fill: var(--hx-fill); }
+.kv-mouse-wheel { transition: fill var(--hx-t) ease; fill: rgba(255, 225, 77, 0.3); }
+.kv-mouse-outline { fill: none; stroke: var(--hx-line); stroke-width: 1.5; }
+.kv-mouse-sep { stroke: var(--hx-line); stroke-width: 1; }
+.kv-mouse-l.active { fill: var(--hx-glow); filter: drop-shadow(0 0 8px var(--hx-glow)); }
+.kv-mouse-r.active { fill: var(--hx-glow); filter: drop-shadow(0 0 8px var(--hx-glow)); }
+.kv-mouse-wheel.active { fill: var(--hx-glow); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--hx-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--hx-glow); }
+.kv-mouse-wheel-down.active { fill: var(--hx-glow); }
+.kv-mouse-side { fill: var(--hx-fill); stroke: var(--hx-line); stroke-width: 1; transition: all var(--hx-t) ease; }
+.kv-mouse-side.active { fill: var(--hx-glow); stroke: var(--hx-glow); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--hx-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--hx-glow); }
+.kv-mouse-label { font-size: 11px; color: var(--hx-fg); min-height: 14px; letter-spacing: 1px; font-family: "Segoe UI", sans-serif; }
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 0 12px rgba(255, 225, 77, 0.2)); }
+.kv-gp-body { fill: rgba(30, 24, 4, 0.75); stroke: var(--hx-line); stroke-width: 3; }
+.kv-gp-trig { fill: rgba(255, 225, 77, 0.15); stroke: var(--hx-line); stroke-width: 2; opacity: calc(0.4 + var(--tv, 0) * 0.6); transition: opacity var(--hx-t) ease; }
+.kv-gp-trig.active { fill: var(--hx-glow); stroke: var(--hx-glow); opacity: 1; filter: drop-shadow(0 0 8px var(--hx-glow)); }
+.kv-gp-trig-fill { fill: var(--hx-glow); opacity: 0.7; }
+.kv-gp-trig-text { fill: var(--hx-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; }
+.kv-gp-shoulder { fill: rgba(255, 225, 77, 0.15); stroke: var(--hx-line); stroke-width: 2; transition: all var(--hx-t) ease; }
+.kv-gp-shoulder.active { fill: var(--hx-glow); filter: drop-shadow(0 0 6px var(--hx-glow)); }
+.kv-gp-shoulder-text { fill: var(--hx-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; }
+.kv-gp-stick-outer { fill: rgba(20, 16, 2, 0.8); stroke: var(--hx-line); stroke-width: 2; }
+.kv-gp-stick-inner { fill: rgba(255, 225, 77, 0.12); stroke: rgba(255, 225, 77, 0.2); stroke-width: 2; transition: all var(--hx-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(255, 225, 77, 0.2); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--hx-glow); stroke: none; filter: drop-shadow(0 0 4px var(--hx-glow)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--hx-glow); filter: drop-shadow(0 0 6px var(--hx-glow)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: rgba(255, 225, 77, 0.12); stroke: var(--hx-line); stroke-width: 1.5; transition: all var(--hx-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--hx-glow); filter: drop-shadow(0 0 6px var(--hx-glow)); }
+.kv-gp-face { fill: rgba(30, 24, 4, 0.8); stroke: var(--face-c, var(--hx-line)); stroke-width: 2.5; transition: all var(--hx-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--hx-glow)); filter: drop-shadow(0 0 10px var(--face-c, var(--hx-glow))); }
+.kv-gp-face-text { fill: var(--hx-fg); font-size: 12px; font-weight: 900; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; transition: fill var(--hx-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #1a1400; }
+.kv-gp-menu-btn { fill: rgba(255, 225, 77, 0.12); stroke: var(--hx-line); stroke-width: 1.5; transition: all var(--hx-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--hx-glow); filter: drop-shadow(0 0 5px var(--hx-glow)); }
+.kv-gp-menu-text { fill: var(--hx-fg); font-size: 7px; font-weight: 600; text-anchor: middle; font-family: "Segoe UI", sans-serif; pointer-events: none; }

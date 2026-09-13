@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root{--bg:#101014;--panel:#18181c;--line:rgba(255,255,255,.09);--text:rgba(255,255,255,.82);--muted:rgba(255,255,255,.38);--accent:#63e2b7;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
+.wrap{max-width:1200px;margin:0 auto;padding:24px;}
+h1{font-size:22px;font-weight:600;margin:0 0 16px;border-left:4px solid var(--accent);padding-left:12px;}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center;}
+.toolbar input,.toolbar button{height:34px;border-radius:3px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--text);padding:0 10px;font-size:14px;}
+.toolbar input:focus{outline:none;border-color:var(--accent);}
+.toolbar button{cursor:pointer;background:var(--accent);color:#000;border:none;}
+.toolbar button.ghost{background:transparent;color:var(--text);border:1px solid var(--line);}
+#count{font-size:13px;color:var(--muted);}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px;}
+th{background:rgba(255,255,255,.05);color:rgba(255,255,255,.9);font-weight:500;position:sticky;top:0;}
+tbody tr:hover{background:rgba(255,255,255,.04);}
+.empty{text-align:center;color:var(--muted);padding:40px;}
+.pager{display:flex;gap:8px;margin-top:16px;align-items:center;}
+.pager button{height:30px;padding:0 12px;border-radius:3px;border:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>__TITLE__</h1>
+<div class="toolbar">
+<input id="q" placeholder="搜索 用户名/UID/内容" style="flex:1;min-width:160px;">
+<input id="start" type="datetime-local" placeholder="开始时间">
+<input id="end" type="datetime-local" placeholder="结束时间">
+<button onclick="apply()">筛选</button>
+<button class="ghost" onclick="reset()">重置</button>
+<span id="count"></span>
+</div>
+<table>
+<thead><tr>__HEADER__</tr></thead>
+<tbody id="body"></tbody>
+</table>
+<div class="pager">
+<button onclick="prev()">上一页</button><span id="pageinfo"></span><button onclick="next()">下一页</button>
+</div>
+</div>
+<script>
+var DATA = __DATA__;
+var COLS = __COLS__;
+var page = 1, size = 100, filtered = DATA.slice();
+function cell(r, c){ var v = r[c]; if (v === undefined || v === null) return ""; return v; }
+function apply(){
+  var q = (document.getElementById("q").value||"").toLowerCase();
+  var start = parseInput(document.getElementById("start").value);
+  var end = parseInput(document.getElementById("end").value);
+  filtered = DATA.filter(function(r){
+    if (start && (!r.ts || r.ts < start)) return false;
+    if (end && (!r.ts || r.ts > end)) return false;
+    if (q) { var s=[r.uname,r.msg,r.giftName,r.uid].join(" ").toLowerCase(); if (s.indexOf(q)<0) return false; }
+    return true;
+  });
+  page = 1; render();
+}
+function parseInput(v){ if(!v) return 0; var d=new Date(v.replace("T"," ")); return d.getTime()||0; }
+function reset(){ document.getElementById("q").value=""; document.getElementById("start").value=""; document.getElementById("end").value=""; apply(); }
+function prev(){ if(page>1){page--;render();} }
+function next(){ if(page*size < filtered.length){page++;render();} }
+function render(){
+  var body = document.getElementById("body");
+  var start = (page-1)*size, slice = filtered.slice(start, start+size);
+  var html = "";
+  if (!slice.length) {
+    html = '<tr><td colspan="' + COLS.length + '" class="empty">无数据</td></tr>';
+  } else {
+    for (var i=0;i<slice.length;i++){
+      var r = slice[i];
+      html += '<tr>';
+      for (var j=0;j<COLS.length;j++){ html += '<td>' + cell(r, COLS[j]) + '</td>'; }
+      html += '</tr>';
+    }
+  }
+  body.innerHTML = html;
+  var totalPages = Math.max(1, Math.ceil(filtered.length/size));
+  document.getElementById("count").textContent = "共 " + filtered.length + " 条";
+  document.getElementById("pageinfo").textContent = "第 " + page + " / " + totalPages + " 页";
+}
+render();
+</script>
+</body>
+</html>

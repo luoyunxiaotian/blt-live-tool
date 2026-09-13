@@ -1,0 +1,18 @@
+/* 主题：头像气泡（圆润对话框风） */
+.alert-item{position:relative;display:flex;align-items:center;gap:12px;background:#fff;color:#2b2f36;border-radius:18px;padding:12px 20px;box-shadow:0 6px 20px rgba(0,0,0,.3);animation:alertBubble .5s cubic-bezier(.34,1.56,.64,1) both;max-width:560px;}
+.alert-item::before{content:'';position:absolute;left:-10px;top:50%;transform:translateY(-50%);border:10px solid transparent;border-right-color:#fff;border-left:none;}
+.alert-item .ai-ico{font-size:28px;flex-shrink:0;}
+.alert-item .ai-body{display:flex;flex-direction:column;line-height:1.35;min-width:0;}
+.alert-item .ai-title{font-weight:700;font-size:17px;color:#e2457f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert-item .ai-sub{font-size:13px;color:#7a8190;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert-item.alert-guard::before{border-right-color:#ffd166;}
+.alert-item.alert-guard .ai-title{color:#c98a00;}
+.alert-item.alert-superchat::before{border-right-color:#ff5c8a;}
+.alert-item.alert-superchat .ai-title{color:#e2457f;}
+.alert-item.alert-follow::before{border-right-color:#00a65a;}
+.alert-item.alert-follow .ai-title{color:#008f4d;}
+.alert-item.alert-enter{background:#eef1f6;}
+.alert-item.alert-enter::before{border-right-color:#eef1f6;}
+.alert-item.alert-enter .ai-title{color:#3d4350;}
+.alert-out{transition:opacity .5s,transform .5s;opacity:0;transform:scale(.92);}
+@keyframes alertBubble{from{opacity:0;transform:scale(.7);}to{opacity:1;transform:scale(1);}}

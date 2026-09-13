@@ -1,0 +1,5 @@
+@inherits LayoutComponentBase
+
+@* The migrated panel UI is the app's face: it fills the whole window with no
+   wrapper chrome. Blazor only acts as the boot host here. *@
+<div style="position:fixed;inset:0;">@Body</div>

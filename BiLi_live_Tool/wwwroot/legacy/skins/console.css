@@ -1,0 +1,87 @@
+/* ============================================================
+   皮肤 C · 专业控制台（console）
+   石墨蓝灰底 · 琥珀唯一强调 · 面板化标题条 · 高密度 · 等宽数字
+   ============================================================ */
+
+html[data-skin="console"]{
+  --bg:#10151c; --panel:#151c25; --panel2:#1b232e; --panel3:#232e3b;
+  --line:#242f3c; --line-strong:#33404f;
+  --text:#c9d3e0; --text-strong:#e8eef6; --muted:#7d8ba0;
+  --accent:#ffb224; --accent-hover:#ffc24d; --accent-soft:rgba(255,178,36,.12); --accent-line:rgba(255,178,36,.5);
+  --success:#2fbf71; --success-bright:#4ade80; --success-soft:rgba(47,191,113,.12);
+  --warning:#e8a020; --warning-bright:#f5c04e; --warning-soft:rgba(232,160,32,.12);
+  --danger:#e5534b; --danger-bright:#f5716a; --danger-soft:rgba(229,83,75,.12);
+  --info:#4a9eff; --info-bright:#6fb7ff; --info-soft:rgba(74,158,255,.12);
+  --primary:#ffb224; --primary-soft:rgba(255,178,36,.12);
+  --r-sm:3px; --r-md:4px; --r-lg:5px;
+  --shadow-1:none;
+  --shadow-2:0 10px 40px rgba(0,0,0,.55);
+  --shadow-hover:none;
+  --shadow-glow:0 0 10px rgba(255,178,36,.35);
+  --inner-shadow:none;
+}
+
+/* 网格底纹 */
+html[data-skin="console"] body{
+  background-image:
+    linear-gradient(rgba(255,255,255,.016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.016) 1px, transparent 1px);
+  background-size:44px 44px;
+}
+html[data-skin="console"] .content{background:transparent;}
+html[data-skin="console"] body{font-size:13.5px;}
+
+/* 面板化：标题条 + 大写小字 + 收掉悬浮位移 */
+html[data-skin="console"] .box,
+html[data-skin="console"] .card,
+html[data-skin="console"] .info-box,
+html[data-skin="console"] .modal{box-shadow:none;}
+html[data-skin="console"] .box:hover,
+html[data-skin="console"] .card:hover{transform:none;border-color:var(--line-strong);}
+html[data-skin="console"] .box-header,
+html[data-skin="console"] .card-title{background:var(--panel2);padding:8px 14px;}
+html[data-skin="console"] .box-title{font-size:11.5px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+html[data-skin="console"] .box-title .title-hint,
+html[data-skin="console"] .card-title .title-hint{letter-spacing:0;text-transform:none;}
+html[data-skin="console"] .btn:hover{transform:none;box-shadow:none;}
+
+/* 琥珀主按钮（深字琥珀底，对比更清晰） */
+html[data-skin="console"] .btn.primary,
+html[data-skin="console"] .btn-primary{background:var(--accent);border-color:var(--accent);color:#10151c;}
+html[data-skin="console"] .btn.primary:hover,
+html[data-skin="console"] .btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#10151c;box-shadow:var(--shadow-glow);}
+
+/* 侧栏 / 顶栏 */
+html[data-skin="console"] .sidebar{background:#0d1218;}
+html[data-skin="console"] .topbar{background:#0d1218;}
+html[data-skin="console"] .topbar .title{letter-spacing:1.5px;}
+html[data-skin="console"] .nav-item.active{background:var(--panel2);box-shadow:none;}
+html[data-skin="console"] .top-status{font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:.5px;}
+
+/* 表格与开关：密度与直角 */
+html[data-skin="console"] .table th,
+html[data-skin="console"] .tbl th{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
+html[data-skin="console"] .switch .track{border-radius:2px;}
+html[data-skin="console"] .switch .track::after{border-radius:1px;}
+html[data-skin="console"] .switch input:checked + .track{box-shadow:0 0 8px rgba(255,178,36,.45);}
+
+/* 数字等宽（全局表格/输入数字倾向等宽） */
+html[data-skin="console"] .table td,
+html[data-skin="console"] .tbl td{font-variant-numeric:tabular-nums;}
+
+/* 琥珀页脚（控制台状态条） */
+html[data-skin="console"] .app-footer{
+  background:var(--accent);color:#10151c;border-top:none;
+  font-family:ui-monospace,Consolas,monospace;font-weight:700;letter-spacing:.5px;
+}
+
+/* 杂项 */
+html[data-skin="console"] .field select option,
+html[data-skin="console"] .form-control option,
+html[data-skin="console"] .field select optgroup,
+html[data-skin="console"] .form-control optgroup{background:#1b232e;color:#e8eef6;}
+html[data-skin="console"] ::-webkit-scrollbar-thumb{background:#33404f;}
+html[data-skin="console"] ::-webkit-scrollbar-thumb:hover{background:#46586c;}
+html[data-skin="console"] .dot.idle,
+html[data-skin="console"] .nav-dot.off{background:rgba(255,255,255,.22);}
+html[data-skin="console"] .onb-dots span{background:rgba(255,255,255,.2);}

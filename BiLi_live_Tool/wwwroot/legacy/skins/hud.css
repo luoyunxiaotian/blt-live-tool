@@ -1,0 +1,98 @@
+/* ============================================================
+   皮肤 G · 电竞 HUD（hud）
+   近黑网格底 · 切角面板 · 警示红唯一强调 · 斜切标签 · 硬核电竞感
+   ============================================================ */
+
+html[data-skin="hud"]{
+  --bg:#05070b; --panel:#0a0f16; --panel2:#0e1520; --panel3:#141d2b;
+  --line:#1b2735; --line-strong:#2b3c4e;
+  --text:#c7d3e2; --text-strong:#e8f0fa; --muted:#63758a;
+  --accent:#ff4655; --accent-hover:#ff6b77; --accent-soft:rgba(255,70,85,.13); --accent-line:rgba(255,70,85,.55);
+  --success:#3fd68f; --success-bright:#6fe6ab; --success-soft:rgba(63,214,143,.12);
+  --warning:#ffb224; --warning-bright:#ffcf6b; --warning-soft:rgba(255,178,36,.12);
+  --danger:#ff4655; --danger-bright:#ff8b94; --danger-soft:rgba(255,70,85,.14);
+  --info:#37d5d0; --info-bright:#6ae4e0; --info-soft:rgba(55,213,208,.12);
+  --primary:#ff4655; --primary-soft:rgba(255,70,85,.13);
+  --r-sm:2px; --r-md:3px; --r-lg:4px;
+  --shadow-1:none;
+  --shadow-2:0 14px 48px rgba(0,0,0,.65);
+  --shadow-hover:none;
+  --shadow-glow:0 0 16px rgba(255,70,85,.4);
+  --inner-shadow:none;
+}
+
+/* 网格底纹 + 红色氛围光 */
+html[data-skin="hud"] body{
+  background:
+    radial-gradient(700px 360px at 88% -10%, rgba(255,70,85,.09), transparent 60%),
+    linear-gradient(rgba(255,255,255,.014) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.014) 1px, transparent 1px),
+    #05070b;
+  background-size:auto,44px 44px,44px 44px,auto;
+}
+html[data-skin="hud"] .content{background:transparent;}
+
+/* 切角面板 + 顶部红色渐变线 */
+html[data-skin="hud"] .box,
+html[data-skin="hud"] .card{
+  position:relative;
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+}
+html[data-skin="hud"] .box::before,
+html[data-skin="hud"] .card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;z-index:1;
+  background:linear-gradient(90deg,var(--accent),transparent 60%);
+}
+html[data-skin="hud"] .box:hover,
+html[data-skin="hud"] .card:hover{transform:none;border-color:var(--line-strong);}
+html[data-skin="hud"] .box-header,
+html[data-skin="hud"] .card-title{background:var(--panel2);padding:9px 14px;}
+html[data-skin="hud"] .box-title,
+html[data-skin="hud"] .card-title{font-size:12.5px;letter-spacing:2px;font-weight:800;}
+html[data-skin="hud"] .box-title .title-hint,
+html[data-skin="hud"] .card-title .title-hint{letter-spacing:0;}
+
+/* 切角按钮 */
+html[data-skin="hud"] .btn{
+  clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));
+  font-weight:700;letter-spacing:1px;
+}
+html[data-skin="hud"] .btn:hover{transform:none;box-shadow:none;}
+html[data-skin="hud"] .btn.primary,
+html[data-skin="hud"] .btn-primary{background:var(--accent);border-color:var(--accent);box-shadow:0 0 18px rgba(255,70,85,.35);}
+html[data-skin="hud"] .btn.primary:hover,
+html[data-skin="hud"] .btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);box-shadow:0 0 24px rgba(255,70,85,.5);}
+
+/* 侧栏 / 顶栏 / 状态 */
+html[data-skin="hud"] .sidebar{background:rgba(6,9,14,.92);}
+html[data-skin="hud"] .topbar{background:rgba(8,12,18,.9);}
+html[data-skin="hud"] .topbar .title{letter-spacing:2px;font-weight:800;}
+html[data-skin="hud"] .nav-item.active{background:linear-gradient(90deg,rgba(255,70,85,.16),transparent 78%);box-shadow:none;}
+html[data-skin="hud"] .top-status{font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:1px;border-radius:2px;}
+
+/* 表单 / 表格 / 开关 */
+html[data-skin="hud"] .form-control,
+html[data-skin="hud"] .input,
+html[data-skin="hud"] .field input,
+html[data-skin="hud"] .field select,
+html[data-skin="hud"] .field textarea{background:#0c1420;font-family:ui-monospace,Consolas,monospace;font-size:13px;}
+html[data-skin="hud"] .table th,
+html[data-skin="hud"] .tbl th{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
+html[data-skin="hud"] .switch .track,
+html[data-skin="hud"] .switch .track::after{border-radius:2px;}
+html[data-skin="hud"] .switch input:checked + .track{box-shadow:0 0 10px rgba(255,70,85,.5);}
+
+/* 杂项硬编码色修正 */
+html[data-skin="hud"] .app-footer{
+  background:#07090d;border-top:1px solid rgba(255,70,85,.4);
+  font-family:ui-monospace,Consolas,monospace;letter-spacing:1px;
+}
+html[data-skin="hud"] .field select option,
+html[data-skin="hud"] .form-control option,
+html[data-skin="hud"] .field select optgroup,
+html[data-skin="hud"] .form-control optgroup{background:#0e1520;color:#e8f0fa;}
+html[data-skin="hud"] ::-webkit-scrollbar-thumb{background:#2b3c4e;}
+html[data-skin="hud"] ::-webkit-scrollbar-thumb:hover{background:#3d5268;}
+html[data-skin="hud"] .dot.idle,
+html[data-skin="hud"] .nav-dot.off{background:rgba(255,255,255,.2);}
+html[data-skin="hud"] .onb-dots span{background:rgba(255,255,255,.18);}

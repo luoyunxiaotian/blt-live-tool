@@ -1,0 +1,59 @@
+/* Theme: kb-heatmap — key frequency heat coloring. Keyboard only. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --kv-fg: #ffffff;
+  --kv-fg-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  --kv-cold: #1a2a4a;
+  --kv-edge: rgba(255, 255, 255, 0.25);
+}
+
+#kv { bottom: 18px; gap: 12px; align-items: center; }
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 14px;
+}
+.kv-section:empty { display: none; }
+
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 6px;
+  background: var(--kv-cold);
+  border: 1px solid var(--kv-edge);
+  color: var(--kv-fg);
+  text-shadow: var(--kv-fg-shadow);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  letter-spacing: 0.2px;
+  user-select: none; box-sizing: border-box;
+  transition: background calc(200ms / var(--kv-anim-speed)) ease, box-shadow calc(200ms / var(--kv-anim-speed)) ease;
+}
+.kv-real-key.active {
+  transform: scale(1.08);
+  transition: transform calc(80ms / var(--kv-anim-speed)) ease;
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+.kv-mouse-label {
+  font-size: 11px; color: var(--kv-fg);
+  text-shadow: var(--kv-fg-shadow);
+  opacity: 0.8;
+  font-family: "Segoe UI", sans-serif;
+  min-height: 14px;
+}

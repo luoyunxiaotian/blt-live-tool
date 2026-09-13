@@ -1,0 +1,79 @@
+/* ============================================================
+   皮肤 A · 暗夜霓虹（neon）
+   深紫氛围底 · 玻璃质感卡片 · 霓虹渐变发光 · 大圆角
+   ============================================================ */
+
+html[data-skin="neon"]{
+  --bg:#0a0614; --panel:#151021; --panel2:#1c152c; --panel3:#241b38;
+  --line:rgba(255,255,255,.10); --line-strong:rgba(255,255,255,.20);
+  --text:rgba(240,235,255,.86); --text-strong:#f4efff; --muted:rgba(224,213,255,.48);
+  --accent:#ff2d78; --accent-hover:#ff5b96; --accent-soft:rgba(255,45,120,.14); --accent-line:rgba(255,45,120,.5);
+  --success:#2ee6a8; --success-bright:#7ff0cd; --success-soft:rgba(46,230,168,.13);
+  --warning:#ffb454; --warning-bright:#ffd28a; --warning-soft:rgba(255,180,84,.13);
+  --danger:#ff4d6d; --danger-bright:#ff8fa3; --danger-soft:rgba(255,77,109,.14);
+  --info:#22d3ee; --info-bright:#7ce4f5; --info-soft:rgba(34,211,238,.13);
+  --primary:#ff2d78; --primary-soft:rgba(255,45,120,.14);
+  --r-sm:8px; --r-md:12px; --r-lg:16px;
+  --shadow-1:0 10px 30px rgba(0,0,0,.35);
+  --shadow-2:0 18px 50px rgba(0,0,0,.5);
+  --shadow-hover:0 12px 36px rgba(0,0,0,.42);
+  --shadow-glow:0 0 16px rgba(255,45,120,.4);
+  --inner-shadow:inset 0 1px 2px rgba(0,0,0,.4);
+}
+
+/* 氛围底：双光斑（.content 透明化让 body 背景透出） */
+html[data-skin="neon"] body{
+  background:
+    radial-gradient(900px 520px at 82% -10%, rgba(139,92,246,.22), transparent 60%),
+    radial-gradient(760px 480px at -6% 108%, rgba(255,45,120,.16), transparent 60%),
+    #0a0614;
+}
+html[data-skin="neon"] .content{background:transparent;}
+
+/* 玻璃质感 */
+html[data-skin="neon"] .sidebar{background:rgba(255,255,255,.03);backdrop-filter:blur(20px);}
+html[data-skin="neon"] .topbar{background:rgba(21,16,33,.72);backdrop-filter:blur(14px);}
+html[data-skin="neon"] .box,
+html[data-skin="neon"] .card,
+html[data-skin="neon"] .info-box,
+html[data-skin="neon"] .modal{
+  background:linear-gradient(135deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+  backdrop-filter:blur(14px);
+  border-color:rgba(255,255,255,.10);
+}
+html[data-skin="neon"] .rt-item{background:rgba(255,255,255,.04);}
+html[data-skin="neon"] .conn-bar{background:rgba(0,0,0,.25);}
+
+/* 霓虹渐变主按钮 */
+html[data-skin="neon"] .btn.primary,
+html[data-skin="neon"] .btn-primary{
+  background:linear-gradient(135deg,#ff2d78,#8b5cf6);
+  border-color:transparent;
+  box-shadow:0 4px 18px rgba(255,45,120,.4);
+}
+html[data-skin="neon"] .btn.primary:hover,
+html[data-skin="neon"] .btn-primary:hover{
+  background:linear-gradient(135deg,#ff5b96,#a07bf8);
+  box-shadow:0 6px 24px rgba(255,45,120,.55);
+}
+
+/* 选中态发光 */
+html[data-skin="neon"] .nav-item.active{
+  background:linear-gradient(90deg,rgba(255,45,120,.22),rgba(139,92,246,.10) 75%,transparent);
+  box-shadow:inset 0 0 14px rgba(255,45,120,.10);
+}
+html[data-skin="neon"] .tab.active{color:var(--accent-hover);text-shadow:0 0 12px rgba(255,45,120,.6);}
+html[data-skin="neon"] .switch input:checked + .track{box-shadow:0 0 12px rgba(255,45,120,.55),inset 0 1px 2px rgba(0,0,0,.2);}
+html[data-skin="neon"] .dot.ok{box-shadow:0 0 10px rgba(46,230,168,.8);}
+
+/* 杂项硬编码色修正 */
+html[data-skin="neon"] .field select option,
+html[data-skin="neon"] .form-control option,
+html[data-skin="neon"] .field select optgroup,
+html[data-skin="neon"] .form-control optgroup{background:#1a1128;color:#e9e2ff;}
+html[data-skin="neon"] .app-footer{background:rgba(10,6,20,.92);border-top:1px solid rgba(255,255,255,.08);}
+html[data-skin="neon"] ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);}
+html[data-skin="neon"] ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.28);}
+html[data-skin="neon"] .dot.idle,
+html[data-skin="neon"] .nav-dot.off{background:rgba(255,255,255,.25);}
+html[data-skin="neon"] .onb-dots span{background:rgba(255,255,255,.22);}

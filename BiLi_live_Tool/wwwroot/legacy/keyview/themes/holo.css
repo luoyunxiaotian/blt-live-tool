@@ -1,0 +1,127 @@
+/* Theme: holo — holographic wireframe with corner brackets, glitch on press. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --ho-cyan: #00f0ff;
+  --ho-dim: rgba(0, 240, 255, 0.35);
+  --ho-fg: #9bffff;
+  --ho-t: calc(60ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard: wireframe keys with corner brackets ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent; border: none; box-shadow: none; outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  position: relative;
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  background: rgba(0, 240, 255, 0.04);
+  border: 1px solid var(--ho-dim);
+  border-radius: 2px;
+  color: var(--ho-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-family: "Consolas", monospace;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-shadow: 0 0 5px var(--ho-dim);
+  user-select: none; box-sizing: border-box;
+  transition: all var(--ho-t) ease;
+}
+/* corner brackets */
+.kv-real-key::before {
+  content: '';
+  position: absolute; inset: -3px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--ho-cyan), var(--ho-cyan)) top left / 7px 2px,
+    linear-gradient(var(--ho-cyan), var(--ho-cyan)) top left / 2px 7px,
+    linear-gradient(var(--ho-cyan), var(--ho-cyan)) top right / 7px 2px,
+    linear-gradient(var(--ho-cyan), var(--ho-cyan)) top right / 2px 7px,
+    linear-gradient(var(--ho-cyan), var(--ho-cyan)) bottom left / 7px 2px,
+    linear-gradient(var(--ho-cyan), var(--ho-cyan)) bottom left / 2px 7px,
+    linear-gradient(var(--ho-cyan), var(--ho-cyan)) bottom right / 7px 2px,
+    linear-gradient(var(--ho-cyan), var(--ho-cyan)) bottom right / 2px 7px;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity var(--ho-t) ease;
+}
+.kv-real-key.active {
+  background: rgba(0, 240, 255, 0.18);
+  border-color: var(--ho-cyan);
+  color: #ffffff;
+  text-shadow: 0 0 8px var(--ho-cyan);
+  animation: holo-glitch calc(250ms / var(--kv-anim-speed, 1)) steps(2, end);
+}
+.kv-real-key.active::before { opacity: 1; }
+@keyframes holo-glitch {
+  0% { transform: translate(0); clip-path: inset(0 0 0 0); }
+  20% { transform: translate(-3px, 1px); clip-path: inset(10% 0 55% 0); }
+  40% { transform: translate(3px, -1px); clip-path: inset(50% 0 10% 0); }
+  60% { transform: translate(-2px, 0); clip-path: inset(0 0 0 0); }
+  80% { transform: translate(2px, 1px); clip-path: inset(30% 0 30% 0); }
+  100% { transform: translate(0); clip-path: inset(0 0 0 0); }
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.25)); }
+.kv-mouse-part { transition: fill var(--ho-t) ease; fill: rgba(0, 240, 255, 0.08); }
+.kv-mouse-wheel { transition: fill var(--ho-t) ease; fill: rgba(0, 240, 255, 0.2); }
+.kv-mouse-outline { fill: none; stroke: var(--ho-dim); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.kv-mouse-sep { stroke: var(--ho-dim); stroke-width: 1; stroke-dasharray: 3 2; }
+.kv-mouse-l.active { fill: rgba(0, 240, 255, 0.4); filter: drop-shadow(0 0 8px var(--ho-cyan)); }
+.kv-mouse-r.active { fill: rgba(0, 240, 255, 0.4); filter: drop-shadow(0 0 8px var(--ho-cyan)); }
+.kv-mouse-wheel.active { fill: var(--ho-cyan); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--ho-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--ho-cyan); filter: drop-shadow(0 0 5px var(--ho-cyan)); }
+.kv-mouse-wheel-down.active { fill: var(--ho-cyan); filter: drop-shadow(0 0 5px var(--ho-cyan)); }
+.kv-mouse-side { fill: rgba(0, 240, 255, 0.08); stroke: var(--ho-dim); stroke-width: 1; transition: all var(--ho-t) ease; }
+.kv-mouse-side.active { fill: rgba(0, 240, 255, 0.4); stroke: var(--ho-cyan); filter: drop-shadow(0 0 5px var(--ho-cyan)); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--ho-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--ho-cyan); filter: drop-shadow(0 0 5px var(--ho-cyan)); }
+.kv-mouse-label {
+  font-size: 11px; color: var(--ho-fg); min-height: 14px; letter-spacing: 2px;
+  font-family: "Consolas", monospace;
+  text-transform: uppercase;
+  text-shadow: 0 0 5px var(--ho-dim);
+}
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.25)); }
+.kv-gp-body { fill: rgba(0, 30, 36, 0.6); stroke: var(--ho-dim); stroke-width: 3; }
+.kv-gp-trig { fill: rgba(0, 240, 255, 0.08); stroke: var(--ho-dim); stroke-width: 2; opacity: calc(0.4 + var(--tv, 0) * 0.6); transition: opacity var(--ho-t) ease; }
+.kv-gp-trig.active { fill: rgba(0, 240, 255, 0.45); stroke: var(--ho-cyan); opacity: 1; filter: drop-shadow(0 0 8px var(--ho-cyan)); }
+.kv-gp-trig-fill { fill: var(--ho-cyan); opacity: 0.6; }
+.kv-gp-trig-text { fill: var(--ho-fg); font-size: 10px; font-weight: 400; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; }
+.kv-gp-shoulder { fill: rgba(0, 240, 255, 0.08); stroke: var(--ho-dim); stroke-width: 2; transition: all var(--ho-t) ease; }
+.kv-gp-shoulder.active { fill: rgba(0, 240, 255, 0.45); filter: drop-shadow(0 0 6px var(--ho-cyan)); }
+.kv-gp-shoulder-text { fill: var(--ho-fg); font-size: 10px; font-weight: 400; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; }
+.kv-gp-stick-outer { fill: rgba(0, 15, 18, 0.7); stroke: var(--ho-dim); stroke-width: 2; }
+.kv-gp-stick-inner { fill: rgba(0, 240, 255, 0.08); stroke: var(--ho-dim); stroke-width: 2; transition: all var(--ho-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: var(--ho-dim); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--ho-cyan); stroke: none; filter: drop-shadow(0 0 4px var(--ho-cyan)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: rgba(0, 240, 255, 0.45); filter: drop-shadow(0 0 6px var(--ho-cyan)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: rgba(0, 240, 255, 0.08); stroke: var(--ho-dim); stroke-width: 1.5; transition: all var(--ho-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: rgba(0, 240, 255, 0.45); filter: drop-shadow(0 0 6px var(--ho-cyan)); }
+.kv-gp-face { fill: rgba(0, 30, 36, 0.7); stroke: var(--face-c, var(--ho-dim)); stroke-width: 2.5; transition: all var(--ho-t) ease; }
+.kv-gp-face.active { fill: rgba(0, 240, 255, 0.45); stroke: var(--ho-cyan); filter: drop-shadow(0 0 10px var(--ho-cyan)); }
+.kv-gp-face-text { fill: var(--ho-fg); font-size: 12px; font-weight: 400; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; transition: fill var(--ho-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #fff; }
+.kv-gp-menu-btn { fill: rgba(0, 240, 255, 0.08); stroke: var(--ho-dim); stroke-width: 1.5; transition: all var(--ho-t) ease; }
+.kv-gp-menu-btn.active { fill: rgba(0, 240, 255, 0.45); filter: drop-shadow(0 0 5px var(--ho-cyan)); }
+.kv-gp-menu-text { fill: var(--ho-fg); font-size: 7px; font-weight: 400; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; }

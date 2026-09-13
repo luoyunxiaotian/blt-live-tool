@@ -1,0 +1,72 @@
+/* Theme: mouse-trail — click ripples + movement trail. Mouse only. */
+:root {
+  --kv-trail: #4dd0e1;
+  --kv-trail-glow: rgba(77, 208, 225, 0.7);
+  --kv-bg: rgba(20, 22, 30, 0.55);
+}
+
+#kv { gap: 8px; }
+.kv-section:empty { display: none; }
+#kv-ms { position: relative; width: 160px; height: 100px; }
+
+.kv-trail-dot {
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--kv-trail);
+  box-shadow: 0 0 10px var(--kv-trail-glow);
+  transform: translate(-50%, -50%);
+  opacity: 0.9;
+  transition: opacity 600ms ease, transform 600ms ease;
+  pointer-events: none;
+}
+.kv-trail-dot.fade { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+
+.kv-ripple {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 30px; height: 30px;
+  margin: -15px 0 0 -15px;
+  border-radius: 50%;
+  border: 2px solid var(--kv-trail);
+  box-shadow: 0 0 12px var(--kv-trail-glow);
+  animation: kv-ripple calc(600ms / var(--kv-anim-speed)) ease-out forwards;
+  pointer-events: none;
+}
+.kv-ripple-right { border-color: #ff7a7a; box-shadow: 0 0 12px rgba(255, 122, 122, 0.7); }
+.kv-ripple-middle { border-color: #ffd166; box-shadow: 0 0 12px rgba(255, 209, 102, 0.7); }
+.kv-ripple-x1 { border-color: #b388ff; box-shadow: 0 0 12px rgba(179, 136, 255, 0.7); }
+.kv-ripple-x2 { border-color: #b388ff; box-shadow: 0 0 12px rgba(179, 136, 255, 0.7); }
+
+.kv-wheel {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 17px;
+  background: var(--kv-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: 18px; font-weight: 700;
+  color: var(--kv-trail);
+  animation: kv-fade calc(500ms / var(--kv-anim-speed)) ease forwards;
+  pointer-events: none;
+}
+
+.kv-mouse-label {
+  position: absolute;
+  left: 50%; bottom: -4px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  height: 24px; padding: 0 10px;
+  border-radius: 12px;
+  background: var(--kv-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: 12px; color: var(--kv-trail);
+  opacity: 0.85;
+  pointer-events: none;
+}

@@ -1,0 +1,196 @@
+/* KeyView overlay base layout. Themes override via CSS variables and classes. */
+:root {
+  --kv-opacity: 1;
+  --kv-scale: 1;
+  --kv-key-hold-ms: 800ms;
+  --kv-anim-speed: 1;
+  --kv-bg: rgba(20, 22, 30, 0.55);
+  --kv-fg: #ffffff;
+  --kv-accent: #4dd0e1;
+  --kv-radius: 14px;
+  --kv-blur: 18px;
+  --kv-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --kv-font: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: var(--kv-font);
+  color: var(--kv-fg);
+}
+
+#kv {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  opacity: var(--kv-opacity);
+  transform: scale(var(--kv-scale));
+  transform-origin: bottom left;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.kv-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+.kv-section:empty { display: none; }
+
+/* keyboard keys */
+.kv-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: var(--kv-bg);
+  backdrop-filter: blur(var(--kv-blur));
+  -webkit-backdrop-filter: blur(var(--kv-blur));
+  box-shadow: var(--kv-shadow);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: transform calc(120ms / var(--kv-anim-speed)) ease,
+              opacity calc(var(--kv-key-hold-ms) / var(--kv-anim-speed)) ease;
+  opacity: 0.95;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.kv-key-down {
+  transform: translateY(-3px) scale(1.06);
+  background: rgba(77, 208, 225, 0.85);
+  color: #062024;
+  box-shadow: 0 0 18px rgba(77, 208, 225, 0.7), var(--kv-shadow);
+  opacity: 1;
+}
+.kv-key-up {
+  opacity: 0;
+  transform: translateY(0) scale(0.9);
+}
+
+/* mouse ripples */
+.kv-ripple {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--kv-accent);
+  background: var(--kv-bg);
+  backdrop-filter: blur(var(--kv-blur));
+  -webkit-backdrop-filter: blur(var(--kv-blur));
+  animation: kv-ripple calc(600ms / var(--kv-anim-speed)) ease-out forwards;
+}
+@keyframes kv-ripple {
+  0% { transform: scale(0.4); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.kv-ripple-right { border-color: #ff7a7a; }
+.kv-ripple-middle { border-color: #ffd166; }
+
+.kv-wheel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--kv-bg);
+  backdrop-filter: blur(var(--kv-blur));
+  -webkit-backdrop-filter: blur(var(--kv-blur));
+  font-size: 16px;
+  animation: kv-fade calc(500ms / var(--kv-anim-speed)) ease forwards;
+}
+@keyframes kv-fade {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
+.kv-mouse-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--kv-bg);
+  backdrop-filter: blur(var(--kv-blur));
+  -webkit-backdrop-filter: blur(var(--kv-blur));
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+/* gamepad */
+.kv-gp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--kv-radius);
+  background: var(--kv-bg);
+  backdrop-filter: blur(var(--kv-blur));
+  -webkit-backdrop-filter: blur(var(--kv-blur));
+  box-shadow: var(--kv-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.kv-gp-btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.kv-gp-btn {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px; font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  transition: all calc(80ms / var(--kv-anim-speed)) ease;
+}
+.kv-gp-btn.active {
+  background: var(--kv-accent);
+  color: #062024;
+  box-shadow: 0 0 10px var(--kv-accent);
+}
+.kv-gp-stick {
+  position: relative;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.kv-gp-stick::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 12px; height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--kv-accent);
+  transform: translate(var(--sx, 0px), var(--sy, 0px));
+  transition: transform calc(60ms / var(--kv-anim-speed)) ease;
+}
+.kv-gp-trig {
+  width: 8px; height: 30px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+.kv-gp-trig::after {
+  content: "";
+  position: absolute;
+  left: 0; bottom: 0; width: 100%;
+  height: var(--tv, 0%);
+  background: var(--kv-accent);
+  transition: height calc(60ms / var(--kv-anim-speed)) ease;
+}

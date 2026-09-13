@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B站直播助手 · 管理面板</title>
+<script>
+/* 皮肤首帧应用：读本地缓存，避免加载后闪换（权威值以 /api/config 的 skin 为准，init() 会校正） */
+try{var _bltSkin=localStorage.getItem('blt_skin');if(_bltSkin&&_bltSkin!=='default')document.documentElement.setAttribute('data-skin',_bltSkin);}catch(e){}
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23fb7299'/%3E%3Ctext x='16' y='21' text-anchor='middle' font-size='15' fill='%23fff' font-weight='700'%3EB%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="./style.css?v=20260912c">
+<link rel="stylesheet" href="./skins/neon.css?v=20260912c">
+<link rel="stylesheet" href="./skins/workbench.css?v=20260912c">
+<link rel="stylesheet" href="./skins/console.css?v=20260912c">
+<link rel="stylesheet" href="./skins/bili.css?v=20260912c">
+<link rel="stylesheet" href="./skins/vibrancy.css?v=20260912c">
+<link rel="stylesheet" href="./skins/brutal.css?v=20260912c">
+<link rel="stylesheet" href="./skins/hud.css?v=20260912c">
+<link rel="stylesheet" href="./skins/editorial.css?v=20260912c">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">B站直播助手<span class="en">Live Tool</span></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot" id="sideStatus"></div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div class="title" id="topTitle">管理面板</div>
+      <div class="sub" id="topSub"></div>
+      <div class="spacer"></div>
+      <span class="top-status" id="topStatus" title="直播间连接状态">未连接</span>
+      <div class="row" id="topActions"></div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+<div class="app-footer">
+  本工具完全开源免费，如有版权问题请联系作者，如有使用问题或BUG反馈请联系作者。作者B站ID：罗运小天-B站第二毒奶-&nbsp;&nbsp;&nbsp;&nbsp;B站uid：10412378
+</div>
+<div class="modal-mask" id="modal-mask">
+  <div class="modal">
+    <div class="modal-head"><span id="modal-title">选择文件夹</span><button class="btn sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="./tts.js?v=20260912c"></script>
+<script src="./song-player.js?v=20260912c"></script>
+<script src="./maui-bridge.js"></script>
+<script src="./app.js?v=20260912c"></script>
+</body>
+</html>

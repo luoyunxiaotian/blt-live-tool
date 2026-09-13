@@ -1,0 +1,15 @@
+{
+  "server.port": 7788,
+  "overlay.theme": "real",
+  "overlay.opacity": 1.0,
+  "overlay.scale": 1.0,
+  "overlay.position": "bottom-left",
+  "device.keyboard.enabled": true,
+  "device.mouse.enabled": true,
+  "device.gamepad.enabled": true,
+  "display.keyHoldMs": 800,
+  "display.animSpeed": 1.0,
+  "display.maxRecentKeys": 6,
+  "display.kbLayout": "full",
+  "display.gpLayout": "xbox"
+}

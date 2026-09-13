@@ -1,0 +1,100 @@
+/* Theme: ds — Don't Starve hand-drawn sketch style. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --ds-paper: #c9b389;
+  --ds-paper2: #b8a377;
+  --ds-ink: #2a1e12;
+  --ds-wood: #6b4a2e;
+  --ds-wood2: #4a3220;
+  --ds-red: #8b3a2a;
+  --ds-green: #4a6b3a;
+  --ds-gold: #c8a04e;
+  --kv-t: calc(80ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 3px 5px 4px 6px;
+  background: var(--ds-wood);
+  border: 2px solid var(--ds-ink);
+  color: var(--ds-paper);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  font-family: "Georgia", "Times New Roman", serif;
+  font-style: italic;
+  user-select: none; box-sizing: border-box;
+  box-shadow: 0 3px 0 var(--ds-wood2), inset 0 1px 0 rgba(255,255,255,0.1);
+  transition: all var(--kv-t) ease;
+}
+.kv-real-key.active {
+  background: var(--ds-red);
+  color: #fff;
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--ds-wood2), inset 0 2px 4px rgba(0,0,0,0.4);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; transition: transform var(--kv-t) ease; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
+.kv-mouse-part { transition: fill var(--kv-t) ease; fill: var(--ds-wood); }
+.kv-mouse-wheel { transition: fill var(--kv-t) ease; fill: var(--ds-wood2); }
+.kv-mouse-outline { fill: none; stroke: var(--ds-ink); stroke-width: 2.5; }
+.kv-mouse-sep { stroke: var(--ds-ink); stroke-width: 1.5; }
+.kv-mouse-l.active { fill: var(--ds-red); }
+.kv-mouse-r.active { fill: var(--ds-red); }
+.kv-mouse-wheel.active { fill: var(--ds-gold); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--kv-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--ds-gold); }
+.kv-mouse-wheel-down.active { fill: var(--ds-gold); }
+.kv-mouse-side { fill: var(--ds-wood); stroke: var(--ds-ink); stroke-width: 1.5; transition: fill var(--kv-t) ease; }
+.kv-mouse-side.active { fill: var(--ds-red); stroke: var(--ds-red); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--kv-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--ds-red); }
+.kv-mouse-label { font-size: 11px; color: var(--ds-ink); font-family: "Georgia", serif; font-style: italic; min-height: 14px; }
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4)); }
+.kv-gp-body { fill: var(--ds-paper); stroke: var(--ds-ink); stroke-width: 3; }
+.kv-gp-trig { fill: var(--ds-wood); stroke: var(--ds-ink); stroke-width: 2; opacity: calc(0.5 + var(--tv, 0) * 0.5); transition: opacity var(--kv-t) ease; }
+.kv-gp-trig.active { fill: var(--ds-red); stroke: var(--ds-red); opacity: 1; }
+.kv-gp-trig-fill { fill: var(--ds-red); opacity: 0.7; }
+.kv-gp-trig-text { fill: var(--ds-paper); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Georgia", serif; font-style: italic; pointer-events: none; }
+.kv-gp-shoulder { fill: var(--ds-wood); stroke: var(--ds-ink); stroke-width: 2; transition: all var(--kv-t) ease; }
+.kv-gp-shoulder.active { fill: var(--ds-red); }
+.kv-gp-shoulder-text { fill: var(--ds-paper); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Georgia", serif; font-style: italic; pointer-events: none; }
+.kv-gp-stick-outer { fill: var(--ds-paper2); stroke: var(--ds-ink); stroke-width: 2; }
+.kv-gp-stick-inner { fill: var(--ds-wood); stroke: var(--ds-ink); stroke-width: 1.5; transition: all var(--kv-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: var(--ds-ink); stroke-width: 1; stroke-dasharray: 3 2; }
+.kv-gp-stick-dot { fill: var(--ds-gold); stroke: none; }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--ds-red); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: var(--ds-wood); stroke: var(--ds-ink); stroke-width: 1.5; transition: all var(--kv-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--ds-red); }
+.kv-gp-face { fill: var(--ds-wood); stroke: var(--face-c, var(--ds-ink)); stroke-width: 2.5; transition: all var(--kv-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--ds-red)); }
+.kv-gp-face-text { fill: var(--ds-paper); font-size: 12px; font-weight: 900; text-anchor: middle; font-family: "Georgia", serif; font-style: italic; pointer-events: none; transition: fill var(--kv-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #fff; }
+.kv-gp-menu-btn { fill: var(--ds-wood2); stroke: var(--ds-ink); stroke-width: 1.5; transition: all var(--kv-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--ds-gold); }
+.kv-gp-menu-text { fill: var(--ds-paper); font-size: 7px; font-weight: 600; text-anchor: middle; font-family: "Georgia", serif; pointer-events: none; }

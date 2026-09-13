@@ -1,0 +1,135 @@
+/* ============================================================
+   皮肤 H · 杂志编辑风（editorial）
+   米白纸感 · 衬线标题 · 发丝分隔线 · 无卡片开放式排版 · 铁锈红点缀
+   ============================================================ */
+
+html[data-skin="editorial"]{
+  --bg:#f8f5ee; --panel:transparent; --panel2:#f1ede1; --panel3:#eae5d5;
+  --line:#e2dcc9; --line-strong:#c9c2ab;
+  --text:#3f3c33; --text-strong:#212328; --muted:#a39a86;
+  --accent:#bf4d28; --accent-hover:#a63f1e; --accent-soft:rgba(191,77,40,.09); --accent-line:rgba(191,77,40,.55);
+  --success:#3f7d54; --success-bright:#2f6b44; --success-soft:rgba(63,125,84,.11);
+  --warning:#a4741c; --warning-bright:#7d5a13; --warning-soft:rgba(164,116,28,.11);
+  --danger:#b23a2e; --danger-bright:#96301f; --danger-soft:rgba(178,58,46,.10);
+  --info:#2e4a68; --info-bright:#2e4a68; --info-soft:rgba(46,74,104,.10);
+  --primary:#212328; --primary-soft:rgba(33,35,40,.08);
+  --r-sm:0px; --r-md:0px; --r-lg:0px;
+  --shadow-1:none;
+  --shadow-2:0 14px 44px rgba(60,50,30,.20);
+  --shadow-hover:none;
+  --shadow-glow:none;
+  --inner-shadow:none;
+}
+
+/* 全局衬线（数字/代码仍等宽：.mono 与 Consolas 不受影响） */
+html[data-skin="editorial"] body{
+  font-family:Georgia,"Times New Roman","Songti SC","SimSun",serif;
+}
+
+/* 无卡片开放式：box 变「分节」——透明底 + 顶部发丝线 */
+html[data-skin="editorial"] .box,
+html[data-skin="editorial"] .card,
+html[data-skin="editorial"] .info-box{
+  background:transparent;
+  border:none;border-top:1px solid var(--line);
+  box-shadow:none;
+}
+html[data-skin="editorial"] .box:hover,
+html[data-skin="editorial"] .card:hover{transform:none;border-color:var(--line);box-shadow:none;}
+html[data-skin="editorial"] .box-header,
+html[data-skin="editorial"] .card-title{border-bottom:none;padding:12px 0 6px;}
+html[data-skin="editorial"] .box-title,
+html[data-skin="editorial"] .card-title{font-size:19px;font-weight:700;letter-spacing:1px;}
+html[data-skin="editorial"] .box-title .title-hint,
+html[data-skin="editorial"] .card-title .title-hint{font-style:italic;font-family:Georgia,"Times New Roman",serif;}
+html[data-skin="editorial"] .box-body{padding:6px 0 16px;}
+html[data-skin="editorial"] .box-footer{background:transparent;border-top:1px dotted var(--line-strong);}
+html[data-skin="editorial"] .card > .form-grid,
+html[data-skin="editorial"] .card > .row,
+html[data-skin="editorial"] .card > div:not(.card-title):not(.box-header),
+html[data-skin="editorial"] .card > .card-title + .form-grid,
+html[data-skin="editorial"] .card > .card-title + .row,
+html[data-skin="editorial"] .card > .card-title + div{padding:6px 0 16px;}
+html[data-skin="editorial"] .card-title::before{display:none;}
+
+/* 报头式顶栏 */
+html[data-skin="editorial"] .topbar{background:transparent;border-bottom:2.5px solid #212328;}
+html[data-skin="editorial"] .topbar .title{font-size:25px;font-weight:700;letter-spacing:2px;}
+html[data-skin="editorial"] .topbar .sub{font-style:italic;}
+html[data-skin="editorial"] .content-header h1{font-size:26px;font-weight:700;letter-spacing:1.5px;}
+html[data-skin="editorial"] .content-header h1 small{font-style:italic;}
+
+/* 目录式侧栏 */
+html[data-skin="editorial"] .sidebar{background:transparent;border-right:1px solid var(--line);}
+html[data-skin="editorial"] .sidebar .brand{font-size:16px;font-weight:700;letter-spacing:.5px;border-bottom:1px solid var(--line);}
+html[data-skin="editorial"] .sidebar .brand .en{font-style:italic;}
+html[data-skin="editorial"] .nav-group{font-style:italic;letter-spacing:2.5px;}
+html[data-skin="editorial"] .nav-item{border-left:3px solid transparent;}
+html[data-skin="editorial"] .nav-item.active{
+  background:transparent;color:var(--accent);border-left-color:var(--accent);font-weight:700;box-shadow:none;
+}
+html[data-skin="editorial"] .settings-group-title{font-style:italic;letter-spacing:2px;}
+
+/* 按钮：墨线方角（主按钮墨底；:not 排除语义色按钮保留红/绿/黄底） */
+html[data-skin="editorial"] .btn:not(.primary):not(.btn-primary):not(.danger):not(.success):not(.warning):not(.info):not(.saved){background:transparent;border:1.5px solid #212328;color:#212328;box-shadow:none;}
+html[data-skin="editorial"] .btn{box-shadow:none;}
+html[data-skin="editorial"] .btn:hover{transform:none;box-shadow:none;}
+html[data-skin="editorial"] .btn:not(.primary):not(.btn-primary):not(.danger):not(.success):not(.warning):not(.info):not(.saved):hover{background:#212328;color:#f8f5ee;border-color:#212328;}
+html[data-skin="editorial"] .btn.primary,
+html[data-skin="editorial"] .btn-primary{background:#212328;color:#f8f5ee;border-color:#212328;}
+html[data-skin="editorial"] .btn.primary:hover,
+html[data-skin="editorial"] .btn-primary:hover{background:transparent;color:#212328;}
+html[data-skin="editorial"] .btn.flat,
+html[data-skin="editorial"] .btn.ghost{border-color:transparent;}
+html[data-skin="editorial"] .btn.flat:hover,
+html[data-skin="editorial"] .btn.ghost:hover{border-bottom:1.5px solid #212328;background:transparent;color:#212328;}
+
+/* 表单：下划线字段 */
+html[data-skin="editorial"] .form-control,
+html[data-skin="editorial"] .input,
+html[data-skin="editorial"] .field input,
+html[data-skin="editorial"] .field select,
+html[data-skin="editorial"] .field textarea{
+  background:transparent;border:none;border-bottom:1.5px solid var(--line-strong);
+  border-radius:0;box-shadow:none;
+}
+html[data-skin="editorial"] .form-control:focus,
+html[data-skin="editorial"] .input:focus,
+html[data-skin="editorial"] .field input:focus,
+html[data-skin="editorial"] .field select:focus,
+html[data-skin="editorial"] .field textarea:focus{border-bottom-color:var(--accent);box-shadow:none;background:transparent;}
+
+/* 表格 / 实时流 / 连接条：点线与发丝线 */
+html[data-skin="editorial"] .table th{border-bottom:2px solid #212328;}
+html[data-skin="editorial"] .table td{border-bottom:1px dotted var(--line-strong);}
+html[data-skin="editorial"] .tbl th{border-bottom:2px solid #212328;}
+html[data-skin="editorial"] .tbl td{border-bottom:1px dotted var(--line-strong);}
+html[data-skin="editorial"] .rt-item{background:transparent;border:none;border-bottom:1px dotted var(--line-strong);border-radius:0;}
+html[data-skin="editorial"] .conn-bar{background:transparent;border:none;border-bottom:1px dotted var(--line-strong);border-radius:0;}
+html[data-skin="editorial"] .tabs{border-bottom:1px solid var(--line-strong);}
+html[data-skin="editorial"] .tab.active{border-bottom-color:var(--accent);}
+html[data-skin="editorial"] .switch-row{border-bottom:1px dotted var(--line-strong);}
+
+/* 方角开关 */
+html[data-skin="editorial"] .switch .track,
+html[data-skin="editorial"] .switch .track::after{border-radius:0;}
+
+/* 杂项硬编码色修正 */
+html[data-skin="editorial"] .app-footer{background:transparent;border-top:1px solid var(--line);font-style:italic;}
+html[data-skin="editorial"] .field select option,
+html[data-skin="editorial"] .form-control option,
+html[data-skin="editorial"] .field select optgroup,
+html[data-skin="editorial"] .form-control optgroup{background:#fffdf8;color:#212328;}
+html[data-skin="editorial"] ::-webkit-scrollbar-thumb{background:#c9c2ab;}
+html[data-skin="editorial"] ::-webkit-scrollbar-thumb:hover{background:#a39a86;}
+html[data-skin="editorial"] .dot.idle,
+html[data-skin="editorial"] .nav-dot.off{background:rgba(33,35,40,.28);}
+html[data-skin="editorial"] .onb-dots span{background:rgba(33,35,40,.22);}
+html[data-skin="editorial"] .badge.superchat{background:rgba(164,116,28,.14);color:#7d5a13;}
+html[data-skin="editorial"] .badge.blindbox{background:rgba(46,74,104,.10);color:#2e4a68;}
+html[data-skin="editorial"] #biliCookieInline{background:rgba(33,35,40,.04)!important;}
+html[data-skin="editorial"] .modal-mask{background:rgba(40,36,26,.5);}
+html[data-skin="editorial"] .modal{border:1px solid #212328;}
+html[data-skin="editorial"] .callout{background:var(--panel2);}
+html[data-skin="editorial"] .onb-card{border:1px solid #212328;}
+html[data-skin="editorial"] .direct-chat-text{background:var(--panel2);}

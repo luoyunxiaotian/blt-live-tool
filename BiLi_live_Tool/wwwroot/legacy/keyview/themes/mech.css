@@ -1,0 +1,139 @@
+/* Theme: mech — mechanical switch keycaps with RGB backlight. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --kv-cap-top: #3a3f4a;
+  --kv-cap-bot: #252932;
+  --kv-cap-edge: #15171c;
+  --kv-fg: #e8ecf2;
+  --kv-rgb: #ff006e;
+  --kv-rgb2: #8338ec;
+  --kv-rgb3: #3a86ff;
+  --kv-active: #00f5d4;
+  --kv-active-glow: rgba(0, 245, 212, 0.9);
+}
+
+#kv { bottom: 18px; gap: 12px; align-items: center; }
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 14px;
+}
+.kv-section:empty { display: none; }
+
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--kv-cap-top) 0%, var(--kv-cap-bot) 100%);
+  border: 1px solid var(--kv-cap-edge);
+  border-top-color: #4a505c;
+  color: var(--kv-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  letter-spacing: 0.2px;
+  user-select: none; box-sizing: border-box;
+  box-shadow: 0 3px 0 var(--kv-cap-edge), 0 4px 6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -2px 4px rgba(58, 134, 255, 0.12);
+  transition: transform calc(50ms / var(--kv-anim-speed)) ease, box-shadow calc(50ms / var(--kv-anim-speed)) ease, background calc(50ms / var(--kv-anim-speed)) ease;
+}
+.kv-real-key.active {
+  background: linear-gradient(180deg, #1a1d24 0%, #0f1115 100%);
+  color: var(--kv-active);
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--kv-cap-edge), 0 0 18px var(--kv-active-glow), 0 0 30px rgba(0, 245, 212, 0.4), inset 0 0 12px rgba(0, 245, 212, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  text-shadow: 0 0 8px var(--kv-active);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse {
+  width: 93px; height: 112px;
+  transition: transform calc(90ms / var(--kv-anim-speed)) ease;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+}
+.kv-mouse-part { transition: fill calc(60ms / var(--kv-anim-speed)) ease; fill: var(--kv-cap-bot); }
+.kv-mouse-wheel { transition: fill calc(70ms / var(--kv-anim-speed)) ease; fill: var(--kv-cap-bot); }
+.kv-mouse-outline { fill: none; stroke: #4a505c; stroke-width: 1.5; }
+.kv-mouse-sep { stroke: var(--kv-cap-edge); stroke-width: 1; }
+.kv-mouse-l.active { fill: var(--kv-active); filter: drop-shadow(0 0 8px var(--kv-active-glow)); }
+.kv-mouse-r.active { fill: var(--kv-active); filter: drop-shadow(0 0 8px var(--kv-active-glow)); }
+.kv-mouse-wheel.active { fill: var(--kv-active); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill calc(70ms / var(--kv-anim-speed)) ease; }
+.kv-mouse-wheel-up.active { fill: var(--kv-active); filter: drop-shadow(0 0 6px var(--kv-active-glow)); }
+.kv-mouse-wheel-down.active { fill: var(--kv-active); filter: drop-shadow(0 0 6px var(--kv-active-glow)); }
+.kv-mouse-side { fill: var(--kv-cap-bot); stroke: #4a505c; stroke-width: 1; transition: fill calc(60ms / var(--kv-anim-speed)) ease; }
+.kv-mouse-side.active { fill: var(--kv-active); stroke: var(--kv-active); filter: drop-shadow(0 0 6px var(--kv-active-glow)); }
+.kv-mouse-dir { opacity: 0; transition: opacity calc(120ms / var(--kv-anim-speed)) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--kv-active); filter: drop-shadow(0 0 6px var(--kv-active-glow)); }
+.kv-mouse-label {
+  font-size: 11px; color: var(--kv-fg);
+  opacity: 0.8;
+  font-family: "Segoe UI", sans-serif;
+  min-height: 14px; letter-spacing: 0.5px;
+}
+
+.kv-gp {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #1a1d24 0%, #0f1115 100%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 0 0 1px #2a2e36;
+}
+.kv-gp-btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.kv-gp-btn {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--kv-cap-edge);
+  background: linear-gradient(180deg, var(--kv-cap-top) 0%, var(--kv-cap-bot) 100%);
+  font-size: 9px; font-weight: 700; color: var(--kv-fg);
+  box-shadow: 0 2px 0 var(--kv-cap-edge);
+  transition: all calc(60ms / var(--kv-anim-speed)) ease;
+}
+.kv-gp-btn.active {
+  color: var(--kv-active);
+  box-shadow: 0 0 12px var(--kv-active-glow), inset 0 0 8px rgba(0, 245, 212, 0.4);
+  text-shadow: 0 0 6px var(--kv-active);
+}
+.kv-gp-stick {
+  position: relative; width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 1px solid #4a505c;
+  background: var(--kv-cap-bot);
+}
+.kv-gp-stick::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 12px; height: 12px; margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--kv-active);
+  box-shadow: 0 0 8px var(--kv-active-glow);
+  transform: translate(var(--sx, 0px), var(--sy, 0px));
+  transition: transform calc(60ms / var(--kv-anim-speed)) ease;
+}
+.kv-gp-trig {
+  width: 8px; height: 30px; border-radius: 4px;
+  border: 1px solid #4a505c;
+  background: var(--kv-cap-bot); position: relative; overflow: hidden;
+}
+.kv-gp-trig::after {
+  content: ""; position: absolute; left: 0; bottom: 0; width: 100%;
+  height: var(--tv, 0%);
+  background: var(--kv-active);
+  box-shadow: 0 0 8px var(--kv-active-glow);
+  transition: height calc(60ms / var(--kv-anim-speed)) ease;
+}

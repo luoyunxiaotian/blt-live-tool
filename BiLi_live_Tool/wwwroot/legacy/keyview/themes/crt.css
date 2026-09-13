@@ -1,0 +1,112 @@
+/* Theme: crt — retro amber phosphor terminal, scanlines & flicker. KB+MS+GP. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --crt-amber: #ffb000;
+  --crt-dim: #7a5500;
+  --crt-glow: rgba(255, 176, 0, 0.7);
+  --crt-bg: #140d02;
+  --crt-fg: #ffcf70;
+  --crt-t: calc(60ms / var(--kv-anim-speed, 1));
+}
+
+#kv { bottom: 18px; gap: 10px; align-items: center; }
+#kv.kv-layout {
+  left: 50%; transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center; flex-direction: row; align-items: flex-end; gap: 12px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- keyboard ---- */
+.kv-real-kb {
+  display: flex; flex-direction: column; gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+
+
+@keyframes crt-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.75; }
+  94% { opacity: 1; }
+  97% { opacity: 0.85; }
+  98% { opacity: 1; }
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+.kv-real-key {
+  height: var(--kv-key-h); min-width: var(--kv-key-w);
+  border-radius: 3px;
+  background: rgba(48, 32, 4, 0.7);
+  border: 1px solid var(--crt-dim);
+  color: var(--crt-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-weight: bold;
+  text-shadow: 0 0 3px var(--crt-glow);
+  user-select: none; box-sizing: border-box;
+  transition: all var(--crt-t) ease;
+}
+.kv-real-key.active {
+  background: var(--crt-amber);
+  border-color: #ffd77a;
+  color: #140d02;
+  text-shadow: none;
+  box-shadow: 0 0 16px var(--crt-glow), 0 0 32px rgba(255, 176, 0, 0.4);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- mouse ---- */
+.kv-real-mouse-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kv-real-mouse { width: 93px; height: 112px; filter: drop-shadow(0 0 12px rgba(255, 176, 0, 0.2)); }
+.kv-mouse-part { transition: fill var(--crt-t) ease; fill: rgba(48, 32, 4, 0.75); }
+.kv-mouse-wheel { transition: fill var(--crt-t) ease; fill: var(--crt-dim); }
+.kv-mouse-outline { fill: none; stroke: var(--crt-amber); stroke-width: 1.5; }
+.kv-mouse-sep { stroke: rgba(255, 176, 0, 0.3); stroke-width: 1; }
+.kv-mouse-l.active { fill: var(--crt-amber); filter: drop-shadow(0 0 8px var(--crt-glow)); }
+.kv-mouse-r.active { fill: var(--crt-amber); filter: drop-shadow(0 0 8px var(--crt-glow)); }
+.kv-mouse-wheel.active { fill: #ffd77a; }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--crt-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--crt-amber); filter: drop-shadow(0 0 5px var(--crt-glow)); }
+.kv-mouse-wheel-down.active { fill: var(--crt-amber); filter: drop-shadow(0 0 5px var(--crt-glow)); }
+.kv-mouse-side { fill: rgba(48, 32, 4, 0.75); stroke: var(--crt-dim); stroke-width: 1; transition: all var(--crt-t) ease; }
+.kv-mouse-side.active { fill: var(--crt-amber); stroke: #ffd77a; filter: drop-shadow(0 0 5px var(--crt-glow)); }
+.kv-mouse-dir { opacity: 0; transition: opacity var(--crt-t) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--crt-amber); filter: drop-shadow(0 0 5px var(--crt-glow)); }
+.kv-mouse-label {
+  font-size: 11px; color: var(--crt-fg); min-height: 14px; letter-spacing: 1px;
+  font-family: "Consolas", monospace;
+  text-shadow: 0 0 3px var(--crt-glow);
+}
+
+/* ---- gamepad (SVG) ---- */
+.kv-gp { display: inline-block; padding: 4px; background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 0 18px rgba(255, 176, 0, 0.25)); }
+.kv-gp-body { fill: rgba(20, 13, 2, 0.9); stroke: var(--crt-dim); stroke-width: 3; }
+.kv-gp-trig { fill: rgba(48, 32, 4, 0.85); stroke: var(--crt-dim); stroke-width: 2; opacity: calc(0.4 + var(--tv, 0) * 0.6); transition: opacity var(--crt-t) ease; }
+.kv-gp-trig.active { fill: var(--crt-amber); stroke: #ffd77a; opacity: 1; filter: drop-shadow(0 0 8px var(--crt-glow)); }
+.kv-gp-trig-fill { fill: var(--crt-amber); opacity: 0.7; }
+.kv-gp-trig-text { fill: var(--crt-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; }
+.kv-gp-shoulder { fill: rgba(48, 32, 4, 0.85); stroke: var(--crt-dim); stroke-width: 2; transition: all var(--crt-t) ease; }
+.kv-gp-shoulder.active { fill: var(--crt-amber); filter: drop-shadow(0 0 6px var(--crt-glow)); }
+.kv-gp-shoulder-text { fill: var(--crt-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; }
+.kv-gp-stick-outer { fill: rgba(14, 9, 1, 0.95); stroke: var(--crt-dim); stroke-width: 2; }
+.kv-gp-stick-inner { fill: rgba(48, 32, 4, 0.9); stroke: var(--crt-bg); stroke-width: 2; transition: all var(--crt-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(255, 176, 0, 0.2); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--crt-amber); stroke: none; filter: drop-shadow(0 0 4px var(--crt-glow)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--crt-dim); filter: drop-shadow(0 0 6px var(--crt-glow)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: rgba(48, 32, 4, 0.9); stroke: var(--crt-dim); stroke-width: 1.5; transition: all var(--crt-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--crt-amber); filter: drop-shadow(0 0 6px var(--crt-glow)); }
+.kv-gp-face { fill: rgba(20, 13, 2, 0.95); stroke: var(--face-c, var(--crt-dim)); stroke-width: 2.5; transition: all var(--crt-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--crt-amber)); filter: drop-shadow(0 0 10px var(--face-c, var(--crt-glow))); }
+.kv-gp-face-text { fill: var(--crt-fg); font-size: 12px; font-weight: 900; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; transition: fill var(--crt-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #140d02; }
+.kv-gp-menu-btn { fill: rgba(48, 32, 4, 0.9); stroke: var(--crt-dim); stroke-width: 1.5; transition: all var(--crt-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--crt-amber); filter: drop-shadow(0 0 5px var(--crt-glow)); }
+.kv-gp-menu-text { fill: var(--crt-fg); font-size: 7px; font-weight: 600; text-anchor: middle; font-family: "Consolas", monospace; pointer-events: none; }

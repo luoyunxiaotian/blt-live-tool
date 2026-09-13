@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>弹幕浮层测试 · B站直播助手 MAUI Demo</title>
+<style>
+  body { margin:0; background:#14161a; color:#e8eaf0; font-family:"Segoe UI","Microsoft YaHei",sans-serif; }
+  header { padding:10px 14px; font-size:14px; color:#9aa3b2; border-bottom:1px solid #262a33;
+           display:flex; gap:12px; align-items:baseline; position:sticky; top:0; background:#14161a; }
+  header b { color:#fb7299; font-size:16px; }
+  #status { font-size:12px; }
+  #status.ok { color:#6fd18a; } #status.bad { color:#ff9d9d; }
+  ul { list-style:none; margin:0; padding:8px 14px 20px; }
+  li { padding:5px 10px; border-radius:6px; margin-bottom:4px; font-size:14px; line-height:1.5; background:#1b1f27; }
+  .t { color:#7d8698; font-size:11px; margin-right:8px; font-variant-numeric:tabular-nums; }
+  .badge { display:inline-block; font-size:11px; padding:0 6px; border-radius:4px; margin-right:8px; }
+  li.ev-danmu .badge { background:#2d3648; color:#a8c7ff; }
+  li.ev-gifts .badge { background:#4a2f2d; color:#ffb3a8; }
+  li.ev-guard .badge { background:#3d3557; color:#cdb9ff; }
+  li.ev-superchat .badge { background:#5c3d12; color:#ffd479; }
+  .uname { color:#8fd0ff; margin-right:6px; font-weight:600; }
+</style>
+</head>
+<body>
+<header><b>B站直播助手 · 浮层链路测试</b><span id="status" class="bad">connecting…</span></header>
+<ul id="list"></ul>
+<script>
+var BADGE = { danmu: '弹幕', gifts: '礼物', guard: '舰长', superchat: 'SC' };
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+
+function text(m) {
+  if (m.type === 'danmu') return m.msg || '';
+  if (m.type === 'gifts') return (m.giftName || '礼物') + ' ×' + (m.num || 1) + (m.value ? '（≈¥' + m.value + '）' : '');
+  if (m.type === 'guard') return '开通 ' + (m.levelName || ('等级' + (m.level || 0))) + ' ×' + (m.num || 1) + (m.value ? '（≈¥' + m.value + '）' : '');
+  if (m.type === 'superchat') return 'SC：' + (m.msg || '') + (m.price ? '（¥' + m.price + '）' : '');
+  return JSON.stringify(m);
+}
+
+function add(m) {
+  var li = document.createElement('li');
+  li.className = 'ev ev-' + (m.type || '');
+  var inner = '<span class="t">' + esc(m.time || '') + '</span>' +
+              '<span class="badge">' + esc(BADGE[m.type] || m.type || '?') + '</span>';
+  if (m.uname) inner += '<span class="uname">' + esc(m.uname) + '</span>';
+  inner += esc(text(m));
+  li.innerHTML = inner;
+  var list = document.getElementById('list');
+  list.insertBefore(li, list.firstChild);
+  while (list.children.length > 100) list.removeChild(list.lastChild);
+}
+
+function setStatus() {
+  fetch('/api/status').then(function (r) { return r.json(); }).then(function (s) {
+    var el = document.getElementById('status');
+    if (s.state === 'connected') {
+      el.textContent = '已连接 · 房间 ' + s.realRoomId + (s.popularity > 1 ? ' · 在线 ' + s.popularity : '');
+      el.className = 'ok';
+    } else {
+      el.textContent = '状态：' + s.state + (s.error ? '（' + s.error + '）' : '');
+      el.className = s.state === 'error' ? 'bad' : '';
+    }
+  }).catch(function () {
+    var el = document.getElementById('status');
+    el.textContent = 'API 不可达';
+    el.className = 'bad';
+  });
+}
+
+setStatus();
+setInterval(setStatus, 5000);
+fetch('/api/recent').then(function (r) { return r.json(); })
+  .then(function (a) { a.slice().reverse().forEach(add); })
+  .catch(function () {});
+
+var ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+ws.onmessage = function (e) {
+  var m;
+  try { m = JSON.parse(e.data); } catch (_) { return; }
+  // Same envelope as the original server: {type:'event'|'status', data}
+  if (m.type === 'event') add(m.data);
+  else if (m.type === 'status') setStatus();
+};
+</script>
+</body>
+</html>

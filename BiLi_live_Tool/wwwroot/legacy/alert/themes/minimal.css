@@ -1,0 +1,12 @@
+/* 主题：极简文字（半透明底 · 细字） */
+.alert-item{display:flex;align-items:center;gap:10px;background:rgba(20,21,26,.62);color:rgba(255,255,255,.92);border-radius:6px;padding:8px 16px;animation:alertMinimal .4s ease-out both;max-width:560px;backdrop-filter:blur(4px);}
+.alert-item .ai-ico{font-size:18px;opacity:.85;flex-shrink:0;}
+.alert-item .ai-body{display:flex;flex-direction:column;line-height:1.35;min-width:0;}
+.alert-item .ai-title{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert-item .ai-sub{font-size:12px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert-item.alert-guard .ai-title{color:#ffd166;}
+.alert-item.alert-superchat .ai-title{color:#ff9db1;}
+.alert-item.alert-follow .ai-title{color:#8be2b7;}
+.alert-item.alert-enter{opacity:.85;}
+.alert-out{transition:opacity .45s;opacity:0;}
+@keyframes alertMinimal{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}

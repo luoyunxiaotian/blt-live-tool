@@ -87,6 +87,20 @@ public sealed class UpdateChecker
         {
             throw;
         }
+        catch (HttpRequestException ex) when (
+            ex.StatusCode == System.Net.HttpStatusCode.NotFound
+            || ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            // Repository (or its releases) not public yet — expected before the MAUI
+            // line publishes its first vX.Y.Z-maui release; don't scare the panel
+            // with a raw 404/403.
+            var blank = new UpdateInfo(
+                false, _currentVersion, "", "", ReleasePageUrl, "", "",
+                "", 0, "", "更新源暂不可用：仓库或 Release 尚未创建（预期在首次发布 -maui 版本后恢复）",
+                false, Now());
+            Store(blank);
+            return blank;
+        }
         catch (Exception ex)
         {
             var failed = new UpdateInfo(

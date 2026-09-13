@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using BiLi_live_Tool.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,14 +24,30 @@ namespace BiLi_live_Tool
 #if WINDOWS
             // MAUI draws the window chrome itself on Windows — the system
             // caption APIs (AppWindow/DWM) are ignored, so theme MAUI's own
-            // TitleBar with the console tokens.
+            // TitleBar. Start from the saved skin so the first paint already
+            // matches the panel instead of flashing the console palette.
             try
             {
+                var skin = "console";
+                try
+                {
+                    // GetService(Type) on the interface — avoids the null-state
+                    // quirk of the generic extension method overload here.
+                    var services = MauiProgram.Services;
+                    if (services != null
+                        && services.GetService(typeof(AppConfig)) is AppConfig cfg
+                        && cfg.GetNode("skin") is JsonValue sv
+                        && sv.TryGetValue<string>(out var saved)
+                        && !string.IsNullOrWhiteSpace(saved))
+                        skin = saved;
+                }
+                catch { }
+                var (bgHex, fgHex) = TitleBarColors(skin);
                 window.TitleBar = new Microsoft.Maui.Controls.TitleBar
                 {
                     Title = "B站直播助手",
-                    BackgroundColor = Color.FromArgb("#0B0F14"),
-                    ForegroundColor = Color.FromArgb("#D7DEE8"),
+                    BackgroundColor = Color.FromArgb(bgHex),
+                    ForegroundColor = Color.FromArgb(fgHex),
                 };
             }
             catch { }
@@ -194,44 +211,55 @@ namespace BiLi_live_Tool
             StyleTitleBarOnce(window, 0);
         }
 
-        /// <summary>Re-themes the title bar when the UI theme changes (called from Blazor).</summary>
+        /// <summary>
+        /// Title bar colors per theme — mirrors each theme's top-strip tokens in
+        /// wwwroot/blt.css + themes.css (console default #0B0F14 / #D7DEE8).
+        /// </summary>
+        internal static (string Bg, string Fg) TitleBarColors(string theme) => theme switch
+        {
+            "workbench" => ("#F7F8FA", "#1A1D24"),
+            "bili" => ("#FFFFFF", "#33333E"),
+            "vibrancy" => ("#F5F5F7", "#1D1D1F"),
+            "brutal" => ("#F3EEE2", "#141414"),
+            "editorial" => ("#F8F5EE", "#22242A"),
+            "neon" => ("#0A0614", "#F4EFFF"),
+            "hud" => ("#05070B", "#DFE7F2"),
+            _ => ("#0B0F14", "#D7DEE8"),
+        };
+
+        /// <summary>
+        /// Re-themes the window chrome when the UI theme changes (called from
+        /// Blazor). MAUI renders the title bar itself on Windows, so the MAUI
+        /// <see cref="Microsoft.Maui.Controls.TitleBar"/> is the object that has
+        /// to change — AppWindow.TitleBar / DWM accept the colors but never
+        /// paint them (that mismatch is why the bar used to stay console-dark).
+        /// </summary>
         internal static void ApplyTitleBarForTheme(string theme)
         {
             try
             {
+                var (bgHex, fgHex) = TitleBarColors(theme);
                 var win = Current?.Windows?.FirstOrDefault();
-                if (win?.Handler?.PlatformView is not Microsoft.UI.Xaml.Window winUi
-                    || winUi.AppWindow is not { } appWindow) return;
-                var (bgRgb, fgRgb, btnFgRgb) = theme switch
+                if (win == null)
                 {
-                    "workbench" => ((0xF7, 0xF8, 0xFA), (0x1A, 0x1D, 0x24), (0x5B, 0x64, 0x72)),
-                    "bili" => ((0xFF, 0xFF, 0xFF), (0x33, 0x33, 0x3E), (0x6F, 0x72, 0x80)),
-                    "vibrancy" => ((0xF5, 0xF5, 0xF7), (0x1D, 0x1D, 0x1F), (0x56, 0x56, 0x5C)),
-                    "brutal" => ((0xF3, 0xEE, 0xE2), (0x14, 0x14, 0x14), (0x4A, 0x4A, 0x4A)),
-                    "editorial" => ((0xF8, 0xF5, 0xEE), (0x22, 0x24, 0x2A), (0x5D, 0x58, 0x49)),
-                    "neon" => ((0x0A, 0x06, 0x14), (0xF4, 0xEF, 0xFF), (0xE9, 0xE0, 0xFF)),
-                    "hud" => ((0x05, 0x07, 0x0B), (0xDF, 0xE7, 0xF2), (0x7C, 0x8B, 0xA1)),
-                    _ => ((0x0B, 0x0F, 0x14), (0xD7, 0xDE, 0xE8), (0x8B, 0x97, 0xA7)),
-                };
-                var tb = appWindow.TitleBar;
-                var bg = Tc(bgRgb.Item1, bgRgb.Item2, bgRgb.Item3);
-                var fg = Tc(fgRgb.Item1, fgRgb.Item2, fgRgb.Item3);
-                var btnFg = Tc(btnFgRgb.Item1, btnFgRgb.Item2, btnFgRgb.Item3);
-                tb.BackgroundColor = bg;
-                tb.ForegroundColor = fg;
-                tb.InactiveBackgroundColor = bg;
-                tb.InactiveForegroundColor = btnFg;
-                tb.ButtonBackgroundColor = bg;
-                tb.ButtonForegroundColor = btnFg;
-                tb.ButtonHoverBackgroundColor = Tc(0x1A, 0x22, 0x2D);
-                tb.ButtonHoverForegroundColor = Tc(0xFF, 0xB2, 0x24);
-                tb.ButtonPressedBackgroundColor = Tc(0x24, 0x2F, 0x3C);
-                tb.ButtonPressedForegroundColor = fg;
-                tb.ButtonInactiveBackgroundColor = bg;
-                tb.ButtonInactiveForegroundColor = btnFg;
-                TitleBarDebug += " theme=" + theme;
+                    TitleBarDebug = $"theme={theme} no-window";
+                    return;
+                }
+                // Window.TitleBar is typed as ITitleBar; the color properties live
+                // on the concrete TitleBar we install in CreateWindow.
+                if (win.TitleBar is not Microsoft.Maui.Controls.TitleBar tb)
+                {
+                    tb = new Microsoft.Maui.Controls.TitleBar { Title = "B站直播助手" };
+                    win.TitleBar = tb;
+                }
+                tb.BackgroundColor = Color.FromArgb(bgHex);
+                tb.ForegroundColor = Color.FromArgb(fgHex);
+                TitleBarDebug = $"theme={theme} bg={bgHex} fg={fgHex}";
             }
-            catch { }
+            catch (Exception ex)
+            {
+                TitleBarDebug = "theme-error: " + ex.Message;
+            }
         }
 
         private static void StyleTitleBarOnce(Window window, int attempt)

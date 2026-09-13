@@ -20,6 +20,21 @@ namespace BiLi_live_Tool
                 MinimumWidth = 900,
                 MinimumHeight = 600,
             };
+#if WINDOWS
+            // MAUI draws the window chrome itself on Windows — the system
+            // caption APIs (AppWindow/DWM) are ignored, so theme MAUI's own
+            // TitleBar with the console tokens.
+            try
+            {
+                window.TitleBar = new Microsoft.Maui.Controls.TitleBar
+                {
+                    Title = "B站直播助手",
+                    BackgroundColor = Color.FromArgb("#0B0F14"),
+                    ForegroundColor = Color.FromArgb("#D7DEE8"),
+                };
+            }
+            catch { }
+#endif
             window.HandlerChanged += (_, _) => StyleTitleBar(window);
             window.Destroying += async (_, _) =>
             {
@@ -93,33 +108,86 @@ namespace BiLi_live_Tool
         /// <summary>
         /// Paints the native title bar in the console theme — colors mirror
         /// wwwroot/blt.css tokens (bg-2 #0B0F14, ink #D7DEE8, line #242F3C,
-        /// amber #FFB224).
+        /// amber #FFB224). The platform window / AppWindow are not always
+        /// ready when handlers change, so this retries on a short timer.
         /// </summary>
+        internal static string TitleBarDebug { get; private set; } = "not-run";
+
         internal static void StyleTitleBar(Window window)
+        {
+            StyleTitleBarOnce(window, 0);
+        }
+
+        private static void StyleTitleBarOnce(Window window, int attempt)
         {
             try
             {
-                if (window.Handler?.PlatformView is Microsoft.UI.Xaml.Window winUi
-                    && winUi.AppWindow is { } appWindow)
+                TitleBarDebug = "attempt=" + attempt;
+                if (window.Handler?.PlatformView is not Microsoft.UI.Xaml.Window winUi)
                 {
-                    var tb = appWindow.TitleBar;
-                    var bg = Tc(0x0B, 0x0F, 0x14);
-                    tb.BackgroundColor = bg;
-                    tb.ForegroundColor = Tc(0xD7, 0xDE, 0xE8);
-                    tb.InactiveBackgroundColor = bg;
-                    tb.InactiveForegroundColor = Tc(0x5D, 0x6A, 0x7A);
-                    // Caption buttons (min/max/close) follow the theme too.
-                    tb.ButtonBackgroundColor = bg;
-                    tb.ButtonForegroundColor = Tc(0x8B, 0x97, 0xA7);
-                    tb.ButtonHoverBackgroundColor = Tc(0x1A, 0x22, 0x2D);
-                    tb.ButtonHoverForegroundColor = Tc(0xFF, 0xB2, 0x24);
-                    tb.ButtonPressedBackgroundColor = Tc(0x24, 0x2F, 0x3C);
-                    tb.ButtonPressedForegroundColor = Tc(0xD7, 0xDE, 0xE8);
-                    tb.ButtonInactiveBackgroundColor = bg;
-                    tb.ButtonInactiveForegroundColor = Tc(0x5D, 0x6A, 0x7A);
+                    TitleBarDebug += " no-platform-window";
+                    RetryTitleBarLater(window, attempt);
+                    return;
                 }
+                if (winUi.AppWindow is not { } appWindow)
+                {
+                    TitleBarDebug += " no-appwindow";
+                    RetryTitleBarLater(window, attempt);
+                    return;
+                }
+                if (!Microsoft.UI.Windowing.AppWindowTitleBar.IsCustomizationSupported())
+                {
+                    TitleBarDebug += " customization-unsupported";
+                    return;
+                }
+                var tb = appWindow.TitleBar;
+                var bg = Tc(0x0B, 0x0F, 0x14);
+                tb.BackgroundColor = bg;
+                tb.ForegroundColor = Tc(0xD7, 0xDE, 0xE8);
+                tb.InactiveBackgroundColor = bg;
+                tb.InactiveForegroundColor = Tc(0x5D, 0x6A, 0x7A);
+                // Caption buttons (min/max/close) follow the theme too.
+                tb.ButtonBackgroundColor = bg;
+                tb.ButtonForegroundColor = Tc(0x8B, 0x97, 0xA7);
+                tb.ButtonHoverBackgroundColor = Tc(0x1A, 0x22, 0x2D);
+                tb.ButtonHoverForegroundColor = Tc(0xFF, 0xB2, 0x24);
+                tb.ButtonPressedBackgroundColor = Tc(0x24, 0x2F, 0x3C);
+                tb.ButtonPressedForegroundColor = Tc(0xD7, 0xDE, 0xE8);
+                tb.ButtonInactiveBackgroundColor = bg;
+                tb.ButtonInactiveForegroundColor = Tc(0x5D, 0x6A, 0x7A);
+
+                // The WinAppSDK TitleBar colors do not always render on unpackaged
+                // WinUI apps; drive DWM directly (DWMWA_CAPTION_COLOR etc., Win11+).
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(winUi);
+                var caption = unchecked((int)0x00140F0B);   // COLORREF 0x00BBGGRR of #0B0F14
+                var textColor = unchecked((int)0x00E8DED7); // #D7DEE8
+                var border = unchecked((int)0x003C2F24);    // #242F3C
+                var dwm1 = DwmSetWindowAttribute(hwnd, DwmwaCaptionColor, ref caption, sizeof(int));
+                var dwm2 = DwmSetWindowAttribute(hwnd, DwmwaTextColor, ref textColor, sizeof(int));
+                var dwm3 = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref border, sizeof(int));
+                TitleBarDebug += $" dwm={dwm1}/{dwm2}/{dwm3}";
             }
-            catch { /* theme paint is cosmetic */ }
+            catch (Exception ex)
+            {
+                TitleBarDebug += " exception: " + ex.Message;
+            }
+        }
+
+        private const int DwmwaBorderColor = 34;
+        private const int DwmwaCaptionColor = 35;
+        private const int DwmwaTextColor = 36;
+
+        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+        private static void RetryTitleBarLater(Window window, int attempt)
+        {
+            if (attempt >= 20) return;
+            try
+            {
+                window.Dispatcher?.DispatchDelayed(TimeSpan.FromMilliseconds(250), () => StyleTitleBarOnce(window, attempt + 1));
+            }
+            catch { }
         }
 #endif
     }

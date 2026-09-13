@@ -896,7 +896,7 @@ public sealed class KestrelHost
                 case "server/readlog":
                     return Results.Json(new { ok = true, lines = Array.Empty<string>() }, JsonWeb);
                 case "debug/tray":
-                    return Results.Json(new { tray = TrayService.LastDebug }, JsonWeb);
+                    return Results.Json(new { tray = TrayService.LastDebug, titleBar = App.TitleBarDebug }, JsonWeb);
                 case "keyview/start":
                     _keyview.Start();
                     return Results.Json(new { ok = true, overlayUrl = $"http://127.0.0.1:{Port}/keyview/overlay.html" }, JsonWeb);

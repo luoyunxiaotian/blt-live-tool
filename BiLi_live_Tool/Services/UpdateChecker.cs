@@ -164,13 +164,32 @@ public sealed class UpdateChecker
         var latestTag = GetString(best, "tag_name");
         var hasUpdate = IsGreater(bestVer, ParseVersion(_currentVersion));
         var (assetName, assetSize, assetUrl, assetSha) = PickAsset(best);
+        var (manName, manSize, manUrl) = PickManifest(best);
         return new UpdateInfo(
             hasUpdate, _currentVersion, latestTag,
             GetString(best, "name"), GetString(best, "html_url"),
             Truncate(GetString(best, "body"), 600), GetString(best, "published_at"),
             assetName, assetSize, assetUrl,
             hasUpdate ? "发现新版本 " + latestTag : "已是最新版本", false, Now())
-        { AssetSha256 = assetSha };
+        { AssetSha256 = assetSha, ManifestName = manName, ManifestSize = manSize, ManifestUrl = manUrl };
+    }
+
+    /// <summary>Manifest asset (manifest-&lt;ver&gt;.json) used for incremental diffs.</summary>
+    public static (string Name, long Size, string Url) PickManifest(JsonElement release)
+    {
+        if (!release.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array)
+            return ("", 0, "");
+        foreach (var a in assets.EnumerateArray())
+        {
+            var name = GetString(a, "name");
+            if (name.StartsWith("manifest-", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                long size = 0;
+                if (a.TryGetProperty("size", out var sz) && sz.ValueKind == JsonValueKind.Number) size = sz.GetInt64();
+                return (name, size, GetString(a, "browser_download_url"));
+            }
+        }
+        return ("", 0, "");
     }
 
     private static (string Name, long Size, string Url, string Sha) PickAsset(JsonElement release)
@@ -296,6 +315,11 @@ public sealed record UpdateInfo(
 {
     /// <summary>SHA256 published by the release (may be empty).</summary>
     public string AssetSha256 { get; init; } = "";
+
+    /// <summary>Incremental-update manifest asset (empty when the release has none).</summary>
+    public string ManifestName { get; init; } = "";
+    public long ManifestSize { get; init; }
+    public string ManifestUrl { get; init; } = "";
 }
 #else
 using System;

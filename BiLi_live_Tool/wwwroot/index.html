@@ -7,8 +7,8 @@
     <base href="/" />
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="app.css" />
-    <link rel="stylesheet" href="blt.css" />
-    <link rel="stylesheet" href="themes.css" />
+    <link rel="stylesheet" href="blt.css?v=011" />
+    <link rel="stylesheet" href="themes.css?v=011" />
     <link rel="stylesheet" href="BiLi_live_Tool.styles.css" />
     <link rel="icon" href="data:,">
     <style>
@@ -68,15 +68,13 @@
         return true;
       };
 
-      // Tells the native layer the Blazor first paint is done (hide splash overlay),
-      // and drops the in-page boot state.
-      window.bltNotifyUiReady = function () {
+      // Drops the in-page boot state. The native splash overlay is dismissed by
+      // MainLayout through DI (KestrelHost.NotifyUiReady) — a relative fetch here
+      // cannot reach the loopback service from the WebView's own origin.
+      window.bltHideBootSpinner = function () {
         try {
           var b = document.getElementById('blt-boot');
           if (b && b.parentNode) b.parentNode.removeChild(b);
-        } catch (e) { }
-        try {
-          fetch('/api/maui/app/ui-ready', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
         } catch (e) { }
         return true;
       };
@@ -112,8 +110,8 @@
         <span class="dismiss">🗙</span>
     </div>
 
-    <script src="blt-audio.js"></script>
-    <script src="blt-panels.js"></script>
+    <script src="blt-audio.js?v=011"></script>
+    <script src="blt-panels.js?v=011"></script>
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 
 </body>

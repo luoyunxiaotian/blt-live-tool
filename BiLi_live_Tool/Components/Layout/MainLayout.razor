@@ -12,6 +12,7 @@
 @inject UiBridge Ui
 @inject UpdateChecker Upd
 @inject VerifyService Verify
+@inject NavigationManager Nav
 
 <div class="blt-app">
     <div class="blt-side">
@@ -93,7 +94,7 @@
         </div>
         @if (Verify.Locked)
         {
-            <div class="blt-panel" style="border-color:var(--red);background:var(--red-dim)">
+            <div class="blt-panel" style="border-color:var(--red);background:var(--red-dim);position:relative;z-index:30">
                 <div class="blt-panel-head" style="border-bottom-color:rgba(245,110,110,.35)">
                     <span class="t" style="color:var(--red)">🔒 账号待授权</span>
                     <span class="en">VERIFY LOCKED</span>
@@ -112,12 +113,29 @@
                         <button class="blt-btn primary" @onclick="CopyAuthorUid">📋 复制作者B站ID</button>
                         <button class="blt-btn" @onclick="OpenAuthorSpace">🔗 打开作者B站主页</button>
                         <button class="blt-btn" @onclick="RetryVerify">↻ 重试验证</button>
+                        <button class="blt-btn" @onclick="OpenLoginBrowser">🔑 重新登录</button>
+                        <button class="blt-btn" @onclick="ClearLogin">🚪 清除登录态</button>
                         <span class="blt-hint" style="align-self:center;margin:0">@_verifyNote</span>
                     </div>
                 </div>
             </div>
         }
-        @Body
+        @if (Verify.Locked && !IsHelpRoute())
+        {
+            @* 未授权门禁：遮罩挡住正文所有交互，仅锁卡内的授权/登录按钮可用 *@
+            <div style="position:relative">
+                <div style="position:absolute;inset:0;z-index:20;background:rgba(10,12,16,.55);backdrop-filter:blur(1.5px);cursor:not-allowed"
+                     title="账号未授权：请先完成授权或更换已授权账号"></div>
+                <div style="position:absolute;inset:0;z-index:21;display:flex;align-items:center;justify-content:center;pointer-events:none">
+                    <span class="blt-badge red" style="font-size:12px;padding:4px 10px">🔒 未授权 · 功能已锁定（请用上方按钮完成授权/重新登录）</span>
+                </div>
+                @Body
+            </div>
+        }
+        else
+        {
+            @Body
+        }
     </div>
 
     <div class="blt-foot">
@@ -144,6 +162,41 @@
     private bool _foldLoaded;
 
     private string _verifyNote = "";
+
+    private bool IsHelpRoute()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        return path.StartsWith("help", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>授权/登录相关操作：未授权时也允许（用户需要它们才能解锁）。</summary>
+    private async Task OpenLoginBrowser()
+    {
+        try
+        {
+            // Must be the in-app browser: the cookie capture reads that WebView2's
+            // cookie jar, so an external browser login would never reach the app.
+            MainPage.Current?.ShowBiliBrowser("https://passport.bilibili.com/login");
+            _verifyNote = "已打开应用内 B站 登录页：登录后 Cookie 会自动捕获并重新校验（约 5 秒）";
+        }
+        catch { _verifyNote = "打开登录页失败"; }
+        await Task.CompletedTask;
+        StateHasChanged();
+    }
+
+    private async Task ClearLogin()
+    {
+        try
+        {
+            var cfg = MauiProgram.Services?.GetService(typeof(AppConfig)) as AppConfig;
+            cfg?.SetBiliCookie("", "");
+            Verify.Reset();
+            var st = await Verify.RefreshAsync(force: true);
+            _verifyNote = st.Locked ? "已清除登录态：请用「重新登录」换号" : "登录态已清除";
+        }
+        catch { _verifyNote = "清除失败"; }
+        StateHasChanged();
+    }
 
     private async Task CopyAuthorUid()
     {
@@ -266,10 +319,12 @@
         }
         if (!_uiReady)
         {
-            // First paint complete → dismiss the native startup overlay (and the
-            // in-page boot spinner) so users see the app, not a blank window.
+            // First paint complete → dismiss the native startup overlay. The native
+            // side must be told through DI (a relative fetch from this page can't
+            // reach the loopback service); the JS call only clears the in-page boot state.
             _uiReady = true;
-            try { await JS.InvokeVoidAsync("bltNotifyUiReady"); } catch { }
+            try { Api.NotifyUiReady(); } catch { }
+            try { await JS.InvokeVoidAsync("bltHideBootSpinner"); } catch { }
         }
         if (!_themeApplied)
         {

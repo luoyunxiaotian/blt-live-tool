@@ -80,6 +80,8 @@
         <Copy SourceFiles="Assets\tray.ico" DestinationFiles="$(OutputPath)\tray.ico" SkipUnchangedFiles="true" />
         <!-- Whitelist HMAC key: not in the repo; copied only when present locally. -->
         <Copy SourceFiles="verify-key.txt" DestinationFiles="$(OutputPath)\verify-key.txt" SkipUnchangedFiles="true" Condition="Exists('verify-key.txt')" />
+        <Copy SourceFiles="Assets\update-now.ps1" DestinationFiles="$(OutputPath)\update-now.ps1" SkipUnchangedFiles="true" />
+        <Copy SourceFiles="Assets\update-now.cmd" DestinationFiles="$(OutputPath)\update-now.cmd" SkipUnchangedFiles="true" />
     </Target>
 
     <ItemGroup>
@@ -119,6 +121,8 @@
     </ItemGroup>
     <Copy SourceFiles="@(_BltPublishAsset)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="verify-key.txt" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="Exists('verify-key.txt')" />
+    <Copy SourceFiles="Assets\update-now.ps1" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="Assets\update-now.cmd" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="Assets\maui-bridge.js" DestinationFiles="$(PublishDir)wwwroot\legacy\maui-bridge.js"
           SkipUnchangedFiles="true" Condition="Exists('$(PublishDir)wwwroot\legacy')" />
   </Target>

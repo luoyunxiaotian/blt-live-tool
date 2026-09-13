@@ -279,10 +279,25 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
                 <button class="blt-btn primary" @onclick="CheckUpdateNow" disabled="@_updateBusy">@(_updateBusy ? "检查中…" : "立即检查")</button>
                 <button class="blt-btn" @onclick="OpenReleasePage">打开发布页</button>
-                <button class="blt-btn" @onclick="DownloadUpdateNow" disabled="@(!_updateHasAsset)">@DownloadBtnText()</button>
+                <button class="blt-btn primary" @onclick="StartUpdateDownload" disabled="@(!_updateHasAsset || _updaterBusy)">@DownloadBtnText()</button>
+                @if (_updaterPhase == "Staged")
+                {
+                    <button class="blt-btn amber" @onclick="ApplyUpdateNow">🔄 更新并重启</button>
+                    <button class="blt-btn" @onclick="CancelUpdate">稍后</button>
+                }
             </div>
+            @if (_updaterMsg.Length > 0 || _updaterPercent > 0)
+            {
+                <div style="margin-top:10px">
+                    <div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden">
+                        <div style="height:100%;width:@(_updaterPercent)%;background:var(--amber);transition:width .2s"></div>
+                    </div>
+                    <div class="blt-hint" style="margin-top:6px;color:@UpdaterNoteColor()">@_updaterMsg</div>
+                </div>
+            }
             <div class="blt-hint">
-                检查结果缓存 6 小时，启动时会静默检查一次；版本比较只看 <b>-maui</b> 结尾的 Release 标签（如 v1.2.0-maui），不会把 Electron 线的版本当成新版。
+                点「下载并安装」会自动下载、校验 SHA256、解压到暂存目录，然后退出应用完成替换并自动重启（<b>config.json 与 data/ 原样保留</b>，旧文件备份在 update_backup/）。
+                检查结果缓存 6 小时，启动时会静默检查一次；版本比较只看 <b>-maui</b> 结尾的 Release 标签。
                 @if (_updateHasAsset)
                 {
                     <span> 已附带更新包：<b>@_updateAssetName</b>（@UpdateAssetSizeText()）。</span>
@@ -911,9 +926,10 @@
 
     private string DownloadBtnText()
     {
-        if (!_updateHasAsset) return "下载并安装（待打包方案）";
+        if (_updaterBusy) return $"正在更新… {_updaterPercent}%";
+        if (!_updateHasAsset) return "下载并安装";
         if (_updateAssetSize <= 0) return "下载并安装 " + _updateAssetName;
-        return $"下载并安装 {_updateAssetName}（{UpdateAssetSizeText()}）";
+        return $"下载并安装 v{_updateLatest}（{UpdateAssetSizeText()}）";
     }
 
     private string UpdateAssetSizeText()
@@ -927,6 +943,12 @@
             if (o == null) { _updateMsg = "状态接口无响应"; _updateLoaded = true; return; }
             _updateTime = o["lastCheckAt"] is JsonValue tv && tv.TryGetValue<string>(out var ts) ? ts ?? "" : "";
             if (o["info"] is JsonObject info) ApplyUpdateInfo(info);
+            if (o["updater"] is JsonObject u)
+            {
+                _updaterPhase = u["phase"] is JsonValue pv && pv.TryGetValue<string>(out var ps) ? ps ?? "" : "";
+                _updaterPercent = u["percent"] is JsonValue pc && pc.TryGetValue<int>(out var pi) ? pi : 0;
+                _updaterMsg = u["message"] is JsonValue mv && mv.TryGetValue<string>(out var ms) ? ms ?? "" : "";
+            }
             _updateLoaded = true;
         }
         catch (Exception ex) { _updateMsg = "状态加载失败：" + ex.Message; _updateLoaded = true; }
@@ -973,10 +995,64 @@
 
     private Task OpenReleasePage() => PostJsonAsync("/api/maui/update/open-page", new JsonObject());
 
-    private Task DownloadUpdateNow()
+    // ---- 应用内更新（下载 → 校验 → 暂存 → 重启安装）----
+
+    private string _updaterPhase = "";
+    private int _updaterPercent;
+    private string _updaterMsg = "";
+    private bool _updaterBusy;
+
+    private string UpdaterNoteColor()
+        => _updaterPhase == "Failed" ? "var(--red)" : _updaterPhase == "Staged" ? "var(--green)" : "var(--ink-3)";
+
+    private async Task StartUpdateDownload()
     {
-        _updateMsg = "下载安装属于第二步（依赖打包方案），当前请用「打开发布页」手动下载。";
-        return Task.CompletedTask;
+        _updaterBusy = true;
+        _updaterPercent = 0;
+        _updaterMsg = "正在准备下载…";
+        StateHasChanged();
+        try
+        {
+            await PostJsonAsync("/api/maui/update/download", new JsonObject());
+            // 轮询进度（下载 156MB 视网络需要数十秒到数分钟）
+            for (var i = 0; i < 600; i++)
+            {
+                await Task.Delay(1000);
+                var o = await PostJsonReadAsync("/api/maui/update/status", new JsonObject());
+                if (o?["updater"] is not JsonObject u) continue;
+                _updaterPhase = u["phase"] is JsonValue pv && pv.TryGetValue<string>(out var ps) ? ps ?? "" : "";
+                _updaterPercent = u["percent"] is JsonValue pct && pct.TryGetValue<int>(out var pi) ? pi : 0;
+                _updaterMsg = u["message"] is JsonValue mv && mv.TryGetValue<string>(out var ms) ? ms ?? "" : "";
+                StateHasChanged();
+                if (_updaterPhase is "Staged" or "Failed" or "Idle") break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _updaterPhase = "Failed";
+            _updaterMsg = "更新失败：" + ex.Message;
+        }
+        finally
+        {
+            _updaterBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ApplyUpdateNow()
+    {
+        _updaterMsg = "正在退出并安装，应用会自动重启…";
+        StateHasChanged();
+        await PostJsonAsync("/api/maui/update/apply", new JsonObject());
+    }
+
+    private async Task CancelUpdate()
+    {
+        await PostJsonAsync("/api/maui/update/clear", new JsonObject());
+        _updaterPhase = "";
+        _updaterPercent = 0;
+        _updaterMsg = "";
+        StateHasChanged();
     }
 
     /// <summary>POST to the MAUI bridge and read the JSON reply (bridge is POST-only).</summary>

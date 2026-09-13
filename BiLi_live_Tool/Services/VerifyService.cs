@@ -65,7 +65,9 @@ public sealed class VerifyService
     private readonly LiveService _live;
     private readonly object _lock = new();
     private VerifyState _state = new(false, 0, "", "", "", "", false);
-    private long _lastUid;      // uid of the cookie we already verified
+    private long _lastUid;
+    /// <summary>Diagnostics only: force the lock so the gated UI can be exercised.</summary>
+    private bool? _debugLock;      // uid of the cookie we already verified
     private DateTimeOffset _lastAttempt;
 
     public VerifyService(AppConfig config, LiveService live)
@@ -76,7 +78,14 @@ public sealed class VerifyService
 
     public VerifyState State { get { lock (_lock) return _state; } }
 
-    public bool Locked => State.Locked;
+    public bool Locked => _debugLock ?? State.Locked;
+
+    /// <summary>Diagnostics hook (loopback bridge only): force/clear the locked state.</summary>
+    public void SetDebugLock(bool? locked)
+    {
+        _debugLock = locked;
+        Changed?.Invoke();
+    }
 
     public event Action? Changed;
 
@@ -107,10 +116,14 @@ public sealed class VerifyService
         var uid = ExtractUid(_config.Cookie);
         if (uid == 0)
         {
-            // No login yet: stay unlocked (matches the original, where the lock only
-            // engages for a uid the whitelist rejected).
-            SetState(new VerifyState(false, 0, "", "NO_UID", "未检测到 B站 UID，请先登录", Now(), false));
+            // Not logged in → treated as unauthorized (original behaviour: it locked
+            // and asked the user to sign in with an authorized account). The gate UI
+            // offers login/relogin, and the next check unlocks automatically once the
+            // browser captures a whitelisted uid.
             _lastUid = 0;
+            SetState(new VerifyState(true, 0, "", "NO_UID", "未检测到 B站 UID：请先登录 B站账号（未授权账号登出后同样会锁定）", Now(), true));
+            // Locking drops any live connection, exactly like the original.
+            _live.Stop();
             return State;
         }
         if (!force && uid == _lastUid && State.Checked) return State;
@@ -134,7 +147,15 @@ public sealed class VerifyService
         else
         {
             _lastUid = uid;   // don't retry in a loop for the same uid
-            SetState(new VerifyState(true, uid, "", code, message, Now(), true));
+            // Only a server verdict (not on the whitelist / expired / bad signature)
+            // may lock the app. Network reachability problems must not: a flaky link
+            // or a TLS hiccup would otherwise lock a legitimately authorized user out.
+            var softFailure = code is "NETWORK_ERROR" or "TIMEOUT";
+            SetState(new VerifyState(
+                softFailure ? State.Locked : true,
+                uid, "", code,
+                softFailure ? message + "（网络问题，稍后自动重试，不影响本地功能）" : message,
+                Now(), true));
         }
         // Locking drops any live connection, exactly like the original's
         // disconnectRoom() on the locked branch.

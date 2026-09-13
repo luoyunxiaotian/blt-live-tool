@@ -33,6 +33,7 @@ namespace BiLi_live_Tool
             builder.Services.AddSingleton<PanelSoundPlayer>();
             builder.Services.AddSingleton<SongPlayer>();
             builder.Services.AddSingleton<UiBridge>();
+            builder.Services.AddSingleton(sp => new AppUpdater(sp.GetRequiredService<AppConfig>(), KestrelHost.VersionText));
             // Update probe: shared by the panel card, the top strip badge and the
             // silent start-up check (6h throttle, see UpdateChecker).
             builder.Services.AddSingleton(sp => new UpdateChecker(KestrelHost.VersionText));

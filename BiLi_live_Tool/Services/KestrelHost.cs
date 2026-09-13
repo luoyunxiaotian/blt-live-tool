@@ -41,6 +41,7 @@ public sealed class KestrelHost
     private readonly UiBridge _ui;
     private readonly UpdateChecker _updateChecker;
     private readonly VerifyService _verify;
+    private readonly AppUpdater _updater;
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
     private readonly ConcurrentDictionary<Guid, WebSocket> _keyviewClients = new();
     private readonly HttpClient _proxy = new() { Timeout = TimeSpan.FromSeconds(180) };
@@ -85,7 +86,7 @@ public sealed class KestrelHost
     public string? LastError { get; private set; }
     public int Port => _config.Port;
 
-    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker, VerifyService verify)
+    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker, VerifyService verify, AppUpdater updater)
     {
         _config = config;
         _hub = hub;
@@ -100,6 +101,7 @@ public sealed class KestrelHost
         _ui = ui;
         _updateChecker = updateChecker;
         _verify = verify;
+        _updater = updater;
     }
 
     /// <summary>First free port at or after <paramref name="preferred"/> (up to +9).</summary>
@@ -117,6 +119,21 @@ public sealed class KestrelHost
             catch { }
         }
         return preferred;
+    }
+
+    /// <summary>
+    /// Called directly by MainLayout after its first paint (no HTTP: pages can't
+    /// fetch the loopback service from the WebView's own origin).
+    /// </summary>
+    public void NotifyUiReady()
+    {
+        try
+        {
+            var page = MainPage.Current;
+            if (page == null) return;
+            page.Dispatcher.Dispatch(() => { try { page.HideStartupOverlay(); } catch { } });
+        }
+        catch { }
     }
 
     public void StartInBackground()
@@ -914,7 +931,9 @@ public sealed class KestrelHost
                     return Results.Json(await _updateChecker.CheckAsync(ctx.RequestAborted, force), JsonWeb);
                 }
                 case "update/status":
-                    // 只读缓存（不发网络请求），页面/顶栏用
+                {
+                    // 附带读取（并清除）上次安装脚本写下的结果
+                    var st = _updater.ConsumeResult();
                     return Results.Json(new
                     {
                         ok = true,
@@ -922,7 +941,56 @@ public sealed class KestrelHost
                             ? ""
                             : _updateChecker.LastCheckAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
                         info = _updateChecker.LastResult,
+                        updater = new
+                        {
+                            phase = st.Phase.ToString(),
+                            percent = st.Percent,
+                            message = st.Message,
+                            receivedMB = Math.Round(st.ReceivedBytes / 1048576.0, 1),
+                            totalMB = Math.Round(st.TotalBytes / 1048576.0, 1),
+                            stagedVersion = st.StagedVersion,
+                            hasResult = st.HasResult,
+                            result = st.ResultText,
+                        },
                     }, JsonWeb);
+                }
+                case "update/download":
+                {
+                    // 诊断覆盖：允许指定 assetUrl/assetSha（本机演练与失败分支验证用）
+                    var info = _updateChecker.LastResult;
+                    var url = SafeStr(body["assetUrl"]);
+                    if (url.Length == 0) url = info?.AssetUrl ?? "";
+                    var name = SafeStr(body["assetName"]);
+                    if (name.Length == 0) name = info?.AssetName ?? "";
+                    var sha = SafeStr(body["assetSha"]);
+                    if (sha.Length == 0) sha = info?.AssetSha256 ?? "";
+                    // 增量更新所需的清单资产（诊断可用 body.manifestUrl 覆盖）
+                    var manifestUrl = SafeStr(body["manifestUrl"]);
+                    if (manifestUrl.Length == 0) manifestUrl = info?.ManifestUrl ?? "";
+                    long size = info?.AssetSize ?? 0;
+                    if (body["assetSize"] is JsonValue sv && sv.TryGetValue<long>(out var s2) && s2 > 0) size = s2;
+                    if (url.Length == 0)
+                        return Results.Json(new { error = "没有可下载的更新资产：请先检查更新" }, JsonWeb, statusCode: 400);
+                    _ = _updater.DownloadAndStageAsync(url, name, size, sha, info?.Latest ?? "", manifestUrl);
+                    return Results.Json(new { ok = true, started = true, url, name, size, sha, manifestUrl, version = info?.Latest ?? "" }, JsonWeb);
+                }
+                case "update/apply":
+                {
+                    var ok = _updater.ApplyAndRestart();
+                    if (ok)
+                    {
+                        // 释放文件占用与网络，再由安装脚本接管替换与重启
+                        try { _tts.StopAll(); } catch { }
+                        try { _live.Stop(); } catch { }
+                        try { _speaker.Stop(); } catch { }
+                        Ui(() => page?.CloseBiliBrowser());
+                        Ui(() => App.QuitForReal());
+                    }
+                    return Results.Json(new { ok }, JsonWeb);
+                }
+                case "update/clear":
+                    _updater.Clear();
+                    return Results.Json(new { ok = true }, JsonWeb);
                 case "update/open-page":
                 {
                     var url = AppIdentity.ReleasesLatestPageUrl;
@@ -934,7 +1002,8 @@ public sealed class KestrelHost
                     catch (Exception e) { return Results.Json(new { error = e.Message }, JsonWeb, statusCode: 500); }
                 }
                 case "update/download-install":
-                    return Results.Json(new { error = "MAUI 版暂无安装包，请到 Release 页手动下载" }, JsonWeb);
+                    // 兼容旧调用：等同 update/download
+                    goto case "update/download";
                 case "bili/show":
                 {
                     var rid = SafeStr(body["roomId"]).Trim();
@@ -1070,6 +1139,14 @@ public sealed class KestrelHost
                 }
                 case "verify/status":
                     return Results.Json(VerifyPayload(), JsonWeb);
+                case "verify/fake-lock":
+                {
+                    // 诊断：本机验证"未授权时其他按键不可用"的门禁表现
+                    var on = body["locked"] is JsonValue lv && lv.TryGetValue<bool>(out var lb) && lb;
+                    var clear = body["clear"] is JsonValue cv && cv.TryGetValue<bool>(out var cb) && cb;
+                    _verify.SetDebugLock(clear ? null : on);
+                    return Results.Json(new { ok = true, locked = _verify.Locked }, JsonWeb);
+                }
                 case "verify/refresh":
                 {
                     var st = await _verify.RefreshAsync(force: true);

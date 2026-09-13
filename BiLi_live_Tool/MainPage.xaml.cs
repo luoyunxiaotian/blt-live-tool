@@ -23,11 +23,15 @@ namespace BiLi_live_Tool
             // TTS/panel sounds must play on their own, so allow autoplay.
             blazorWebView.BlazorWebViewInitializing += (_, e) =>
             {
+                // EnvironmentOptions can arrive null in some hosts — guard instead of
+                // relying on the catch (a thrown NRE still stops the VS debugger).
+                var options = e?.EnvironmentOptions;
+                if (options == null) return;
                 try
                 {
-                    var args = e.EnvironmentOptions.AdditionalBrowserArguments ?? "";
+                    var args = options.AdditionalBrowserArguments ?? "";
                     if (!args.Contains("autoplay-policy"))
-                        e.EnvironmentOptions.AdditionalBrowserArguments = args + " --autoplay-policy=no-user-gesture-required";
+                        options.AdditionalBrowserArguments = args + " --autoplay-policy=no-user-gesture-required";
                 }
                 catch { }
             };
@@ -142,6 +146,13 @@ namespace BiLi_live_Tool
                             ShowStartupError(string.IsNullOrEmpty(host?.LastError)
                                 ? "内嵌服务未在 15 秒内就绪"
                                 : "内嵌服务启动失败：" + host!.LastError);
+                            return;
+                        }
+                        if (apiUp && _startupTicks >= 84 && !StartupRetry.IsVisible)
+                        {
+                            // 84 × 300ms = 25s: service is up but the UI never reported
+                            // first paint — surface it instead of spinning forever.
+                            ShowStartupError("界面渲染未在 25 秒内完成");
                             return;
                         }
                         StartupStage.Text = apiUp ? "正在载入界面…" : "正在启动内嵌服务…";

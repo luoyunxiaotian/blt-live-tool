@@ -7,11 +7,11 @@
   --bg-2:#0b0f14;
   --panel:#151c25;
   --panel-2:#1a222d;
-  --line:#242f3c;
+  --line:#2b3846;
   --line-2:#2d3a49;
   --ink:#d7dee8;
-  --ink-2:#8b97a7;
-  --ink-3:#5d6a7a;
+  --ink-2:#aab6c6;
+  --ink-3:#8c99aa;   /* 提示/次要文字：深底上 ≈4.6:1，满足正文对比度 */
   --amber:#ffb224;
   --amber-dim:rgba(255,178,36,.12);
   --green:#3fd68f;
@@ -213,3 +213,36 @@ textarea.blt-input{resize:vertical;min-height:46px;line-height:1.5}
 input.blt-input[type=checkbox]{width:auto}
 .blt-input::placeholder{color:var(--ink-3)}
 input.blt-input::-webkit-calendar-picker-indicator{filter:invert(.75)}
+
+
+/* ===========================================================================
+   UX 打磨层（ui-ux-pro-max 规则）：键盘焦点可见、交互反馈非 0ms、
+   命中区下限、卡片层级强化。放在最后覆盖前面的基础规则。
+   =========================================================================== */
+
+/* 焦点可见（此前只有输入框有 focus 样式，按钮/开关/导航键盘操作看不到焦点） */
+.blt-btn:focus-visible, a.blt-navitem:focus-visible, .blt-switch:focus-visible,
+.blt-navgroup:focus-visible, .blt-panel-head:focus-visible, select.blt-input:focus-visible {
+  outline:2.5px solid var(--amber);
+  outline-offset:2px;
+  border-radius:var(--r);
+}
+/* 交互反馈：150ms 过渡 + 按下态（避免"瞬时变化"的僵硬感） */
+.blt-btn{transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .08s ease}
+.blt-btn:active:not(:disabled){transform:translateY(1px)}
+.blt-navitem{transition:color .15s ease,background-color .15s ease,border-color .15s ease}
+.blt-navitem:active{background:var(--amber-dim)}
+.blt-switch .track, .blt-switch .track::after{transition:background-color .15s ease,border-color .15s ease,left .15s ease}
+.blt-panel{transition:border-color .15s ease}
+/* 命中区下限（桌面 32px；开关 24px 轨道 + 行内 padding） */
+.blt-btn{min-height:32px}
+.blt-switch{padding:3px 0}
+.blt-navitem{min-height:34px}
+/* 层级：卡片头与内容区分得更清（头部略深 + 更明确的分隔） */
+.blt-panel-head{background:linear-gradient(0deg,rgba(255,255,255,.02),rgba(255,255,255,.02));}
+.blt-panel-head .t{letter-spacing:.2px}
+/* 数值/状态文字加重，与说明文字拉开层次 */
+.blt-kv .v{font-weight:600}
+.blt-kv .k{font-size:13.5px}
+/* 长文本可读性：提示行高与最大宽度 */
+.blt-hint{line-height:1.6;max-width:78ch}

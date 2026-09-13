@@ -75,9 +75,7 @@ public sealed class UpdateChecker
         }
         try
         {
-            using var resp = await Http.GetAsync(ReleasesUrl, ct).ConfigureAwait(false);
-            resp.EnsureSuccessStatusCode();
-            var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var body = await GetReleaseJsonAsync(ct).ConfigureAwait(false);
             using var doc = JsonDocument.Parse(body);
             var info = PickMauiRelease(doc.RootElement);
             Store(info);
@@ -295,6 +293,37 @@ public sealed class UpdateChecker
            && el.ValueKind == JsonValueKind.String
             ? el.GetString() ?? ""
             : "";
+
+    /// <summary>
+    /// Fetches the releases JSON through the mirror list, official host first,
+    /// 15 s per attempt (same behaviour as the Electron updater's
+    /// fetchLatestRelease(): walk the mirrors in order, first answer wins).
+    /// </summary>
+    private static async Task<string> GetReleaseJsonAsync(CancellationToken ct)
+    {
+        Exception? last = null;
+        foreach (var url in GhMirrors.Expand(GhMirrors.Api, ReleasesUrl))
+        {
+            try
+            {
+                using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                attempt.CancelAfter(TimeSpan.FromSeconds(15));
+                using var resp = await Http.GetAsync(url, attempt.Token).ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    last = new HttpRequestException($"HTTP {(int)resp.StatusCode} @ {GhMirrors.Host(url)}");
+                    continue;
+                }
+                return await resp.Content.ReadAsStringAsync(attempt.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                last = new TimeoutException("超时 @ " + GhMirrors.Host(url));
+            }
+            catch (Exception ex) { last = ex; }
+        }
+        throw new System.IO.IOException("所有镜像均不可用：" + (last?.Message ?? "unknown"));
+    }
 }
 
 /// <summary>Result of a channel check (serialized camelCase to the panel).</summary>

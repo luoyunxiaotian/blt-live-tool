@@ -33,6 +33,80 @@ public sealed class AppUpdater
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(30) };
 
+    /// <summary>Host that served the current download (shown in the status line).</summary>
+    private string _src = "";
+    private string SrcNote() => _src.Length > 0 ? $"\uFF08{_src}\uFF09" : "";
+
+    /// <summary>
+    /// Races every download mirror and keeps the first that answers with headers;
+    /// the losing attempts are cancelled. Ported from the Electron updater's
+    /// raceHttpStreams(). The winner's CTS comes back with the response and must
+    /// stay alive until the body has been read (cancelling it earlier kills it).
+    /// </summary>
+    private static async Task<(HttpResponseMessage Response, string From, CancellationTokenSource Cts)> GetRacingAsync(
+        string url, CancellationToken token)
+    {
+        var attempts = GhMirrors.Expand(GhMirrors.Download, url).Select(mirror =>
+        {
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            return (Mirror: mirror, Cts: cts, Task: Http.GetAsync(mirror, HttpCompletionOption.ResponseHeadersRead, cts.Token));
+        }).ToList();
+        if (attempts.Count == 0) throw new IOException("download url is empty");
+
+        var pending = attempts.Select(a => a.Task).ToList();
+        Exception? last = null;
+        while (pending.Count > 0)
+        {
+            var done = await Task.WhenAny(pending).ConfigureAwait(false);
+            pending.Remove(done);
+            var attempt = attempts.First(a => ReferenceEquals(a.Task, done));
+            try
+            {
+                var resp = await done.ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var code = (int)resp.StatusCode;
+                    resp.Dispose();
+                    last = new IOException($"HTTP {code} @ {GhMirrors.Host(attempt.Mirror)}");
+                    continue;
+                }
+                foreach (var a in attempts)
+                {
+                    if (ReferenceEquals(a.Cts, attempt.Cts)) continue;
+                    try { a.Cts.Cancel(); } catch { }
+                    _ = a.Task.ContinueWith(static t => { _ = t.Exception; }, TaskScheduler.Default);
+                }
+                return (resp, attempt.Mirror, attempt.Cts);
+            }
+            catch (Exception ex) { last = ex; }
+        }
+        throw new IOException("\u5168\u90e8\u955c\u50cf\u5747\u4e0d\u53ef\u7528\uFF1A" + (last?.Message ?? "unknown"));
+    }
+
+    /// <summary>
+    /// Fetches JSON (the release manifest) through the mirror list in order, 20 s
+    /// per attempt - a slow or blocked GitHub must not break the update check.
+    /// </summary>
+    private static async Task<string> GetJsonViaMirrorsAsync(string url, CancellationToken token)
+    {
+        Exception? last = null;
+        foreach (var target in GhMirrors.Expand(GhMirrors.Download, url))
+        {
+            try
+            {
+                using var attempt = CancellationTokenSource.CreateLinkedTokenSource(token);
+                attempt.CancelAfter(TimeSpan.FromSeconds(20));
+                return await Http.GetStringAsync(target, attempt.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                last = new TimeoutException("\u8d85\u65f6 @ " + GhMirrors.Host(target));
+            }
+            catch (Exception ex) { last = ex; }
+        }
+        throw new IOException("\u6240\u6709\u955c\u50cf\u5747\u4e0d\u53ef\u7528\uFF1A" + (last?.Message ?? "unknown"));
+    }
+
     private readonly AppConfig _config;
     private readonly string _currentVersion;
     private readonly object _lock = new();
@@ -98,7 +172,7 @@ public sealed class AppUpdater
                             $"增量更新：{diff.Count} 个文件变化，跳过 {skipped} 个未变化文件", 0, patch.Size, "", false, "", true, skipped, diff.Count));
                         var ok = await DownloadToFileAsync(patchUrl, patch.Name, patch.Size, patch.Sha256, token, "增量包",
                                 (pct, got, total) => Set(new Status(Phase.Downloading, pct,
-                                    $"正在下载增量包（{Mb(got)} / {Mb(total)} MB，{diff.Count} 个文件）", got, total, "", false, "", true, skipped, diff.Count)))
+                                    $"正在下载增量包（{Mb(got)} / {Mb(total)} MB，{diff.Count} 个文件）{SrcNote()}", got, total, "", false, "", true, skipped, diff.Count)))
                             .ConfigureAwait(false);
                         if (!ok) return FallbackToFull(assetUrl, fileName, expectedSize, expectedSha, version, "增量包不可用", token);
 
@@ -142,7 +216,7 @@ public sealed class AppUpdater
         var zipPath = Path.Combine(StagingDir, safeName + ".part");
         var ok = await DownloadToFileAsync(url, fileName, expectedSize, expectedSha, token, "完整包",
             (pct, got, total) => Set(new Status(Phase.Downloading, pct,
-                $"正在下载完整包（{Mb(got)} / {Mb(total)} MB）", got, total, "", false, ""))).ConfigureAwait(false);
+                $"正在下载完整包（{Mb(got)} / {Mb(total)} MB）{SrcNote()}", got, total, "", false, ""))).ConfigureAwait(false);
         if (!ok) return Current;
 
         Set(new Status(Phase.Extracting, 100, "正在解压…", 0, 0, "", false, ""));
@@ -169,14 +243,32 @@ public sealed class AppUpdater
         if (string.IsNullOrWhiteSpace(url)) { Fail(what + "地址为空"); return false; }
         var path = Path.Combine(StagingDir, Sanitize(fileName.Length > 0 ? fileName : "update.zip") + ".part");
         long received = 0;
+        // Reuse an already downloaded, still-verifying package (same behaviour as the
+        // Electron updater): a failed or cancelled attempt must not cost another full
+        // download on a slow line.
+        if (File.Exists(path) && expectedSize > 0)
+        {
+            try
+            {
+                var len = new FileInfo(path).Length;
+                if (len == expectedSize &&
+                    (string.IsNullOrEmpty(expectedSha) ||
+                     string.Equals(await Task.Run(() => Sha256(path), token).ConfigureAwait(false), expectedSha, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _src = "本地已下载并校验通过";
+                    Set(new Status(Phase.Downloading, 100, $"{what}已存在且校验通过，跳过重复下载", expectedSize, expectedSize, "", false, ""));
+                    return true;
+                }
+                if (len != expectedSize) TryDelete(path);   // partial file -> start over
+            }
+            catch { }
+        }
         try
         {
-            using var resp = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode)
-            {
-                Fail($"{what}下载失败：HTTP {(int)resp.StatusCode}（可稍后重试，或到发布页手动下载）");
-                return false;
-            }
+            var race = await GetRacingAsync(url, token).ConfigureAwait(false);
+            using var ownerCts = race.Cts;
+            using var resp = race.Response;
+            _src = GhMirrors.Host(race.From);
             var total = resp.Content.Headers.ContentLength ?? expectedSize;
             await using var src = await resp.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
             await using var dst = File.Create(path);
@@ -226,7 +318,7 @@ public sealed class AppUpdater
     {
         try
         {
-            var json = await Http.GetStringAsync(url, token).ConfigureAwait(false);
+            var json = await GetJsonViaMirrorsAsync(url, token).ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
             var files = new List<ManifestFile>();

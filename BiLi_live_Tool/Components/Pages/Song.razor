@@ -331,10 +331,10 @@
                 else
                 {
                     var active = ActiveLyricIndex();
-                    <div style="height:300px;overflow-y:auto;padding:2px 4px">
+                    <div id="blt-lyric-box" style="height:300px;overflow-y:auto;padding:2px 4px;scroll-behavior:smooth">
                         @for (var i = 0; i < _lyricLines.Count; i++)
                         {
-                            <div style="@LyricLineStyle(i, active)">@_lyricLines[i].Text</div>
+                            <div class="@(i == active ? "blt-lyric-on" : "")" style="@LyricLineStyle(i, active)">@_lyricLines[i].Text</div>
                         }
                     </div>
                 }
@@ -355,11 +355,11 @@
                     <BltSecretInput @bind-Value="_cookieQq" Placeholder="粘贴 QQ音乐 Cookie（留空保存 = 清除）" />
                     <button class="blt-btn" style="flex:none" @onclick="SaveQqCookie" disabled="@_busy">保存</button>
                     <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
-                            @onclick="LoginQq" disabled="@_musicLoginBusy"><BltIcon Emoji="🌐" /> 应用内登录</button>
+                            @onclick="LoginQq"><BltIcon Emoji="🌐" /> 应用内登录</button>
                     <button class="blt-btn" style="flex:none" title="查询是否已捕获到该平台的登录态"
-                            @onclick="CheckQq" disabled="@_musicLoginBusy">检测</button>
+                            @onclick="CheckQq">检测</button>
                     <button class="blt-btn" style="flex:none" title="清除该平台已保存的 Cookie"
-                            @onclick="ClearQq" disabled="@_musicLoginBusy">清除</button>
+                            @onclick="ClearQq">清除</button>
                 </div>
 
                 <div class="blt-kv">
@@ -370,11 +370,11 @@
                     <BltSecretInput @bind-Value="_cookieNetease" Placeholder="粘贴 网易云 Cookie（MUSIC_U=...）" />
                     <button class="blt-btn" style="flex:none" @onclick="SaveNeteaseCookie" disabled="@_busy">保存</button>
                     <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
-                            @onclick="LoginNetease" disabled="@_musicLoginBusy"><BltIcon Emoji="🌐" /> 应用内登录</button>
+                            @onclick="LoginNetease"><BltIcon Emoji="🌐" /> 应用内登录</button>
                     <button class="blt-btn" style="flex:none" title="查询是否已捕获到该平台的登录态"
-                            @onclick="CheckNetease" disabled="@_musicLoginBusy">检测</button>
+                            @onclick="CheckNetease">检测</button>
                     <button class="blt-btn" style="flex:none" title="清除该平台已保存的 Cookie"
-                            @onclick="ClearNetease" disabled="@_musicLoginBusy">清除</button>
+                            @onclick="ClearNetease">清除</button>
                 </div>
 
                 <div class="blt-kv">
@@ -385,11 +385,11 @@
                     <BltSecretInput @bind-Value="_cookieKugou" Placeholder="粘贴 酷狗 Cookie（留空保存 = 清除）" />
                     <button class="blt-btn" style="flex:none" @onclick="SaveKugouCookie" disabled="@_busy">保存</button>
                     <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
-                            @onclick="LoginKugou" disabled="@_musicLoginBusy"><BltIcon Emoji="🌐" /> 应用内登录</button>
+                            @onclick="LoginKugou"><BltIcon Emoji="🌐" /> 应用内登录</button>
                     <button class="blt-btn" style="flex:none" title="查询是否已捕获到该平台的登录态"
-                            @onclick="CheckKugou" disabled="@_musicLoginBusy">检测</button>
+                            @onclick="CheckKugou">检测</button>
                     <button class="blt-btn" style="flex:none" title="清除该平台已保存的 Cookie"
-                            @onclick="ClearKugou" disabled="@_musicLoginBusy">清除</button>
+                            @onclick="ClearKugou">清除</button>
                 </div>
 
                 @if (_musicLoginMsg.Length > 0)
@@ -500,7 +500,6 @@
     /// <summary>应用内登录：打开平台登录窗 → 轮询捕获结果 → 成功后回填并保存 Cookie。</summary>
     private async Task LoginPlatform(string platform)
     {
-        if (_musicLoginBusy) return;
         _musicLoginBusy = true;
         _musicLoginMsg = "正在打开 " + PlatName(platform) + " 登录窗口…";
         StateHasChanged();
@@ -634,6 +633,7 @@
 
     // ---------- player / lyrics state ----------
     private string _lyricSongKey = "";
+    private int _lyricShownActive = -2;   // 上次滚动到的歌词行（-2=未初始化）
     private string _lyricSource = "";
     private bool _lyricLoading;
     private List<(double Time, string Text)> _lyricLines = new();
@@ -662,6 +662,19 @@
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // 歌词自动滚动：高亮行变化时把它滚到可视区中间
+        var lyricActive = _lyricLines.Count > 0 ? ActiveLyricIndex() : -1;
+        if (lyricActive != _lyricShownActive)
+        {
+            _lyricShownActive = lyricActive;
+            try
+            {
+                await JS.InvokeVoidAsync("eval",
+                    "(function(){var b=document.getElementById('blt-lyric-box');var a=b&&b.querySelector('.blt-lyric-on');" +
+                    "if(!b||!a)return;var t=a.offsetTop-(b.clientHeight-a.clientHeight)/2;b.scrollTo({top:t<0?0:t,behavior:'smooth'});})()");
+            }
+            catch { }
+        }
         _page = this;   // static slot read by the [JSInvokable] drag callback below
         if (!firstRender) return;
         try
@@ -1131,9 +1144,24 @@
 
     private async Task RemoveAt(int index) => await Guard(async () =>
     {
+        // 删掉的正是正在播放的那首 → 立即停止并跳下一首（否则播放器会继续播已删除的歌）
+        var wasPlaying = index == Player.PlayingIndex;
         await PostJson("/api/song-request/playlist/remove", new JsonObject { ["index"] = index });
         await LoadPlaylistAsync();
-        SetMsg("已移除第 " + (index + 1) + " 首", "green");
+        if (!wasPlaying)
+        {
+            SetMsg("已移除第 " + (index + 1) + " 首", "green");
+            return;
+        }
+        if (_playlist.Count == 0)
+        {
+            Player.StopPlayback();
+            SetMsg("已移除正在播放的歌曲：播放列表已空 → 已停止播放", "amber");
+            return;
+        }
+        var next = index < _playlist.Count ? index : 0;
+        await Player.PlayIndexAsync(next);
+        SetMsg("正在播放的歌曲被移除 → 自动跳到第 " + (next + 1) + " 首", "amber");
     }, "移除失败");
 
     private async Task MoveTo(int from, int to) => await Guard(async () =>

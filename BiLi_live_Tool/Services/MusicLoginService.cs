@@ -131,11 +131,37 @@ public sealed class MusicLoginService
             }
             var cookie = string.Join("; ", parts.Distinct());
             if (cookie.Length == 0 || cookie == _lastCookie) return;
+            // 登录页一开始就会下发一批游客 Cookie：没有登录标记就不保存，避免误显示「已配置」
+            if (!IsLoggedInCookie(platform, cookie)) return;
             _lastCookie = cookie;
             _services.GetService<LivePipeline>()?.SongRequest.SavePlatformCookie(platform, cookie);
 #endif
         }
         catch { }
+    }
+
+    /// <summary>平台登录标记 Cookie：只有含这些键才算「已登录」，否则会误把游客 Cookie 当登录态。</summary>
+    private static readonly Dictionary<string, string[]> LoginMarkers = new()
+    {
+        ["netease"] = new[] { "MUSIC_U=" },
+        ["qq"] = new[] { "qm_keyst=", "qqmusic_key=", "uin=o" },
+        ["kugou"] = new[] { "token=" },
+        ["bilibili"] = new[] { "SESSDATA=" },
+    };
+
+    /// <summary>判定一段 Cookie 是否代表已登录（无标记表时退回「非空」）。</summary>
+    public static bool IsLoggedInCookie(string platform, string cookie)
+    {
+        if (string.IsNullOrWhiteSpace(cookie)) return false;
+        if (!LoginMarkers.TryGetValue(platform, out var marks)) return true;
+        foreach (var m in marks)
+        {
+            var i = cookie.IndexOf(m, StringComparison.OrdinalIgnoreCase);
+            if (i < 0) continue;
+            var value = cookie[(i + m.Length)..].Split(';')[0].Trim();
+            if (value.Length > 0 && value != "0" && value != "o0") return true;
+        }
+        return false;
     }
 
     public bool HasSavedCookie(string platform)
@@ -145,7 +171,7 @@ public sealed class MusicLoginService
             && o.TryGetPropertyValue(platform, out var v)
             && v is System.Text.Json.Nodes.JsonValue val
             && val.TryGetValue<string>(out var s)
-            && !string.IsNullOrEmpty(s);
+            && IsLoggedInCookie(platform, s);
     }
 
     /// <summary>Clears the saved cookie string; the WebView profile keeps its own cookies (demo note).</summary>

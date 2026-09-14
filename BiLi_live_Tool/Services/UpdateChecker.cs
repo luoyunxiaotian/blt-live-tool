@@ -114,11 +114,15 @@ public sealed class UpdateChecker
     {
         lock (_lock)
         {
-            if (_last != null && _lastAt != default && DateTimeOffset.UtcNow - _lastAt < Throttle)
+            if (_last != null && _lastAt != default && DateTimeOffset.UtcNow - _lastAt < Throttle
+                && IsSameVersion(_last.Current, _currentVersion))
                 return _last;
         }
         var (info, at) = ReadState();
-        if (info != null && at != default && DateTimeOffset.UtcNow - at < Throttle)
+        // A cached result is only valid for the version that produced it: right after an
+        // in-app update the old cache would otherwise keep claiming "有新版本" for 6 hours.
+        if (info != null && at != default && DateTimeOffset.UtcNow - at < Throttle
+            && IsSameVersion(info.Current, _currentVersion))
         {
             lock (_lock)
             {

@@ -539,10 +539,29 @@ public sealed class AppUpdater
             var text = File.ReadAllText(ResultFile).Trim();
             TryDelete(ResultFile);
             var ok = text.StartsWith("OK", StringComparison.OrdinalIgnoreCase);
+            // The install is done: drop the payload/scripts/partials. A full package is
+            // 150+ MB and pure waste once applied (the previous build left it behind).
+            if (ok) CleanupStaging();
             Set(new Status(Phase.Idle, 0, ok ? "上次更新已完成 · " + text : "上次更新未完成 · " + text, 0, 0, "", true, text));
         }
         catch { }
         return Current;
+    }
+
+    /// <summary>Deletes the staged payload, the apply script and any *.part downloads.
+    /// Called after a successful install; a failure keeps the staging so the verified
+    /// package can be reused for a retry.</summary>
+    private void CleanupStaging()
+    {
+        TryDelete(PayloadDir);
+        TryDelete(ApplyScript);
+        try
+        {
+            if (Directory.Exists(StagingDir))
+                foreach (var f in Directory.GetFiles(StagingDir, "*.part"))
+                    TryDelete(f);
+        }
+        catch { }
     }
 
     public void Clear()

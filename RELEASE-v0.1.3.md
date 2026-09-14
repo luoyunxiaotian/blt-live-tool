@@ -72,9 +72,9 @@
 
 | 资产 | 大小 | SHA256 |
 |------|------|--------|
-| blt-live-tool-v0.1.3-maui-win-x64.zip | 156.5 MB | `8da610c89c1f4e84a41f9b1563c332b0a5cd9cb7d3d1c2d89768c2f3ddc8b1a8` |
-| patch-0.1.3-from-0.1.2.zip | 1.9 MB | `ca7f498e08b7fe1c069682b1ef516ee15788ef7e1780093f9bc30aac19257046` |
-| manifest-0.1.3.json | 136 KB | `5c6dcaaf6fea0e5968c7c4469af9bbfc440de0e74ec1eacfc89221fa290e96bf` |
+| blt-live-tool-v0.1.3-maui-win-x64.zip | 156.5 MB | `c0f6ff1f7d926b2734d839ef75725273ce97fa3da22d8b0ec56a2b9c56a6dcd6` |
+| patch-0.1.3-from-0.1.2.zip | 1.9 MB | `6bcf60de2e69f6b0c5e71649df1babce501a1e667fd2f6be00dc3e4004aab02e` |
+| manifest-0.1.3.json | 132 KB | `0550b2326c33fe6ff53994fee5bee6f10c3794d742f05febcb15164c12841583` |
 
 （发布机已对整包逐条对账清单：路径/大小/哈希 788/788 一致；增量包 14 个文件哈希全部匹配，
 删除列表为空 —— 增量更新不会删除任何已有文件。）

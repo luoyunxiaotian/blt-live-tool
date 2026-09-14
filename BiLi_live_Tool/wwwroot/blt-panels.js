@@ -30,6 +30,18 @@
     return false;
   }
 
+  // 折叠按钮是 ::after 伪元素，没法挂 title，所以把提示写在卡头上：
+  // 悬停卡头就能看到「点击折叠 / 点击展开」，状态一看便知。
+  function syncTitles() {
+    var panels = document.querySelectorAll('.blt-panel');
+    for (var i = 0; i < panels.length; i++) {
+      var head = panels[i].querySelector('.blt-panel-head');
+      if (!head) continue;
+      var want = panels[i].classList.contains('collapsed') ? '点击展开这张卡片' : '点击折叠这张卡片';
+      if (head.title !== want) head.title = want;
+    }
+  }
+
   function applyAll() {
     var st = loadState();
     var panels = document.querySelectorAll('.blt-panel');
@@ -38,6 +50,7 @@
       var want = st[k] === true;
       if (want !== panels[i].classList.contains('collapsed')) panels[i].classList.toggle('collapsed', want);
     }
+    syncTitles();
   }
 
   document.addEventListener('click', function (ev) {
@@ -51,6 +64,7 @@
     panel.classList.toggle('collapsed', now);
     st[k] = now;
     saveState(st);
+    syncTitles();
   }, true);
 
   // Blazor re-renders can drop the class again — restore on DOM changes and on a slow beat.

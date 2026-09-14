@@ -195,9 +195,16 @@ label.blt-label{display:block;font-size:12px;color:var(--ink-2);letter-spacing:.
 /* ===== 卡片折叠（点击卡头任意空白处）；由 blt-panels.js 维护状态 ===== */
 .blt-panel-head{cursor:pointer;user-select:none}
 .blt-panel-head .foldable{cursor:pointer}
-.blt-panel-head::after{content:'▾';margin-left:6px;font-size:12px;color:var(--ink-3);
-  transition:transform .15s;flex:none}
-.blt-panel.collapsed .blt-panel-head::after{transform:rotate(-90deg)}
+/* 折叠提示：22px 方形按钮（原先是一个 12px、最弱灰的裸字符，既看不出能点、
+   也看不出当前是展开还是折叠）。展开 = 中性色 ▾；折叠 = 旋转成 ▸ 并染琥珀色，
+   与卡头的底色一起给出明确状态。整条卡头本来就可点，这里只是把能力显示出来。 */
+.blt-panel-head::after{content:'▾';flex:none;display:flex;align-items:center;justify-content:center;
+  width:22px;height:22px;margin-left:8px;border:1px solid var(--line-2);border-radius:6px;
+  background:var(--panel-2);color:var(--ink-2);font-size:13px;line-height:1;
+  transition:transform .18s ease,background .15s ease,border-color .15s ease,color .15s ease}
+.blt-panel-head:hover::after{color:var(--ink);border-color:var(--ink-3);background:var(--panel)}
+.blt-panel.collapsed .blt-panel-head::after{transform:rotate(-90deg);
+  color:var(--amber-ink);border-color:var(--amber);background:var(--amber-dim)}
 .blt-panel.collapsed .blt-panel-head{border-bottom:none}
 .blt-panel.collapsed .blt-panel-body{display:none}
 /* 卡头里的交互元素不触发折叠（js 也会拦，这里给出光标暗示） */

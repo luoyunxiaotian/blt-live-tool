@@ -30,8 +30,26 @@
     return false;
   }
 
-  // 折叠按钮是 ::after 伪元素，没法挂 title，所以把提示写在卡头上：
-  // 悬停卡头就能看到「点击折叠 / 点击展开」，状态一看便知。
+  // 折叠按钮：实心三角用 SVG（固定 18×11 px），比字符可靠 —— 字符的墨迹远小于字号，
+  // 放多大都还是一小点；SVG 想多大就多大且不糊，颜色用 currentColor 跟随主题。
+  var FOLD_SVG = '<svg viewBox="0 0 10 6" aria-hidden="true">' +
+    '<path d="M0 0l5 6 5-6z" fill="currentColor"/></svg>';
+
+  function ensureFoldButtons() {
+    var heads = document.querySelectorAll('.blt-panel-head');
+    for (var i = 0; i < heads.length; i++) {
+      var h = heads[i];
+      if (h.querySelector('.blt-fold')) continue;   // Blazor 重渲染可能把它冲掉，这里补回
+      var btn = document.createElement('span');
+      btn.className = 'blt-fold';
+      btn.setAttribute('aria-hidden', 'true');
+      btn.innerHTML = FOLD_SVG;
+      h.appendChild(btn);   // 追加到末尾：与原先 ::after 的位置一致（卡头最右侧）
+    }
+  }
+
+  // 折叠按钮是 ::after 伪元素时代留下的说明——现在按钮是真实元素，但伪元素挂不了
+  // title，所以提示仍然写在卡头上：悬停即可看到「点击折叠 / 点击展开」。
   function syncTitles() {
     var panels = document.querySelectorAll('.blt-panel');
     for (var i = 0; i < panels.length; i++) {
@@ -50,6 +68,7 @@
       var want = st[k] === true;
       if (want !== panels[i].classList.contains('collapsed')) panels[i].classList.toggle('collapsed', want);
     }
+    ensureFoldButtons();
     syncTitles();
   }
 

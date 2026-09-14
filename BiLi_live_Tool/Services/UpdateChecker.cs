@@ -77,7 +77,7 @@ public sealed class UpdateChecker
         {
             var body = await GetReleaseJsonAsync(ct).ConfigureAwait(false);
             using var doc = JsonDocument.Parse(body);
-            var info = PickMauiRelease(doc.RootElement);
+            var info = await PickMauiReleaseAsync(doc.RootElement, ct).ConfigureAwait(false);
             Store(info);
             return info;
         }
@@ -130,7 +130,7 @@ public sealed class UpdateChecker
         return null;
     }
 
-    private UpdateInfo PickMauiRelease(JsonElement root)
+    private async Task<UpdateInfo> PickMauiReleaseAsync(JsonElement root, CancellationToken ct)
     {
         if (root.ValueKind != JsonValueKind.Array)
             return new UpdateInfo(false, _currentVersion, "", "", ReleasePageUrl, "", "", "", 0, "",
@@ -163,13 +163,65 @@ public sealed class UpdateChecker
         var hasUpdate = IsGreater(bestVer, ParseVersion(_currentVersion));
         var (assetName, assetSize, assetUrl, assetSha) = PickAsset(best);
         var (manName, manSize, manUrl) = PickManifest(best);
+        // Patch metadata from the manifest, so the panel can state what will really be
+        // downloaded ("增量 1.9 MB") instead of always quoting the full-package size.
+        var (patchName, patchSize, patchFrom) = await PickPatchAsync(manUrl, ct).ConfigureAwait(false);
+        var patchApplies = patchName.Length > 0 && patchFrom.Length > 0 && IsSameVersion(patchFrom, _currentVersion);
         return new UpdateInfo(
             hasUpdate, _currentVersion, latestTag,
             GetString(best, "name"), GetString(best, "html_url"),
             Truncate(GetString(best, "body"), 600), GetString(best, "published_at"),
             assetName, assetSize, assetUrl,
             hasUpdate ? "发现新版本 " + latestTag : "已是最新版本", false, Now())
-        { AssetSha256 = assetSha, ManifestName = manName, ManifestSize = manSize, ManifestUrl = manUrl };
+        {
+            AssetSha256 = assetSha, ManifestName = manName, ManifestSize = manSize, ManifestUrl = manUrl,
+            PatchName = patchName, PatchSize = patchSize, PatchFrom = patchFrom, PatchApplies = patchApplies,
+        };
+    }
+
+    /// <summary>patch{name,size,from} from the release manifest; empty when absent or
+    /// unreachable — a manifest hiccup must never fail the check itself.</summary>
+    private static async Task<(string Name, long Size, string From)> PickPatchAsync(string manifestUrl, CancellationToken ct)
+    {
+        if (manifestUrl.Length == 0) return ("", 0, "");
+        try
+        {
+            var json = await GetManifestJsonAsync(manifestUrl, ct).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("patch", out var patch) || patch.ValueKind != JsonValueKind.Object)
+                return ("", 0, "");
+            var size = patch.TryGetProperty("size", out var sv) && sv.ValueKind == JsonValueKind.Number ? sv.GetInt64() : 0;
+            return (GetString(patch, "name"), size, GetString(patch, "from"));
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { return ("", 0, ""); }
+    }
+
+    /// <summary>True when two version strings denote the same release ("0.1.2" vs "v0.1.2-maui").</summary>
+    private static bool IsSameVersion(string a, string b)
+    {
+        var va = ParseVersion(a);
+        var vb = ParseVersion(b);
+        return va[0] == vb[0] && va[1] == vb[1] && va[2] == vb[2];
+    }
+
+    /// <summary>Manifest JSON through the download-mirror list (same policy as AppUpdater).</summary>
+    private static async Task<string> GetManifestJsonAsync(string url, CancellationToken ct)
+    {
+        Exception? last = null;
+        foreach (var target in GhMirrors.Expand(GhMirrors.Download, url))
+        {
+            try
+            {
+                using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                attempt.CancelAfter(TimeSpan.FromSeconds(15));
+                return await Http.GetStringAsync(target, attempt.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (OperationCanceledException) { last = new TimeoutException("超时 @ " + GhMirrors.Host(target)); }
+            catch (Exception ex) { last = ex; }
+        }
+        throw new IOException("清单拉取失败：" + (last?.Message ?? "unknown"));
     }
 
     /// <summary>Manifest asset (manifest-&lt;ver&gt;.json) used for incremental diffs.</summary>
@@ -349,6 +401,15 @@ public sealed record UpdateInfo(
     public string ManifestName { get; init; } = "";
     public long ManifestSize { get; init; }
     public string ManifestUrl { get; init; } = "";
+
+    /// <summary>Patch named by the manifest (empty when the release has no patch).</summary>
+    public string PatchName { get; init; } = "";
+    public long PatchSize { get; init; }
+    public string PatchFrom { get; init; } = "";
+
+    /// <summary>True when the patch is based on the running version, i.e. only it will be
+    /// downloaded and applied. The panel uses this for the button label/size.</summary>
+    public bool PatchApplies { get; init; }
 }
 #else
 using System;
@@ -385,5 +446,10 @@ public sealed record UpdateInfo(
     string Message, bool Cached, string CheckedAt)
 {
     public string AssetSha256 { get; init; } = "";
+    // Kept for signature parity with the Windows build (unused on other targets).
+    public string PatchName { get; init; } = "";
+    public long PatchSize { get; init; }
+    public string PatchFrom { get; init; } = "";
+    public bool PatchApplies { get; init; }
 }
 #endif

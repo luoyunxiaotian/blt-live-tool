@@ -33,6 +33,11 @@ public sealed class AppUpdater
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(30) };
 
+    // Throughput floor for download attempts: a mirror that answers the header race but then
+    // crawls is abandoned in favour of the next one (see DownloadToFileAsync).
+    private const int SlowWindowMs = 8000;
+    private const int MinKbps = 150;
+
     /// <summary>Host that served the current download (shown in the status line).</summary>
     private string _src = "";
     private string SrcNote() => _src.Length > 0 ? $"\uFF08{_src}\uFF09" : "";
@@ -43,18 +48,23 @@ public sealed class AppUpdater
     /// raceHttpStreams(). The winner's CTS comes back with the response and must
     /// stay alive until the body has been read (cancelling it earlier kills it).
     /// </summary>
+    /// <param name="exclude">Hosts already tried and rejected (e.g. too slow) — skipped so a
+    /// retry does not land on the same mirror again.</param>
     private static async Task<(HttpResponseMessage Response, string From, CancellationTokenSource Cts)> GetRacingAsync(
-        string url, CancellationToken token)
+        string url, CancellationToken token, ISet<string>? exclude = null)
     {
-        var attempts = GhMirrors.Expand(GhMirrors.Download, url).Select(mirror =>
+        var attempts = GhMirrors.Expand(GhMirrors.Download, url)
+            .Where(m => exclude == null || !exclude.Contains(GhMirrors.Host(m)))
+            .Select(mirror =>
         {
             var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
             return (Mirror: mirror, Cts: cts, Task: Http.GetAsync(mirror, HttpCompletionOption.ResponseHeadersRead, cts.Token));
         }).ToList();
-        if (attempts.Count == 0) throw new IOException("download url is empty");
+        if (attempts.Count == 0) throw new IOException("没有可用的下载镜像（已全部尝试过）");
 
         var pending = attempts.Select(a => a.Task).ToList();
         Exception? last = null;
+        var failures = new List<string>();
         while (pending.Count > 0)
         {
             var done = await Task.WhenAny(pending).ConfigureAwait(false);
@@ -67,6 +77,7 @@ public sealed class AppUpdater
                 {
                     var code = (int)resp.StatusCode;
                     resp.Dispose();
+                    failures.Add($"{GhMirrors.Host(attempt.Mirror)}: HTTP {code}");
                     last = new IOException($"HTTP {code} @ {GhMirrors.Host(attempt.Mirror)}");
                     continue;
                 }
@@ -78,9 +89,23 @@ public sealed class AppUpdater
                 }
                 return (resp, attempt.Mirror, attempt.Cts);
             }
-            catch (Exception ex) { last = ex; }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                // Our own token was cancelled (an explicit cancel, or a newer download took
+                // over). Rethrow: reporting "every mirror is down" for this hid the real cause
+                // and looked like a network outage.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{GhMirrors.Host(attempt.Mirror)}: {ex.GetType().Name} {ex.Message}");
+                last = ex;
+            }
         }
-        throw new IOException("\u5168\u90e8\u955c\u50cf\u5747\u4e0d\u53ef\u7528\uFF1A" + (last?.Message ?? "unknown"));
+        if (token.IsCancellationRequested) throw new OperationCanceledException(token);
+        throw new IOException("全部镜像均不可用：" + (failures.Count > 0
+            ? string.Join("；", failures.Take(5))
+            : last?.Message ?? "unknown"));
     }
 
     /// <summary>
@@ -90,6 +115,7 @@ public sealed class AppUpdater
     private static async Task<string> GetJsonViaMirrorsAsync(string url, CancellationToken token)
     {
         Exception? last = null;
+        var failures = new List<string>();
         foreach (var target in GhMirrors.Expand(GhMirrors.Download, url))
         {
             try
@@ -98,13 +124,25 @@ public sealed class AppUpdater
                 attempt.CancelAfter(TimeSpan.FromSeconds(20));
                 return await Http.GetStringAsync(target, attempt.Token).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
-                last = new TimeoutException("\u8d85\u65f6 @ " + GhMirrors.Host(target));
+                throw;   // cancelled on purpose — not "all mirrors are down"
             }
-            catch (Exception ex) { last = ex; }
+            catch (OperationCanceledException)
+            {
+                failures.Add(GhMirrors.Host(target) + ": 超时");
+                last = new TimeoutException("超时 @ " + GhMirrors.Host(target));
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{GhMirrors.Host(target)}: {ex.GetType().Name} {ex.Message}");
+                last = ex;
+            }
         }
-        throw new IOException("\u6240\u6709\u955c\u50cf\u5747\u4e0d\u53ef\u7528\uFF1A" + (last?.Message ?? "unknown"));
+        if (token.IsCancellationRequested) throw new OperationCanceledException(token);
+        throw new IOException("所有镜像均不可用：" + (failures.Count > 0
+            ? string.Join("；", failures.Take(5))
+            : last?.Message ?? "unknown"));
     }
 
     private readonly AppConfig _config;
@@ -112,6 +150,7 @@ public sealed class AppUpdater
     private readonly object _lock = new();
     private Status _status = new(Phase.Idle, 0, "", 0, 0, "", false, "");
     private CancellationTokenSource? _cts;
+    private volatile bool _running;
 
     public AppUpdater(AppConfig config, string currentVersion)
     {
@@ -138,6 +177,16 @@ public sealed class AppUpdater
         string assetUrl, string fileName, long expectedSize, string expectedSha, string version,
         string manifestUrl = "", CancellationToken ct = default)
     {
+        // A second request while one is running must not cancel the first: the cancelled run
+        // would fail inside its own incremental→full fallback with a dead token and report a
+        // bogus "全部镜像均不可用：A task was canceled" while a fresh run was actually fine.
+        // (The panel can send a second request after a re-render, which drops its busy flag.)
+        if (_running)
+        {
+            ServiceLog.Info("更新", "已有下载任务在进行中，忽略重复请求");
+            return Current;
+        }
+        _running = true;
         _cts?.Cancel();
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var token = _cts.Token;
@@ -174,13 +223,13 @@ public sealed class AppUpdater
                                 (pct, got, total) => Set(new Status(Phase.Downloading, pct,
                                     $"正在下载增量包（{Mb(got)} / {Mb(total)} MB，{diff.Count} 个文件）{SrcNote()}", got, total, "", false, "", true, skipped, diff.Count)))
                             .ConfigureAwait(false);
-                        if (!ok) return FallbackToFull(assetUrl, fileName, expectedSize, expectedSha, version, "增量包不可用", token);
+                        if (!ok) return await FallbackToFullAsync(assetUrl, fileName, expectedSize, expectedSha, version, "增量包不可用", token).ConfigureAwait(false);
 
                         Set(new Status(Phase.Extracting, 100, "正在解压增量包…", 0, 0, "", false, "", true, skipped, diff.Count));
                         await Task.Run(() => ExtractZip(Path.Combine(StagingDir, Sanitize(patch.Name) + ".part"), PayloadDir, skipPatchJson: true), token).ConfigureAwait(false);
                         var verify = await Task.Run(() => VerifyPayload(diff), token).ConfigureAwait(false);
                         if (!verify.ok)
-                            return FallbackToFull(assetUrl, fileName, expectedSize, expectedSha, version, verify.message, token);
+                            return await FallbackToFullAsync(assetUrl, fileName, expectedSize, expectedSha, version, verify.message, token).ConfigureAwait(false);
 
                         TryDelete(Path.Combine(StagingDir, Sanitize(patch.Name) + ".part"));
                         WriteApplyScript();
@@ -207,6 +256,7 @@ public sealed class AppUpdater
         {
             return Fail("更新失败：" + ex.Message + "（当前版本不受影响）");
         }
+        finally { _running = false; }
     }
 
     private async Task<Status> StageFullAsync(string url, string fileName, long expectedSize, string expectedSha, string version, CancellationToken token)
@@ -230,10 +280,12 @@ public sealed class AppUpdater
         return Current;
     }
 
-    private Status FallbackToFull(string assetUrl, string fileName, long size, string sha, string version, string why, CancellationToken token)
+    /// <summary>Incremental attempt failed → the full package. Async on purpose: the old
+    /// blocking GetAwaiter().GetResult() inside an async method risked deadlocking the caller.</summary>
+    private async Task<Status> FallbackToFullAsync(string assetUrl, string fileName, long size, string sha, string version, string why, CancellationToken token)
     {
         Set(new Status(Phase.Downloading, 0, $"{why} → 改为下载完整包", 0, 0, "", false, ""));
-        return StageFullAsync(assetUrl, fileName, size, sha, version, token).GetAwaiter().GetResult();
+        return await StageFullAsync(assetUrl, fileName, size, sha, version, token).ConfigureAwait(false);
     }
 
     /// <summary>Downloads to staging, checks size and SHA256. Returns false with a reason set.</summary>
@@ -263,31 +315,72 @@ public sealed class AppUpdater
             }
             catch { }
         }
-        try
+        // The header race only measures who answers first — GitHub direct wins it and can then
+        // trickle at a few KB/s (observed: 1.9 MB patch, 176 KB after 90 s). So each attempt
+        // also has to clear a throughput floor over a warm-up window, otherwise the next mirror
+        // gets a turn; a bad mirror is remembered so it is not picked again.
+        var tried = new HashSet<string>();
+        var tooSlowAll = "";
+        for (var round = 0; round < 3; round++)
         {
-            var race = await GetRacingAsync(url, token).ConfigureAwait(false);
-            using var ownerCts = race.Cts;
-            using var resp = race.Response;
-            _src = GhMirrors.Host(race.From);
-            var total = resp.Content.Headers.ContentLength ?? expectedSize;
-            await using var src = await resp.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
-            await using var dst = File.Create(path);
-            var buf = new byte[128 * 1024];
-            int read;
-            var lastPct = -1;
-            while ((read = await src.ReadAsync(buf, token).ConfigureAwait(false)) > 0)
+            received = 0;
+            var tooSlow = "";
+            try
             {
-                await dst.WriteAsync(buf.AsMemory(0, read), token).ConfigureAwait(false);
-                received += read;
-                if (total > 0)
+                var race = await GetRacingAsync(url, token, tried).ConfigureAwait(false);
+                using var ownerCts = race.Cts;
+                using var resp = race.Response;
+                var host = GhMirrors.Host(race.From);
+                tried.Add(host);
+                _src = host;
+                var total = resp.Content.Headers.ContentLength ?? expectedSize;
+                await using var src = await resp.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+                await using var dst = File.Create(path);
+                var buf = new byte[128 * 1024];
+                int read;
+                var lastPct = -1;
+                var winStart = Environment.TickCount64;
+                long winBytes = 0;
+                while ((read = await src.ReadAsync(buf, token).ConfigureAwait(false)) > 0)
                 {
-                    var pct = (int)Math.Clamp(received * 100 / total, 0, 100);
-                    if (pct != lastPct) { lastPct = pct; progress(pct, received, total); }
+                    await dst.WriteAsync(buf.AsMemory(0, read), token).ConfigureAwait(false);
+                    received += read;
+                    if (total > 0)
+                    {
+                        var pct = (int)Math.Clamp(received * 100 / total, 0, 100);
+                        if (pct != lastPct) { lastPct = pct; progress(pct, received, total); }
+                    }
+                    var elapsed = Environment.TickCount64 - winStart;
+                    if (elapsed >= SlowWindowMs)
+                    {
+                        var kbps = (received - winBytes) * 1000.0 / elapsed / 1024;
+                        if (kbps < MinKbps)
+                        {
+                            tooSlow = $"{host} 实测 {kbps:0} KB/s（低于 {MinKbps} KB/s 下限）";
+                            break;
+                        }
+                        winStart = Environment.TickCount64; winBytes = received;
+                    }
                 }
             }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                try { TryDelete(path); } catch { }
+                Fail($"{what}下载失败：{ex.Message}");
+                return false;
+            }
+            if (tooSlow.Length == 0) break;            // completed this attempt
+            TryDelete(path);
+            tooSlowAll = tooSlow;
+            Set(new Status(Phase.Downloading, 0,
+                $"{what}：{tooSlow}，正在换镜像重试（已试 {tried.Count} 个）", 0, expectedSize, "", false, ""));
         }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { Fail($"{what}下载失败：{ex.Message}"); return false; }
+        if (tooSlowAll.Length > 0 && !File.Exists(path))
+        {
+            Fail($"{what}下载过慢：{tooSlowAll}，已尝试 {tried.Count} 个镜像均不达标 —— 已放弃，当前版本不受影响");
+            return false;
+        }
 
         if (expectedSize > 0 && received != expectedSize)
         {
@@ -454,6 +547,9 @@ public sealed class AppUpdater
 
     public void Clear()
     {
+        // Explicit cancel (「稍后」/清空): stop a run that is still in flight, otherwise its
+        // progress would keep overwriting the cleared status.
+        try { _cts?.Cancel(); } catch { }
         TryDelete(ResultFile);
         Set(new Status(Phase.Idle, 0, "", 0, 0, "", false, ""));
     }

@@ -311,6 +311,10 @@
                     <button class="blt-btn" @onclick="CancelUpdate">稍后</button>
                 }
             </div>
+            @if (IncrementalHint().Length > 0)
+            {
+                <div class="blt-hint" style="margin-top:8px;color:var(--green)">@IncrementalHint()</div>
+            }
             @if (_updaterMsg.Length > 0 || _updaterPercent > 0)
             {
                 <div style="margin-top:10px">
@@ -499,6 +503,10 @@
     private string _updateNotes = "";
     private string _updateAssetName = "";
     private long _updateAssetSize;
+    // 增量包信息（由检查结果里的 manifest.patch 带出）：命中时按钮显示真实要下载的大小
+    private long _updatePatchSize;
+    private string _updatePatchFrom = "";
+    private bool _updatePatchApplies;
     private bool _updateBusy;
     private bool _updateHasUpdate;
     private bool _updateHasAsset;
@@ -1215,12 +1223,26 @@
     {
         if (_updaterBusy) return $"正在更新… {_updaterPercent}%";
         if (!_updateHasAsset) return "下载并安装";
+        // "latest" 已经是 v0.1.3-maui 这种带 v 的形式，不要再补一个 v（曾经出现 "vv0.1.3-maui"）
+        var ver = _updateLatest.TrimStart('v', 'V');
+        if (ver.Length == 0) return "下载并安装 " + _updateAssetName;
+        // 增量包适用时说清楚真正会下载的体积，否则用户会以为一定要下整包
+        if (_updatePatchApplies && _updatePatchSize > 0)
+            return $"下载并安装 v{ver}（增量 {Mb(_updatePatchSize)}）";
         if (_updateAssetSize <= 0) return "下载并安装 " + _updateAssetName;
-        return $"下载并安装 v{_updateLatest}（{UpdateAssetSizeText()}）";
+        return $"下载并安装 v{ver}（完整包 {UpdateAssetSizeText()}）";
     }
 
+    private static string Mb(long bytes) => (bytes / 1048576.0).ToString("0.0") + " MB";
+
     private string UpdateAssetSizeText()
-        => _updateAssetSize <= 0 ? "" : (_updateAssetSize / 1048576.0).ToString("0.0") + " MB";
+        => _updateAssetSize <= 0 ? "" : Mb(_updateAssetSize);
+
+    /// <summary>增量提示行：说明「为什么这次只要下这么小」。</summary>
+    private string IncrementalHint()
+        => _updatePatchApplies && _updatePatchSize > 0
+            ? $"增量包基线 {_updatePatchFrom} 与本机版本一致：点下载只取变化文件（{Mb(_updatePatchSize)}），不必下 {Mb(_updateAssetSize)} 整包。"
+            : "";
 
     private async Task LoadUpdateStatusAsync()
     {
@@ -1277,6 +1299,9 @@
         _updateAssetName = o["assetName"] is JsonValue av && av.TryGetValue<string>(out var ans) ? ans ?? "" : "";
         _updateHasAsset = _updateAssetName.Length > 0;
         _updateAssetSize = o["assetSize"] is JsonValue sv && sv.TryGetValue<long>(out var sz) ? sz : 0;
+        _updatePatchSize = o["patchSize"] is JsonValue psv && psv.TryGetValue<long>(out var psz) ? psz : 0;
+        _updatePatchFrom = o["patchFrom"] is JsonValue pfv && pfv.TryGetValue<string>(out var pfs) ? pfs ?? "" : "";
+        _updatePatchApplies = o["patchApplies"] is JsonValue pav && pav.TryGetValue<bool>(out var pab) && pab;
         _updateLoaded = true;
     }
 

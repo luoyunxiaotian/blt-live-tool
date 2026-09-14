@@ -32,9 +32,22 @@ public sealed class SongPlayer
     public double Duration { get; private set; }
     public bool IsPlaying { get; private set; }
     public int PlayingIndex { get; private set; } = -1;
+
+    /// <summary>当前曲目在列表条目里的 id/hash（推给 OBS 浮层精确取词）。</summary>
+    public string CurrentSongId { get; private set; } = "";
     public string LastNote { get; private set; } = "";
 
     public event Action? Changed;
+
+    /// <summary>由 LivePipeline 注入：移除播放列表第 index 项并返回剩余数量。</summary>
+    public Func<int, int>? RemovePlaylistAt { get; set; }
+
+    private static string FirstNonEmpty(params System.Text.Json.Nodes.JsonNode?[] nodes)
+    {
+        foreach (var n in nodes)
+            if (n is System.Text.Json.Nodes.JsonValue v && v.TryGetValue<string>(out var str) && !string.IsNullOrEmpty(str)) return str;
+        return "";
+    }
 
     public SongPlayer(AppConfig config, EventHub hub)
     {
@@ -73,6 +86,7 @@ public sealed class SongPlayer
             if (url.StartsWith("/")) url = $"http://127.0.0.1:{_config.Port}{url}";
             var song = resp["song"] as JsonObject;
             CurrentName = song?["name"]?.GetValue<string>() ?? "";
+                CurrentSongId = FirstNonEmpty(song?["id"], song?["mid"], song?["hash"], song?["bvid"]);
             CurrentArtist = song?["artist"]?.GetValue<string>() ?? "";
             CurrentRequester = song?["requester"]?.GetValue<string>() ?? "";
             CurrentPlatform = song?["platform"]?.GetValue<string>() ?? "";
@@ -148,6 +162,7 @@ public sealed class SongPlayer
         PlayingIndex = -1;
         CurrentName = "";
         CurrentArtist = "";
+        CurrentSongId = "";
         CurrentRequester = "";
         CurrentPlatform = "";
         Current = 0;
@@ -232,7 +247,23 @@ public sealed class SongPlayer
         await ReportProgressAsync(force: true);
         var sr = _config.GetNode("songRequest") as JsonObject;
         var autoPlay = sr == null || sr["autoPlay"] is not JsonValue av || !av.TryGetValue<bool>(out var ab) || ab;
-        if (autoPlay) await PlayIndexAsync(PlayingIndex + 1);
+
+        // 放完的歌必须从播放列表移除（包括最后一首）：移除后「接替位」就是下一首，
+        // 列表空了就停止播放。旧实现只做 PlayIndexAsync(+1)，最后一首会永远留在列表里。
+        var finished = PlayingIndex;
+        var remain = finished >= 0 && RemovePlaylistAt != null ? RemovePlaylistAt(finished) : -1;
+        if (remain == 0)
+        {
+            StopPlayback();
+            Note("播放列表已空（播放完的歌曲已自动移除）");
+            return;
+        }
+        if (!autoPlay)
+        {
+            if (remain > 0) { PlayingIndex = Math.Min(finished, remain - 1); Changed?.Invoke(); }
+            return;
+        }
+        await PlayIndexAsync(remain > 0 ? finished : finished + 1);
     }
 
     // ---------------- progress reporting (OBS lyrics overlay) ----------------
@@ -248,6 +279,7 @@ public sealed class SongPlayer
                 ["artist"] = CurrentArtist,
                 ["requester"] = CurrentRequester,
                 ["platform"] = CurrentPlatform,
+                ["songId"] = CurrentSongId,
                 ["current"] = Math.Round(Current * 10) / 10,
                 ["duration"] = Math.Round(Duration * 10) / 10,
                 ["playing"] = IsPlaying,

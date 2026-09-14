@@ -288,8 +288,35 @@ public static partial class MusicApi
         _ => Task.FromException<PlayUrl>(new Exception("不支持的平台: " + platform)),
     };
 
+    // 歌词缓存：上游（酷狗/网易云/QQ）时好时坏，OBS 浮层每次重取都可能拿到空结果，于是在
+    // 「有词/暂无歌词」之间闪。这里缓存同一首歌的结果 15 分钟；上次是 none 才允许重试。
+    private static readonly Dictionary<string, (string Source, string Lrc, DateTime At)> LyricCache = new();
+    private static readonly TimeSpan LyricCacheTtl = TimeSpan.FromMinutes(15);
+
+    /// <summary>清空歌词缓存（强制下次重取）。</summary>
+    public static void ClearLyricCache() { lock (LyricCache) LyricCache.Clear(); }
+
     /// <summary>Lyrics lookup: local LRC file → netease / QQ / kugou online. Port of /api/lyrics in server.js.</summary>
+
     public static async Task<(string Source, string Lrc)> GetLyricsAsync(string song, string artist, string platform, string id, string dataDir, CancellationToken ct)
+    {
+        var key = string.Join("|", (song ?? "").Trim().ToLowerInvariant(), (artist ?? "").Trim().ToLowerInvariant(), platform, id);
+        lock (LyricCache)
+        {
+            if (LyricCache.TryGetValue(key, out var hit) &&
+                (hit.Lrc.Length > 0 || DateTime.UtcNow - hit.At < LyricCacheTtl))
+                return (hit.Source, hit.Lrc);
+        }
+        var res = await GetLyricsUncachedAsync(song, artist, platform, id, dataDir, ct);
+        lock (LyricCache)
+        {
+            if (LyricCache.Count > 200) LyricCache.Clear();   // 简单上限，长跑也不涨内存
+            LyricCache[key] = (res.Source, res.Lrc, DateTime.UtcNow);
+        }
+        return res;
+    }
+
+    private static async Task<(string Source, string Lrc)> GetLyricsUncachedAsync(string song, string artist, string platform, string id, string dataDir, CancellationToken ct)
     {
         // Local LRC: name.lrc / artist - name.lrc / name-without-brackets.lrc
         if (song.Length > 0)
@@ -631,6 +658,22 @@ public sealed class SongRequestService
     }
 
     private static string SafeStr(JsonNode? n) => n is JsonValue v && v.TryGetValue<string>(out var s) ? s ?? "" : "";
+
+    /// <summary>移除第 index 项并返回剩余数量（播放器播放结束自动移除时用）。</summary>
+    public int RemoveFromPlaylistCount(int index)
+    {
+        lock (_lock)
+        {
+            if (index < 0 || index >= _playlist.Count) return _playlist.Count;
+            _playlist.RemoveAt(index);
+            if (index < _currentIndex) _currentIndex--;
+            if (_currentIndex >= _playlist.Count) _currentIndex = _playlist.Count - 1;
+            if (_playlist.Count == 0) _currentIndex = -1;
+            var remain = _playlist.Count;
+            SavePlaylist();
+            return remain;
+        }
+    }
 
     public object RemoveFromPlaylist(int index)
     {

@@ -1215,9 +1215,16 @@
     private async Task AddSong(JsonObject song) => await Guard(async () =>
     {
         var body = new JsonObject { ["song"] = song.DeepClone(), ["requester"] = "手动添加" };
+        var wasIdle = !Player.IsPlaying;                    // 当前没有歌在播
         await PostJson("/api/song-request/playlist/add", body);
-        SetMsg("已添加《" + Js(song, "name") + "》到播放列表", "green");
         await LoadPlaylistAsync();
+        // 空闲时加歌 → 直接开播（与弹幕点歌的自动播放行为一致）
+        if (wasIdle && AutoPlayEnabled() && _playlist.Count > 0)
+        {
+            await Player.PlayIndexAsync(_playlist.Count - 1);
+            SetMsg("已添加并开始播放《" + Js(song, "name") + "》", "green");
+        }
+        else SetMsg("已添加《" + Js(song, "name") + "》到播放列表", "green");
     }, "添加失败");
 
     // ---------- blacklist ----------

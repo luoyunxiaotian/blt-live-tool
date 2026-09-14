@@ -47,7 +47,7 @@ public sealed class LivePipeline : IDisposable
     private readonly Dictionary<string, JsonObject> _monitorState = new();
     private long _monitorLastFetchAt;
 
-    public LivePipeline(AppConfig config, EventHub hub, Recorder recorder, TtsHost tts)
+    public LivePipeline(AppConfig config, EventHub hub, Recorder recorder, TtsHost tts, SongPlayer player)
     {
         _config = config;
         _hub = hub;
@@ -65,6 +65,9 @@ public sealed class LivePipeline : IDisposable
             Ctx);
 
         _songRequest = new SongRequestService(config);
+        // 播放结束时要把放完的歌从列表移除：SongRequestService 在本类内部创建，
+        // 所以在这里把钩子交给播放器（SongPlayer 不依赖本类，无循环依赖）。
+        player.RemovePlaylistAt = idx => _songRequest.RemoveFromPlaylistCount(idx);
     }
 
     public AutoDanmu AutoDanmu => _autoDanmu;

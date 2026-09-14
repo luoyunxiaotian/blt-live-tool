@@ -18,6 +18,7 @@
   let position = 0, duration = 0, paused = false;
   let lrcLines = [];      // [{t, text}]
   let lrcKey = '';
+  let lastLyricSong = "";   // 上一次成功取到歌词的歌曲 key
   let lrcSource = '';     // '' / 'loading' / 'local' / 'netease' / 'qq' / 'kugou' / 'none'
   let curIdx = -1;
   let wsState = 'connecting';
@@ -88,8 +89,9 @@
   async function loadLrc(force) {
     const key = song ? (song.name + '|' + song.platform + '|' + song.songId) : '';
     if (!force && key === lrcKey) return;
+    const sameSong = (key === lastLyricSong);
     lrcKey = key;
-    lrcLines = [];
+    if (!sameSong) lrcLines = [];   // 只有换歌才清空：同一首重取失败时保留已有歌词，避免浮层闪烁
     if (!song || !song.name) { lrcSource = ''; buildTrack(); return; }
     lrcSource = 'loading';
     buildTrack();
@@ -104,9 +106,9 @@
         const r = await fetch(url, { signal: ctrl.signal });
         j = await r.json();
       } finally { clearTimeout(timer); }
-      if (j && j.lrc) { lrcLines = parseLrc(j.lrc); lrcSource = j.source || 'local'; }
-      else lrcSource = 'none';
-    } catch (e) { lrcSource = 'none'; }
+      if (j && j.lrc) { lrcLines = parseLrc(j.lrc); lrcSource = j.source || 'local'; lastLyricSong = key; }
+      else if (lrcLines.length === 0) lrcSource = 'none';   // 已有歌词时不要退回「暂无歌词」
+    } catch (e) { if (lrcLines.length === 0) lrcSource = 'none'; }
     buildTrack();
     render();
   }

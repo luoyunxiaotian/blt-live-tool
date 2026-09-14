@@ -1003,6 +1003,10 @@ public sealed class KestrelHost
                     // 诊断覆盖：允许指定 assetUrl/assetSha（本机演练与失败分支验证用）
                     var info = _updateChecker.LastResult;
                     var url = SafeStr(body["assetUrl"]);
+                    // No update → nothing to download. Honoured before the (diagnostic) override,
+                    // which may still point at an arbitrary asset for drills.
+                    if (url.Length == 0 && (info == null || !info.HasUpdate))
+                        return Results.Json(new { error = "已是最新版本，无需下载" }, JsonWeb, statusCode: 400);
                     if (url.Length == 0) url = info?.AssetUrl ?? "";
                     var name = SafeStr(body["assetName"]);
                     if (name.Length == 0) name = info?.AssetName ?? "";

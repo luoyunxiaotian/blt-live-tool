@@ -304,7 +304,11 @@
                 <button class="blt-btn primary" @onclick="CheckUpdateNow" disabled="@_updateBusy"
                         data-tip="立即查询 Release 上是否有 -maui 结尾的新版本">@(_updateBusy ? "检查中…" : "立即检查")</button>
                 <button class="blt-btn" @onclick="OpenReleasePage">打开发布页</button>
-                <button class="blt-btn primary" @onclick="StartUpdateDownload" disabled="@(!_updateHasAsset || _updaterBusy)">@DownloadBtnText()</button>
+                @if (_updateHasUpdate && _updateHasAsset)
+                {
+                    @* 已是最新时不出现下载入口（此前一直显示"下载并安装完整包 156.5 MB"） *@
+                    <button class="blt-btn primary" @onclick="StartUpdateDownload" disabled="@_updaterBusy">@DownloadBtnText()</button>
+                }
                 @if (_updaterPhase == "Staged")
                 {
                     <button class="blt-btn amber" @onclick="ApplyUpdateNow"><BltIcon Emoji="🔄" />更新并重启</button>
@@ -436,6 +440,11 @@
 
 @code {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
+    /// <summary>The update check walks every mirror (and pulls the manifest for the
+    /// incremental info), which on a slow line needs more than the page's 10 s default —
+    /// that used to surface as "检查失败：…HttpClient.Timeout of 10 seconds…" and left the
+    /// download button disabled, so the first click did nothing.</summary>
+    private static readonly HttpClient UpdateHttp = new() { Timeout = TimeSpan.FromSeconds(75) };
 
     private string _roomId = "";
     private string _autoConnectClass = "";
@@ -1214,7 +1223,7 @@
         => _updateLatest.Length == 0 ? "" : _updateHasUpdate ? "amber" : "green";
 
     private string UpdLatestText()
-        => _updateLatest.Length > 0 ? _updateLatest : (_updateLoaded ? "（无 MAUI 版本）" : "—");
+        => _updateLatest.Length > 0 ? _updateLatest.TrimStart('v', 'V') : (_updateLoaded ? "（无 MAUI 版本）" : "—");
 
     private string UpdNoteColor()
         => _updateHasUpdate ? "var(--amber)" : _updateMsg.StartsWith("检查失败") ? "var(--red)" : "var(--ink-3)";
@@ -1270,7 +1279,7 @@
         StateHasChanged();
         try
         {
-            var resp = await Http.PostAsync(Base + "/api/maui/update/check",
+            var resp = await UpdateHttp.PostAsync(Base + "/api/maui/update/check",
                 new StringContent("{\"force\":true}", Encoding.UTF8, "application/json"));
             var txt = await resp.Content.ReadAsStringAsync();
             if (JsonNode.Parse(txt) is JsonObject o)

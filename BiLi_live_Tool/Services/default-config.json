@@ -421,6 +421,6 @@
     ]
   },
   "announceEnabled": true,
-  "announceUrl": "https://raw.githubusercontent.com/luoyunxiaotian/blt-live-tool/main/announce/announcements.json",
-  "announceFallbackUrl": ""
+  "announceUrl": "https://blt-announce.pages.dev/announcements",
+  "announceFallbackUrl": "https://raw.githubusercontent.com/luoyunxiaotian/blt-live-tool/main/announce/announcements.json"
 }

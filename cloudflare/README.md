@@ -98,3 +98,32 @@ node cloudflare/test-local.mjs     # 33 项断言：鉴权/过滤/ETag/回执去
 - 正文按纯文本渲染，按钮链接只接受 `https://`。
 - 「紧急模式」记得用完关掉（它把客户端轮询从 5 分钟改成 60 秒）。
 - 免费额度：KV 读 10 万/天、写 1000/天；正常使用远低于此（ETag 让大多数请求是 304）。
+
+---
+
+## 八、部署现状（2026-09-14 实测）
+
+| 事实 | 结论 |
+|---|---|
+| `blt-announce.2579984161.workers.dev` 已部署 | 但 **`*.workers.dev` 在国内网络被完全封锁**（连已有的 bili-verify 也连不上），客户端无法使用 |
+| `*.pages.dev` 可达 | 已有 Pages 站点返回 200 ✓，Pages 是备选宿主 |
+| `ai-daynews.xyz` 的 NS 在阿里云，**不在这个 Cloudflare 账户里** | Worker「添加域名」报"没有区域匹配…请先将该域名添加到 Cloudflare" → **要挂自定义域需要先把这个域名的 NS 改到 Cloudflare** |
+
+### 因此当前生效的发布路径：仓库内公告文件（今天就能用）
+
+公告内容放在仓库的 **`announce/announcements.json`**，客户端默认地址是它的 raw URL，并且**经镜像列表拉取**（ghfast.top / gh-proxy.com / ghproxy.net，实测 200 且速度远好于直连）。
+
+**发公告 = 打开这个文件 → 改 JSON → 提交**（GitHub 网页编辑器即可，手机也行）：
+
+```
+https://github.com/luoyunxiaotian/blt-live-tool/edit/main/announce/announcements.json
+```
+
+- 新增一条公告：往 `items` 数组里加一个对象（字段见 §三，`id` 必须唯一）。
+- 撤回：删掉该条，或把 `expireAt` 改成过去时间。
+- 想让客户端更快轮询：把顶层 `pollAfterSeconds` 改成 `60`（紧急公告用，记得改回 300）。
+- 提交后客户端 **60 秒 ~ 5 分钟**内生效，**不需要发新版应用**。
+
+### 何时切到控制台（可选，更舒服）
+
+若你愿意把 `ai-daynews.xyz` 的 NS 改到 Cloudflare（阿里云控制台 → 修改 DNS 服务器 → 填 Cloudflare 给的两个 NS，并确认原有解析记录都已在 Cloudflare 里重建，避免白名单服务中断），那么 Worker 的**控制台**（`/admin`：可视化编辑、UID 定向、定时发布、历史回滚、回执统计）就能通过 `https://<你绑的域名>/admin` 使用；届时把客户端 `announceUrl` 改成 Worker 地址、`announceFallbackUrl` 保留仓库 JSON 做兜底即可。

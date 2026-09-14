@@ -748,6 +748,15 @@
                 _lyricSongKey = key;
                 await LoadLyricsAsync();
             }
+            // _currentIndex is this page's snapshot of the playlist payload, and the row view
+            // models bake the「当前」flag in when they are built. A track started from outside
+            // the page (tray pause/skip, auto-advance) reloads neither, so follow the player
+            // and rebuild the rows instead of waiting for the next playlist refresh.
+            if (Player.PlayingIndex >= 0 && Player.PlayingIndex < _playlist.Count && Player.PlayingIndex != _currentIndex)
+            {
+                _currentIndex = Player.PlayingIndex;
+                BuildPlaylistRows();
+            }
             StateHasChanged();
         });
     }

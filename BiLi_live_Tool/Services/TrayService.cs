@@ -77,10 +77,16 @@ public static class TrayService
     private const int MenuSvcStop = 6;
     private const int MenuSvcRestart = 7;
     private const int MenuAutoLaunch = 8;
+    private const int MenuSongPause = 9;
+    private const int MenuSongSkip = 10;
+    private const int MenuAutoDanmu = 11;
+    private const int MenuTts = 12;
 
     /// <summary>
     /// Extra tray entries, ported from the Electron tray.js menu (status/port lines,
-    /// open panel / data dir, service start\u00b7stop\u00b7restart, autostart checkbox).
+    /// open panel / data dir, service start\u00b7stop\u00b7restart, autostart checkbox),
+    /// plus the song controls and the two master switches. Every accessor runs while the
+    /// menu is being built, so the items always reflect the live state.
     /// </summary>
     public sealed record MenuContext(
         Func<string> StatusLine,
@@ -91,7 +97,32 @@ public static class TrayService
         Action ServiceStop,
         Action ServiceRestart,
         Func<bool> AutoLaunchGet,
-        Action<bool> AutoLaunchSet);
+        Action<bool> AutoLaunchSet,
+        Func<bool> SongHasTrack,
+        Func<bool> SongIsPlaying,
+        Action SongTogglePause,
+        Action SongSkip,
+        Func<bool> AutoDanmuGet,
+        Action<bool> AutoDanmuSet,
+        Func<bool> TtsGet,
+        Action<bool> TtsSet);
+
+    // Menu callbacks reach into config and running services; a throwing callback must
+    // never take down the tray's message pump.
+    private static bool SafeGet(Func<bool>? f, bool fallback = false)
+    {
+        try { return f?.Invoke() ?? fallback; } catch { return fallback; }
+    }
+
+    private static void SafeInvoke(Action? a)
+    {
+        try { a?.Invoke(); } catch { }
+    }
+
+    private static void SafeInvoke<T>(Action<T>? a, T arg)
+    {
+        try { a?.Invoke(arg); } catch { }
+    }
 
     // Win32 message constants.
     private const uint WmCommand = 0x0111;
@@ -269,7 +300,19 @@ public static class TrayService
                     case MenuSvcStop: _menu?.ServiceStop(); break;
                     case MenuSvcRestart: _menu?.ServiceRestart(); break;
                     case MenuAutoLaunch:
-                        if (_menu != null) _menu.AutoLaunchSet(!_menu.AutoLaunchGet());
+                        if (_menu != null) SafeInvoke(_menu.AutoLaunchSet, !SafeGet(_menu.AutoLaunchGet));
+                        break;
+                    case MenuSongPause:
+                        if (_menu != null) SafeInvoke(_menu.SongTogglePause);
+                        break;
+                    case MenuSongSkip:
+                        if (_menu != null) SafeInvoke(_menu.SongSkip);
+                        break;
+                    case MenuAutoDanmu:
+                        if (_menu != null) SafeInvoke(_menu.AutoDanmuSet, !SafeGet(_menu.AutoDanmuGet, true));
+                        break;
+                    case MenuTts:
+                        if (_menu != null) SafeInvoke(_menu.TtsSet, !SafeGet(_menu.TtsGet));
                         break;
                 }
                 break;
@@ -311,8 +354,23 @@ public static class TrayService
                 AppendMenuW(menu, MfString, (IntPtr)MenuSvcStop, "\u505c\u6b62\u670d\u52a1");
                 AppendMenuW(menu, MfString, (IntPtr)MenuSvcRestart, "\u91cd\u542f\u670d\u52a1");
                 AppendMenuW(menu, MfSeparator, IntPtr.Zero, null);
-                bool auto = false;
-                try { auto = _menu.AutoLaunchGet(); } catch { }
+
+                // 点歌播放控制：没有正在播放的歌时置灰，暂停项按当前状态显示「暂停/继续」
+                bool hasTrack = SafeGet(_menu.SongHasTrack);
+                bool playing = SafeGet(_menu.SongIsPlaying);
+                AppendMenuW(menu, MfString | (hasTrack ? 0u : MfDisabled), (IntPtr)MenuSongPause,
+                    playing ? "\u6682\u505c\u70b9\u6b4c" : "\u7ee7\u7eed\u70b9\u6b4c");
+                AppendMenuW(menu, MfString | (hasTrack ? 0u : MfDisabled), (IntPtr)MenuSongSkip, "\u8df3\u8fc7\u5f53\u524d");
+                AppendMenuW(menu, MfSeparator, IntPtr.Zero, null);
+
+                // 总开关（勾选态实时反映 config）
+                bool autoDanmu = SafeGet(_menu.AutoDanmuGet, true);
+                AppendMenuW(menu, MfString | (autoDanmu ? MfChecked : 0u), (IntPtr)MenuAutoDanmu,
+                    "\u81ea\u52a8\u5f39\u5e55\uff08\u603b\u5f00\u5173\uff09");
+                bool tts = SafeGet(_menu.TtsGet);
+                AppendMenuW(menu, MfString | (tts ? MfChecked : 0u), (IntPtr)MenuTts,
+                    "\u8bed\u97f3\u5ff5\u5f39\u5e55\uff08\u603b\u5f00\u5173\uff09");
+                bool auto = SafeGet(_menu.AutoLaunchGet);
                 AppendMenuW(menu, MfString | (auto ? MfChecked : 0u), (IntPtr)MenuAutoLaunch, "\u5f00\u673a\u81ea\u542f");
             }
             AppendMenuW(menu, MfSeparator, IntPtr.Zero, null);

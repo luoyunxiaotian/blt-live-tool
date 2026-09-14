@@ -29,12 +29,14 @@
     <span class="seg">本场关注 <b class="green">@_followCount</b></span>
 </div>
 
-@* Page-level control bar: this page has no single master switch — it surfaces the
-   four sub-function states and points at each card for the actual toggle. *@
+@* Page-level control bar: the master switch gates all four sub-functions (the tray menu
+   toggles the same autoDanmu.enabled key); each card keeps its own switch. *@
 <div class="blt-master @MasterCls()">
     <span class="st">自动弹幕</span>
-    <span class="sub">无总开关 · 欢迎 / 礼物感谢 / 感谢关注 / 定时弹幕 四个子功能在各自卡片右上角独立开启</span>
+    <span class="sub">总开关关闭时四个子功能一律不触发 · 欢迎 / 礼物感谢 / 感谢关注 / 定时弹幕 另在各自卡片右上角单独开关</span>
     <span class="right">
+        <span class="blt-switch lg @OnCls(_masterEnabled)" @onclick="ToggleMaster"><span class="track"></span>@OnOffText(_masterEnabled)</span>
+        <span class="lbl">总开关</span>
         <span class="blt-badge @BadgeWelcome">欢迎 @OnOffText(_welcomeEnabled)</span>
         <span class="blt-badge @BadgeThank">感谢 @OnOffText(_thankEnabled)</span>
         <span class="blt-badge @BadgeFollow">关注 @OnOffText(_followEnabled)</span>
@@ -210,6 +212,8 @@
 
     // welcome
     private bool _welcomeEnabled;
+    /// <summary>autoDanmu.enabled — master gate over all four sub-functions.</summary>
+    private bool _masterEnabled = true;
     private string _honorMin = "0", _medalMin = "0", _welcomeRate = "1";
     private string _welcomeTexts = "", _guardTexts = "";
 
@@ -289,6 +293,7 @@
         var follow = ad?["follow"] as JsonObject;
         var timer = ad?["timer"] as JsonObject;
 
+        _masterEnabled = Flag(ad, "enabled", true);   // 缺省开：老配置（无此键）行为不变
         _welcomeEnabled = Flag(welcome, "enabled", false);
         _honorMin = NumText(welcome, "honorLevelMin", 0);
         _medalMin = NumText(welcome, "fanMedalMin", 0);
@@ -318,6 +323,10 @@
             ad = new JsonObject();
             _doc["autoDanmu"] = ad;
         }
+
+        // Master gate: only touched by its own switch and by the full save, so a sub-switch
+        // save can never silently re-enable a master the tray had turned off.
+        if (section == "master" || section == "all") ad["enabled"] = _masterEnabled;
 
         if (section == "welcome" || section == "all")
         {
@@ -364,6 +373,12 @@
     {
         ApplyToDoc("all");
         await SaveAsync("自动弹幕配置已保存");
+    }
+
+    private async Task SaveMaster()
+    {
+        ApplyToDoc("master");
+        await SaveAsync("总开关已保存（" + OnOffText(_masterEnabled) + "）");
     }
 
     private async Task SaveWelcome()
@@ -462,6 +477,7 @@
     private void SaveThankSoonSwitch() => SaveSoon("autodanmu-thank", SaveThank, 200);
     private void SaveFollowSoonSwitch() => SaveSoon("autodanmu-follow", SaveFollow, 200);
     private void SaveTimerSoonSwitch() => SaveSoon("autodanmu-timer", SaveTimer, 200);
+    private void SaveMasterSoonSwitch() => SaveSoon("autodanmu-master", SaveMaster, 200);
 
     private string AutoSaveText()
     {
@@ -618,10 +634,13 @@
 
     private void ToggleTimer() { _timerEnabled = !_timerEnabled; SaveTimerSoonSwitch(); }
 
+    private void ToggleMaster() { _masterEnabled = !_masterEnabled; SaveMasterSoonSwitch(); }
+
     // ---- master bar helpers ----
 
-    /// <summary>Highlights the page-level bar while at least one sub-function is on.</summary>
-    private string MasterCls() => _welcomeEnabled || _thankEnabled || _followEnabled || _timerEnabled ? "on" : "";
+    /// <summary>Highlights the page-level bar only while the master gate is on (the sub-badges
+    /// still show which sub-functions are armed, so "master off" is visible at a glance).</summary>
+    private string MasterCls() => _masterEnabled && (_welcomeEnabled || _thankEnabled || _followEnabled || _timerEnabled) ? "on" : "";
 
     private string BadgeWelcome => _welcomeEnabled ? "blt-badge green" : "blt-badge off";
 

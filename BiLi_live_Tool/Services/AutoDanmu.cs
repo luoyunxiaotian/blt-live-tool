@@ -112,6 +112,9 @@ public sealed class AutoDanmu
     private readonly Func<(long RoomId, string Cookie)> _context;
 
     private JsonObject _welcome = new(), _thank = new(), _timerCfg = new(), _follow = new();
+    /// <summary>autoDanmu.enabled — master gate over the four sub-features. A missing key means
+    /// on, so configs written before the switch existed keep behaving exactly as they did.</summary>
+    private bool _master = true;
     private long _lastSend;
     private int _followCount;
     private int _timerFired;
@@ -133,6 +136,7 @@ public sealed class AutoDanmu
     {
         lock (_lock)
         {
+            _master = Flag(autoDanmu as JsonObject ?? new JsonObject(), "enabled", true);
             _welcome = Section(autoDanmu, "welcome");
             _thank = Section(autoDanmu, "thank");
             _timerCfg = Section(autoDanmu, "timer");
@@ -140,6 +144,9 @@ public sealed class AutoDanmu
         }
         RestartTimer();
     }
+
+    /// <summary>"自动弹幕" master switch state (the tray menu and the page bar both show it).</summary>
+    public bool MasterEnabled { get { lock (_lock) return _master; } }
 
     private static JsonObject Section(JsonNode? parent, string key)
         => (parent as JsonObject)?.TryGetPropertyValue(key, out var v) == true && v is JsonObject o
@@ -171,6 +178,7 @@ public sealed class AutoDanmu
 
     public void OnEvent(LiveEvent ev)
     {
+        if (!MasterEnabled) return;   // 总开关关掉后四个子功能一律不触发
         if (ev.Type == "interact")
         {
             if (ev.MsgType == 2)
@@ -357,7 +365,8 @@ public sealed class AutoDanmu
     private void RestartTimer()
     {
         JsonObject cfg;
-        lock (_lock) cfg = _timerCfg;
+        bool master;
+        lock (_lock) { cfg = _timerCfg; master = _master; }
         _timerCts?.Cancel();
         _timerCts = new CancellationTokenSource();
         var ct = _timerCts.Token;
@@ -365,7 +374,7 @@ public sealed class AutoDanmu
         var intervalSec = Math.Max(1, Num(cfg, "intervalSec", 60));
         var texts = StrArray(cfg, "texts");
         if (texts.Count == 0) texts = new List<string> { "欢迎来到直播间，喜欢主播的点点关注～" };
-        if (!enabled) return;
+        if (!enabled || !master) return;
         _ = Task.Run(async () =>
         {
             try

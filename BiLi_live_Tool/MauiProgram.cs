@@ -133,7 +133,49 @@ namespace BiLi_live_Tool
                     ServiceStop: () => { try { app.Services.GetRequiredService<KestrelHost>().ServerAction("stop"); } catch { } },
                     ServiceRestart: () => { try { app.Services.GetRequiredService<KestrelHost>().ServerAction("restart"); } catch { } },
                     AutoLaunchGet: () => { try { return AutoLaunchService.Get(); } catch { return false; } },
-                    AutoLaunchSet: e => { try { AutoLaunchService.Set(e); } catch { } }));
+                    AutoLaunchSet: e => { try { AutoLaunchService.Set(e); } catch { } },
+
+                    // ── 点歌播放控制（托盘右键）──────────────────────────────
+                    SongHasTrack: () => { try { return app.Services.GetRequiredService<SongPlayer>().PlayingIndex >= 0; } catch { return false; } },
+                    SongIsPlaying: () => { try { return app.Services.GetRequiredService<SongPlayer>().IsPlaying; } catch { return false; } },
+                    SongTogglePause: () =>
+                    {
+                        try
+                        {
+                            var player = app.Services.GetRequiredService<SongPlayer>();
+                            if (player.PlayingIndex < 0) return;      // 没有歌在播时不做事
+                            if (player.IsPlaying) player.Pause(); else player.Resume();
+                        }
+                        catch { }
+                    },
+                    SongSkip: () => _ = Task.Run(async () =>
+                    {
+                        // 与页面「跳过当前」同一条路径（真的切下一首，越界则停止）
+                        try { await app.Services.GetRequiredService<LivePipeline>().SongRequest.SkipCurrentAsync(); }
+                        catch { }
+                    }),
+
+                    // ── 两个总开关（写 config 后立刻 ApplyConfig，服务即时生效）──
+                    AutoDanmuGet: () => { try { return app.Services.GetRequiredService<LivePipeline>().AutoDanmu.MasterEnabled; } catch { return true; } },
+                    AutoDanmuSet: v =>
+                    {
+                        try
+                        {
+                            app.Services.GetRequiredService<AppConfig>().SetSectionEnabled("autoDanmu", v);
+                            app.Services.GetRequiredService<LivePipeline>().ApplyConfig();
+                        }
+                        catch { }
+                    },
+                    TtsGet: () => { try { return app.Services.GetRequiredService<AppConfig>().SectionEnabled("tts", false); } catch { return false; } },
+                    TtsSet: v =>
+                    {
+                        try
+                        {
+                            app.Services.GetRequiredService<AppConfig>().SetSectionEnabled("tts", v);
+                            app.Services.GetRequiredService<LivePipeline>().ApplyConfig();
+                        }
+                        catch { }
+                    }));
 #endif
 
             return app;

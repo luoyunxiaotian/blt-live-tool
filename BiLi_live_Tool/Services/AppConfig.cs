@@ -142,6 +142,35 @@ public sealed class AppConfig
         }
     }
 
+    /// <summary>Read the boolean "&lt;section&gt;.enabled" flag (missing key → fallback).</summary>
+    public bool SectionEnabled(string section, bool fallback = false)
+    {
+        lock (_lock)
+        {
+            if (!_doc.TryGetPropertyValue(section, out var node) || node is not JsonObject sec) return fallback;
+            return sec.TryGetPropertyValue("enabled", out var v) && v is JsonValue jv && jv.TryGetValue<bool>(out var b) ? b : fallback;
+        }
+    }
+
+    /// <summary>
+    /// Flip one section's "enabled" flag and persist, leaving every sibling key alone —
+    /// UpdateFrom replaces whole top-level sections, so a partial patch would drop them.
+    /// Callers that need the change to reach running services call ApplyConfig afterwards.
+    /// </summary>
+    public void SetSectionEnabled(string section, bool value)
+    {
+        lock (_lock)
+        {
+            if (!_doc.TryGetPropertyValue(section, out var node) || node is not JsonObject sec)
+            {
+                sec = new JsonObject();
+                _doc[section] = sec;
+            }
+            sec["enabled"] = value;
+            SaveNoLock();
+        }
+    }
+
     /// <summary>Swap the whole document (mutated snapshot workflow) and persist; port stays pinned.</summary>
     public void ReplaceFrom(JsonObject doc)
     {

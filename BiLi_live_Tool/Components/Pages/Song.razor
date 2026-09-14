@@ -14,7 +14,6 @@
 <div class="blt-pagehead"><h1>点歌功能</h1><span class="en">SONG REQUEST</span></div>
 
 <div class="blt-topstrip">
-    <span class="seg">当前平台 <b>@PlatName(_platform)</b></span>
     <span class="seg">播放列表 <b>@_playlist.Count</b> 首@(CurSeg())</span>
     <span class="seg">cookie
         <span class="blt-badge @CkCls(_ckQq)">QQ</span>
@@ -33,6 +32,21 @@
     </span>
 </div>
 
+<div class="blt-platform-bar">
+    <span class="lbl"><BltIcon Emoji="🎵" /> 点歌平台</span>
+    <span class="opts">
+        <button class="blt-btn @(_platform == "qq" ? "on" : "")" @onclick="PickQq">QQ音乐</button>
+        <button class="blt-btn @(_platform == "netease" ? "on" : "")" @onclick="PickNetease">网易云音乐</button>
+        <button class="blt-btn @(_platform == "kugou" ? "on" : "")" @onclick="PickKugou">酷狗音乐</button>
+        <button class="blt-btn @(_platform == "bilibili" ? "on" : "")" @onclick="PickBilibili">B站</button>
+    </span>
+    <span class="right" style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <span class="blt-switch lg @BigSwitchClass()" @onclick="ToggleEnabled"><span class="track"></span>@(_enabled ? "ON" : "OFF")</span>
+        <span class="lbl">启用弹幕点歌</span>
+    </span>
+    <span class="tip">这个平台同时用于「弹幕点歌」和「手动搜索」；观众发送「@KeywordText() + 歌名」即点歌。当前：<b>@PlatName(_platform)</b>@( _enabled ? "" : " · 已停用")</span>
+</div>
+
 <div class="blt-grid blt-cols-2">
     @* ── 左列：设置 / 搜索 / 黑名单 ── *@
     <div>
@@ -43,23 +57,7 @@
             </div>
             <div class="blt-panel-body">
                 @* Master switch (songRequest.enabled): promoted from the page header to the top of this card. *@
-                <div class="blt-master @MasterCls()">
-                    <span class="st">启用弹幕点歌</span>
-                    <span class="sub">观众发送「@KeywordText() + 歌名」即可点歌（当前平台 @PlatName(_platform)）</span>
-                    <span class="right">
-                        <span class="blt-switch lg @BigSwitchClass()" @onclick="ToggleEnabled"><span class="track"></span>@(_enabled ? "ON" : "OFF")</span>
-                    </span>
-                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 14px">
-                    <div>
-                        <label class="blt-label">点歌平台</label>
-                        <select class="blt-input" @bind="_platform" @bind:after="SaveSettingsSoon">
-                            <option value="qq">QQ音乐</option>
-                            <option value="netease">网易云音乐</option>
-                            <option value="kugou">酷狗音乐</option>
-                            <option value="bilibili">B站</option>
-                        </select>
-                    </div>
                     <div>
                         <label class="blt-label">触发关键词</label>
                         <input class="blt-input" @bind="_keyword" @bind:after="SaveSettingsTextSoon" placeholder="点歌" />
@@ -354,7 +352,7 @@
                     <span class="v"><span class="blt-badge @CkCls(_ckQq)">@CkText(_ckQq)</span></span>
                 </div>
                 <div style="display:flex;gap:8px;margin:6px 0 12px">
-                    <input class="blt-input mono" @bind="_cookieQq" placeholder="粘贴 QQ音乐 Cookie（留空保存 = 清除）" />
+                    <BltSecretInput @bind-Value="_cookieQq" Placeholder="粘贴 QQ音乐 Cookie（留空保存 = 清除）" />
                     <button class="blt-btn" style="flex:none" @onclick="SaveQqCookie" disabled="@_busy">保存</button>
                     <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
                             @onclick="LoginQq" disabled="@_musicLoginBusy"><BltIcon Emoji="🌐" /> 应用内登录</button>
@@ -369,7 +367,7 @@
                     <span class="v"><span class="blt-badge @CkCls(_ckNetease)">@CkText(_ckNetease)</span></span>
                 </div>
                 <div style="display:flex;gap:8px;margin:6px 0 12px">
-                    <input class="blt-input mono" @bind="_cookieNetease" placeholder="粘贴 网易云 Cookie（MUSIC_U=...）" />
+                    <BltSecretInput @bind-Value="_cookieNetease" Placeholder="粘贴 网易云 Cookie（MUSIC_U=...）" />
                     <button class="blt-btn" style="flex:none" @onclick="SaveNeteaseCookie" disabled="@_busy">保存</button>
                     <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
                             @onclick="LoginNetease" disabled="@_musicLoginBusy"><BltIcon Emoji="🌐" /> 应用内登录</button>
@@ -384,7 +382,7 @@
                     <span class="v"><span class="blt-badge @CkCls(_ckKugou)">@CkText(_ckKugou)</span></span>
                 </div>
                 <div style="display:flex;gap:8px;margin:6px 0 12px">
-                    <input class="blt-input mono" @bind="_cookieKugou" placeholder="粘贴 酷狗 Cookie（留空保存 = 清除）" />
+                    <BltSecretInput @bind-Value="_cookieKugou" Placeholder="粘贴 酷狗 Cookie（留空保存 = 清除）" />
                     <button class="blt-btn" style="flex:none" @onclick="SaveKugouCookie" disabled="@_busy">保存</button>
                     <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
                             @onclick="LoginKugou" disabled="@_musicLoginBusy"><BltIcon Emoji="🌐" /> 应用内登录</button>
@@ -1224,6 +1222,20 @@
         _saveMsg = "";                 // Cookie 保存是显式提交，成功后同样刷新自动保存状态行
         _savedAt = DateTime.Now;
     }, "保存 Cookie 失败");
+
+    private void PickQq() => SetPlatform("qq");
+    private void PickNetease() => SetPlatform("netease");
+    private void PickKugou() => SetPlatform("kugou");
+    private void PickBilibili() => SetPlatform("bilibili");
+
+    /// <summary>切换点歌平台：影响弹幕点歌与手动搜索，选中即保存。</summary>
+    private void SetPlatform(string platform)
+    {
+        _platform = platform;
+        SetMsg("点歌平台已切换为 " + PlatName(platform), "green");
+        SaveSettingsSoon();
+        StateHasChanged();
+    }
 
     private async Task SaveQqCookie() => await SaveCookie("qq", _cookieQq);
     private async Task SaveNeteaseCookie() => await SaveCookie("netease", _cookieNetease);

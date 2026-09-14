@@ -567,9 +567,23 @@ function enter(){
   reload().catch(function(e){ $('status').textContent = '连接失败：' + e.message; });
 }
 $('btnLogin').onclick = function(){
-  TOKEN = $('token').value.trim();
-  localStorage.setItem('blt_admin_token', TOKEN);
-  api('state').then(function(){ enter(); }).catch(function(e){ showErr($('loginMsg'), e.message, false); });
+  var candidate = $('token').value.replace(/\s+/g, '');   // 粘贴时常带空格/换行
+  if (!candidate) { showErr($('loginMsg'), '请输入管理密钥', false); return; }
+  TOKEN = candidate;
+  showErr($('loginMsg'), '正在校验…', true);
+  api('state').then(function(){
+    localStorage.setItem('blt_admin_token', candidate);     // 只在成功后记住
+    enter();
+  }).catch(function(e){
+    TOKEN = '';
+    localStorage.removeItem('blt_admin_token');
+    $('token').value = '';
+    var hint = (e && /401|未授权/.test(e.message || ''))
+      ? '密钥不正确：请确认只粘贴一次、前后没有多余字符（常见误操作是粘了两遍）'
+      : (e && e.message) || '登录失败';
+    showErr($('loginMsg'), hint, false);
+    $('token').focus();
+  });
 };
 $('btnLogout').onclick = function(){ localStorage.removeItem('blt_admin_token'); location.reload(); };
 $('btnNew').onclick = resetForm;
@@ -579,5 +593,5 @@ $('btnDelete').onclick = removeItem;
 $('btnDraft').onclick = saveDraft;
 $('emergency').onchange = saveCfg;
 $('enabled').onchange = saveCfg;
-if (TOKEN) { $('token').value = TOKEN; api('state').then(enter).catch(function(){}); }
+if (TOKEN) { $('token').value = TOKEN; api('state').then(enter).catch(function(){ TOKEN = ''; localStorage.removeItem('blt_admin_token'); }); }
 </script></body></html>`;

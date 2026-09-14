@@ -72,9 +72,17 @@
 
 | 资产 | 大小 | SHA256 |
 |------|------|--------|
-| blt-live-tool-v0.1.3-maui-win-x64.zip | 156.5 MB | `bc49ffebbffc0e7631b6cdecb3992d8ccbf8beeb4010b1a5c829790e82efc9f8` |
-| patch-0.1.3-from-0.1.2.zip | 1.9 MB | `f46a6ccfe351f9e3933ae0bfaf5e07798f5553e6d3a7cfdd3998602d218824e8` |
-| manifest-0.1.3.json | 136 KB | `57bd05aec95b4cb16b7a98a07e8690f18ed629b487e8be047bb4ca92c22f3fda` |
+| blt-live-tool-v0.1.3-maui-win-x64.zip | 156.5 MB | `8da610c89c1f4e84a41f9b1563c332b0a5cd9cb7d3d1c2d89768c2f3ddc8b1a8` |
+| patch-0.1.3-from-0.1.2.zip | 1.9 MB | `ca7f498e08b7fe1c069682b1ef516ee15788ef7e1780093f9bc30aac19257046` |
+| manifest-0.1.3.json | 136 KB | `5c6dcaaf6fea0e5968c7c4469af9bbfc440de0e74ec1eacfc89221fa290e96bf` |
 
 （发布机已对整包逐条对账清单：路径/大小/哈希 788/788 一致；增量包 14 个文件哈希全部匹配，
 删除列表为空 —— 增量更新不会删除任何已有文件。）
+
+> **资产重建说明（2026-09-15）**：v0.1.3 首次发布后，在验证应用内更新时发现三个缺陷并修复 ——
+> ①更新按钮多打了一个 `v`、只显示整包大小（看不到增量）；②重复触发下载会把前一次取消，
+> 被取消的那次用死 token 跑整包回退，报出误导性的「全部镜像均不可用：A task was canceled」；
+> ③镜像竞速只看谁先回响应头，GitHub 直连赢了却只有约 20 KB/s（1.9 MB 增量包 90 秒只下 176 KB）。
+> 现已按修复后的源码**重建并替换**同名三个资产（tag 不变）：按钮显示「增量 1.9 MB」、
+> 重复请求不再互杀、每次尝试需在 8 秒窗口内达到 150 KB/s 否则自动换镜像
+> （实测 直连 21 KB/s / ghproxy.net 19 KB/s 被弃 → ghfast.top ~2.5 MB/s，8 秒下完）。

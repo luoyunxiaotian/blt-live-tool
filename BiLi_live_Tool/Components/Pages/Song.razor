@@ -8,6 +8,7 @@
 @inject BiLi_live_Tool.Services.DebouncedSaver Saver
 @inject IJSRuntime JS
 @inject BiLi_live_Tool.Services.UiKit UI
+@inject BiLi_live_Tool.Services.KestrelHost Api
 @implements IDisposable
 
 <div class="blt-pagehead"><h1>点歌功能</h1><span class="en">SONG REQUEST</span></div>
@@ -288,6 +289,28 @@
             </div>
         </div>
 
+        @* ── OBS 歌词浮层（原版 lyrics/overlay.html，OBS 里加浏览器源指向该地址） ── *@
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="📜" /> OBS 歌词浮层</span><span class="en">OBS OVERLAY</span>
+                <span class="right"><span>OBS 浏览器源</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div class="blt-kv">
+                    <span class="k">浮层地址</span>
+                    <span class="v"><span class="mono" style="font-size:11.5px">@OverlayUrl</span></span>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                    <button class="blt-btn" @onclick="CopyOverlayUrl">复制地址</button>
+                    <button class="blt-btn" @onclick="OpenOverlay">在浏览器里预览</button>
+                </div>
+                <div class="blt-hint" style="margin-top:8px">
+                    OBS：来源 → 浏览器 → 粘贴上面的地址，建议竖屏比例（如 420×760）。歌词随播放进度滚动；
+                    播放时进度会通过 WebSocket 的 song_progress 帧推送（未播放时浮层显示等待状态）。
+                </div>
+            </div>
+        </div>
+
         @* ── 歌词 ── *@
         <div class="blt-panel">
             <div class="blt-panel-head">
@@ -301,7 +324,11 @@
                 }
                 else if (_lyricLines.Count == 0)
                 {
-                    <div class="blt-empty">暂无歌词</div>
+                    <div class="blt-empty">@LyricEmptyReason()</div>
+                    <div style="display:flex;justify-content:center;gap:8px;margin-top:8px">
+                        <button class="blt-btn" @onclick="LoadLyricsAsync" disabled="@_lyricLoading">重试</button>
+                        <button class="blt-btn" @onclick="CopyOverlayUrl" title="复制 OBS 歌词浮层地址">复制浮层地址</button>
+                    </div>
                 }
                 else
                 {
@@ -329,6 +356,12 @@
                 <div style="display:flex;gap:8px;margin:6px 0 12px">
                     <input class="blt-input mono" @bind="_cookieQq" placeholder="粘贴 QQ音乐 Cookie（留空保存 = 清除）" />
                     <button class="blt-btn" style="flex:none" @onclick="SaveQqCookie" disabled="@_busy">保存</button>
+                    <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
+                            @onclick="LoginQq" disabled="@_musicLoginBusy"><BltIcon Emoji="🌐" /> 应用内登录</button>
+                    <button class="blt-btn" style="flex:none" title="查询是否已捕获到该平台的登录态"
+                            @onclick="CheckQq" disabled="@_musicLoginBusy">检测</button>
+                    <button class="blt-btn" style="flex:none" title="清除该平台已保存的 Cookie"
+                            @onclick="ClearQq" disabled="@_musicLoginBusy">清除</button>
                 </div>
 
                 <div class="blt-kv">
@@ -338,6 +371,12 @@
                 <div style="display:flex;gap:8px;margin:6px 0 12px">
                     <input class="blt-input mono" @bind="_cookieNetease" placeholder="粘贴 网易云 Cookie（MUSIC_U=...）" />
                     <button class="blt-btn" style="flex:none" @onclick="SaveNeteaseCookie" disabled="@_busy">保存</button>
+                    <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
+                            @onclick="LoginNetease" disabled="@_musicLoginBusy"><BltIcon Emoji="🌐" /> 应用内登录</button>
+                    <button class="blt-btn" style="flex:none" title="查询是否已捕获到该平台的登录态"
+                            @onclick="CheckNetease" disabled="@_musicLoginBusy">检测</button>
+                    <button class="blt-btn" style="flex:none" title="清除该平台已保存的 Cookie"
+                            @onclick="ClearNetease" disabled="@_musicLoginBusy">清除</button>
                 </div>
 
                 <div class="blt-kv">
@@ -347,8 +386,18 @@
                 <div style="display:flex;gap:8px;margin:6px 0 12px">
                     <input class="blt-input mono" @bind="_cookieKugou" placeholder="粘贴 酷狗 Cookie（留空保存 = 清除）" />
                     <button class="blt-btn" style="flex:none" @onclick="SaveKugouCookie" disabled="@_busy">保存</button>
+                    <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
+                            @onclick="LoginKugou" disabled="@_musicLoginBusy"><BltIcon Emoji="🌐" /> 应用内登录</button>
+                    <button class="blt-btn" style="flex:none" title="查询是否已捕获到该平台的登录态"
+                            @onclick="CheckKugou" disabled="@_musicLoginBusy">检测</button>
+                    <button class="blt-btn" style="flex:none" title="清除该平台已保存的 Cookie"
+                            @onclick="ClearKugou" disabled="@_musicLoginBusy">清除</button>
                 </div>
 
+                @if (_musicLoginMsg.Length > 0)
+                {
+                    <div class="blt-hint" style="margin:0 0 8px;color:var(--amber-ink)">@_musicLoginMsg</div>
+                }
                 <div class="blt-kv">
                     <span class="k">B站</span>
                     <span class="v"><span class="blt-badge @CkCls(_ckBili)">@CkText(_ckBili)</span></span>
@@ -441,6 +490,120 @@
     private string _maxDaily = "0";
     private bool _dedupEnabled = true;
     private string _dedupMin = "5";
+
+    // ---------- 平台登录（应用内登录 → 自动抓 Cookie） ----------
+    private string _musicLoginMsg = "";
+    private bool _musicLoginBusy;
+
+    /// <summary>OBS 歌词浮层地址（原版 lyrics/overlay.html 的等价路径）。</summary>
+    /// <summary>OBS 歌词浮层地址：必须带真实端口（Nav.BaseUri 在 Blazor Hybrid 下是 http://localhost/，没有端口）。</summary>
+    private string OverlayUrl => "http://127.0.0.1:" + Api.Port + "/lyrics/overlay.html";
+
+    /// <summary>应用内登录：打开平台登录窗 → 轮询捕获结果 → 成功后回填并保存 Cookie。</summary>
+    private async Task LoginPlatform(string platform)
+    {
+        if (_musicLoginBusy) return;
+        _musicLoginBusy = true;
+        _musicLoginMsg = "正在打开 " + PlatName(platform) + " 登录窗口…";
+        StateHasChanged();
+        try
+        {
+            await PostJson("/api/maui/music/login", new JsonObject { ["platform"] = platform });
+            _musicLoginMsg = "已打开登录窗口：请在其中扫码/登录，" + PlatName(platform) + " 的 Cookie 会自动回填（最多等 2 分钟）";
+            StateHasChanged();
+            for (var i = 0; i < 60; i++)
+            {
+                await Task.Delay(2000);
+                var st = await PostJson("/api/maui/music/capture", new JsonObject { ["platform"] = platform }) as JsonObject;
+                var has = st?["hasCookie"] is JsonValue v && v.TryGetValue<bool>(out var b) && b;
+                if (!has) continue;
+                await LoadCookiesAsync();
+                _musicLoginMsg = "已捕获 " + PlatName(platform) + " 登录态并写入配置";
+                SetMsg(_musicLoginMsg, "green");
+                _musicLoginBusy = false;
+                StateHasChanged();
+                return;
+            }
+            _musicLoginMsg = "未在 2 分钟内捕获到登录态：可再点一次「应用内登录」，或手动粘贴 Cookie";
+            SetMsg(_musicLoginMsg, "amber");
+        }
+        catch (Exception ex)
+        {
+            _musicLoginMsg = "应用内登录失败：" + ex.Message;
+            SetMsg(_musicLoginMsg, "red");
+        }
+        finally
+        {
+            _musicLoginBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task LoginQq() => LoginPlatform("qq");
+    private Task LoginNetease() => LoginPlatform("netease");
+    private Task LoginKugou() => LoginPlatform("kugou");
+    private Task CheckQq() => CheckPlatform("qq");
+    private Task CheckNetease() => CheckPlatform("netease");
+    private Task CheckKugou() => CheckPlatform("kugou");
+    private Task ClearQq() => ClearPlatform("qq");
+    private Task ClearNetease() => ClearPlatform("netease");
+    private Task ClearKugou() => ClearPlatform("kugou");
+
+    /// <summary>查询该平台是否已有登录态。</summary>
+    private async Task CheckPlatform(string platform)
+    {
+        try
+        {
+            var st = await PostJson("/api/maui/music/has", new JsonObject { ["platform"] = platform }) as JsonObject;
+            var has = st?["has"] is JsonValue v && v.TryGetValue<bool>(out var b) && b;
+            _musicLoginMsg = PlatName(platform) + (has ? "：已捕获登录态" : "：尚未捕获（可用「应用内登录」或手动粘贴）");
+            SetMsg(_musicLoginMsg, has ? "green" : "amber");
+        }
+        catch (Exception ex) { SetMsg("检测失败：" + ex.Message, "red"); }
+        StateHasChanged();
+    }
+
+    /// <summary>清除该平台已保存的 Cookie。</summary>
+    private async Task ClearPlatform(string platform)
+    {
+        if (!await UI.ConfirmAsync("确定清除 " + PlatName(platform) + " 已保存的 Cookie？")) return;
+        try
+        {
+            await PostJson("/api/maui/music/clear", new JsonObject { ["platform"] = platform });
+            await LoadCookiesAsync();
+            _musicLoginMsg = "已清除 " + PlatName(platform) + " 的 Cookie";
+            SetMsg(_musicLoginMsg, "green");
+        }
+        catch (Exception ex) { SetMsg("清除失败：" + ex.Message, "red"); }
+        StateHasChanged();
+    }
+
+    /// <summary>歌词为空时给出可执行的原因提示。</summary>
+    private string LyricEmptyReason()
+    {
+        if (Player.CurrentName.Length == 0) return "未播放：点歌单里的 ▶ 播放后会自动加载歌词";
+        if (_lyricSource.Length == 0) return "歌词请求失败（网络或接口异常）：点「重试」，或在 OBS 里刷新浏览器源";
+        if (_lyricSource == "none") return "该平台未取到歌词：可换平台搜索同一首歌；或把同名 .lrc 放进本地歌词目录；VIP 歌曲可先「应用内登录」后再重试";
+        return "暂无歌词（来源：" + LyricSourceText() + "）";
+    }
+
+    /// <summary>复制 OBS 歌词浮层地址。</summary>
+    private async Task CopyOverlayUrl()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", OverlayUrl);
+            SetMsg("已复制浮层地址：" + OverlayUrl, "green");
+        }
+        catch { SetMsg("复制失败，请手动复制：" + OverlayUrl, "amber"); }
+        StateHasChanged();
+    }
+
+    /// <summary>在系统浏览器里预览浮层。</summary>
+    private async Task OpenOverlay()
+    {
+        try { await Launcher.Default.OpenAsync(OverlayUrl); } catch { }
+    }
 
     // ---------- cookie / uplist form ----------
     private bool _ckQq, _ckNetease, _ckKugou, _ckBili;

@@ -84,7 +84,63 @@
                 </span>
             </div>
             <div class="blt-panel-body">
-                @foreach (var r in _rows)
+                @* ── 主题选择区 ──
+                   清单来自 /keyview/themes.manifest.json（与浮层同根路径的普通静态 GET，
+                   不是 MAUI 的 POST-only 桥）；失败时回落到内置兜底清单。按 devices 分组，
+                   选中即写入 overlay.theme 并沿用本页整组 config-set 自动保存。 ── *@
+                <div class="blt-theme">
+                    <div class="blt-kv">
+                        <span class="k">浮层主题 overlay.theme</span>
+                        <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                            <select class="blt-input mono" style="width:240px" @bind="ThemeRowText" @bind:after="OnThemeChanged">
+                                @foreach (var g in ThemeGroups())
+                                {
+                                    <optgroup label="@g.Label">
+                                        @foreach (var t in g.Items)
+                                        {
+                                            <option value="@t.Id">@t.Name（@t.Id）</option>
+                                        }
+                                    </optgroup>
+                                }
+                            </select>
+                            <button class="blt-btn" style="padding:2px 10px" @onclick="RefreshThemes" disabled="@_themeLoading">
+                                @(_themeLoading ? "拉取中…" : "刷新主题清单")
+                            </button>
+                        </span>
+                    </div>
+                    @if (SelectedTheme is ThemeInfo st)
+                    {
+                        <p class="blt-hint">@st.Preview</p>
+                        <p class="blt-hint">适用设备：@DeviceText(st)</p>
+                        @if (SelectedParams().Count > 0)
+                        {
+                            <label class="blt-label">主题参数</label>
+                            @foreach (var (pr, p) in SelectedParams())
+                            {
+                                <div class="blt-kv">
+                                    <span class="k">@(p.Label.Length > 0 ? p.Label : p.Key) <span style="color:var(--ink-3)">· @p.Key</span></span>
+                                    <span style="display:flex;align-items:center;gap:8px">
+                                        <input class="blt-input mono" style="width:110px" type="number" min="@Fmt(p.Min)" max="@Fmt(p.Max)" step="@Fmt(p.Step)" @bind="pr.Num" @bind:after="() => SaveRowSoon(450)" />
+                                        @if (p.Unit.Length > 0)
+                                        {
+                                            <span class="blt-hint" style="margin:0">@p.Unit</span>
+                                        }
+                                    </span>
+                                </div>
+                            }
+                        }
+                    }
+                    else
+                    {
+                        <p class="blt-hint">未在清单中找到当前主题定义，仍按现有 id 保存。</p>
+                    }
+                    @if (_themesFallback)
+                    {
+                        <p class="blt-hint" style="margin:0">manifest 拉取失败，正在使用内置兜底主题清单。</p>
+                    }
+                </div>
+
+                @foreach (var r in _rows.Where(ShowInGenericList))
                 {
                     <div class="blt-kv">
                         <span class="k">@r.Label
@@ -167,7 +223,38 @@
         public List<KeyOption> Options = new();
     }
 
+    /// <summary>One adjustable parameter of a theme (manifest params[]).</summary>
+    private sealed class ThemeParam
+    {
+        public string Key = "";
+        public string Label = "";
+        public double Min;
+        public double Max;
+        public double Step;
+        public string Unit = "";
+    }
+
+    /// <summary>One theme entry from themes.manifest.json.</summary>
+    private sealed class ThemeInfo
+    {
+        public string Id = "";
+        public string Name = "";
+        public string Preview = "";
+        public List<string> Devices = new();
+        public List<ThemeParam> Params = new();
+    }
+
+    /// <summary>An optgroup bucket: themes sharing one device.</summary>
+    private sealed class ThemeGroup
+    {
+        public string Label = "";
+        public List<ThemeInfo> Items = new();
+    }
+
     private List<KeyRow> _rows = new();
+    private List<ThemeInfo> _themes = new();
+    private bool _themesFallback;                            // manifest GET failed, built-in list in use
+    private bool _themeLoading;
     private System.Threading.Timer? _timer;
     private bool _disposed;
     private bool _running;
@@ -189,6 +276,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadManifest();
         await LoadConfig();
         await RefreshStatus();
         // Poll the status endpoint so "浮层连接" tracks OBS previews.
@@ -347,7 +435,7 @@
                 return;
             }
 
-            var themeOptions = await LoadThemes();
+            var themeOptions = ThemeOptions();
             var rows = new List<KeyRow>();
             foreach (var spec in RowSpecs())
             {
@@ -366,6 +454,9 @@
                 rows.Add(extra);
             }
 
+            // A selected theme's params may not be in RowSpecs yet; add them so the
+            // whole-group config-set never drops the dotted key on the next save.
+            EnsureParamRows(rows);
             _rows = rows;
             Notify($"已读取 {rows.Count} 个配置键", true);
         }
@@ -500,25 +591,205 @@
         return _savedAt.HasValue ? "已自动保存 " + _savedAt.Value.ToString("HH:mm:ss") : "改动即时自动保存";
     }
 
-    private async Task<List<KeyOption>> LoadThemes()
+    // ---------------- theme manifest ----------------
+
+    /// <summary>
+    /// Pull the theme list from /keyview/themes.manifest.json (plain static GET, not the
+    /// POST-only MAUI bridge). On any failure fall back to the built-in list below.
+    /// </summary>
+    private async Task LoadManifest()
     {
-        var list = new List<KeyOption>();
+        var list = new List<ThemeInfo>();
         try
         {
-            var node = await PostJsonAsync("/api/maui/keyview/themes", new JsonObject());
-            var arr = node as JsonArray ?? (node as JsonObject)?["themes"] as JsonArray;
-            if (arr == null) return list;
-            foreach (var n in arr)
-            {
-                if (n is not JsonObject o) continue;
-                var id = o["id"] is JsonValue iv && iv.TryGetValue<string>(out var s) ? s ?? "" : "";
-                if (id.Length == 0) continue;
-                var name = o["name"] is JsonValue nv && nv.TryGetValue<string>(out var ns) ? ns ?? id : id;
-                list.Add(new KeyOption { Value = id, Label = name + " · " + id });
-            }
+            var txt = await Http.GetStringAsync(Base + "/keyview/themes.manifest.json");
+            if (JsonNode.Parse(txt) is JsonObject o && o["themes"] is JsonArray arr) list = ParseThemes(arr);
         }
-        catch { /* manifest is optional; keep the stored value option only */ }
+        catch { /* fall through to the built-in list */ }
+
+        if (list.Count == 0)
+        {
+            _themes = FallbackThemes();
+            _themesFallback = true;
+            return;
+        }
+        _themes = list;
+        _themesFallback = false;
+    }
+
+    private static List<ThemeInfo> ParseThemes(JsonArray arr)
+    {
+        var list = new List<ThemeInfo>();
+        foreach (var n in arr)
+        {
+            if (n is not JsonObject o) continue;
+            var id = Str(o, "id");
+            if (id.Length == 0) continue;
+            var t = new ThemeInfo { Id = id, Name = Str(o, "name"), Preview = Str(o, "preview") };
+            if (t.Name.Length == 0) t.Name = id;
+            if (o["devices"] is JsonArray da)
+                foreach (var d in da)
+                {
+                    var dv = d?.GetValue<string>();
+                    if (!string.IsNullOrEmpty(dv)) t.Devices.Add(dv!);
+                }
+            if (o["params"] is JsonArray pa)
+                foreach (var p in pa)
+                {
+                    if (p is not JsonObject po) continue;
+                    var k = Str(po, "key");
+                    if (k.Length == 0) continue;
+                    t.Params.Add(new ThemeParam
+                    {
+                        Key = k, Label = Str(po, "label"),
+                        Min = NumOf(po, "min"), Max = NumOf(po, "max"),
+                        Step = NumOf(po, "step"), Unit = Str(po, "unit"),
+                    });
+                }
+            list.Add(t);
+        }
         return list;
+    }
+
+    private static string Str(JsonObject o, string key)
+        => o[key] is JsonValue v && v.TryGetValue<string>(out var s) ? s ?? "" : "";
+
+    private static double NumOf(JsonObject o, string key)
+        => o[key] is JsonValue v && v.TryGetValue<double>(out var d) ? d : 0;
+
+    /// <summary>Built-in list used when the manifest cannot be fetched (real/glass/... the first five).</summary>
+    private static List<ThemeInfo> FallbackThemes() => new()
+    {
+        new ThemeInfo { Id = "real", Name = "写实键盘鼠标", Preview = "完整键盘+鼠标图，按键/点击/滚轮高亮动画", Devices = { "kb", "ms" } },
+        new ThemeInfo
+        {
+            Id = "glass", Name = "毛玻璃极简", Preview = "半透明圆角卡片，macOS 毛玻璃风", Devices = { "kb", "ms", "gp" },
+            Params =
+            {
+                new ThemeParam { Key = "display.keyHoldMs", Label = "按键显示时长", Min = 200, Max = 3000, Step = 50, Unit = "ms" },
+                new ThemeParam { Key = "display.animSpeed", Label = "动画速度", Min = 0.2, Max = 3, Step = 0.1, Unit = "x" },
+            },
+        },
+        new ThemeInfo { Id = "kb-stream", Name = "流式按键序列", Preview = "气泡从右向左滚动", Devices = { "kb" } },
+        new ThemeInfo { Id = "pad-real", Name = "写实手柄", Preview = "Xbox/PS5 手柄按键发光", Devices = { "gp" } },
+        new ThemeInfo { Id = "kb-heatmap", Name = "KPS 热力图", Preview = "按键频率热力着色", Devices = { "kb" } },
+    };
+
+    private List<KeyOption> ThemeOptions()
+        => _themes.Select(t => new KeyOption { Value = t.Id, Label = t.Name + "（" + t.Id + "）" }).ToList();
+
+    /// <summary>The overlay.theme row (kept in _rows so the whole-group save preserves the key).</summary>
+    private string ThemeRowText
+    {
+        get => _rows.FirstOrDefault(x => x.Key == "overlay.theme")?.Text ?? "";
+        set
+        {
+            var r = _rows.FirstOrDefault(x => x.Key == "overlay.theme");
+            if (r != null && r.Text != value) r.Text = value;
+        }
+    }
+
+    private ThemeInfo? SelectedTheme
+    {
+        get
+        {
+            var id = ThemeRowText;
+            return _themes.FirstOrDefault(t => t.Id == id);
+        }
+    }
+
+    /// <summary>Theme list bucketed by device for the optgroup select (a theme can repeat per group).</summary>
+    private List<ThemeGroup> ThemeGroups()
+    {
+        var groups = new List<ThemeGroup>();
+        void Add(string key, string label)
+        {
+            var items = _themes.Where(t => t.Devices.Contains(key)).ToList();
+            if (items.Count > 0) groups.Add(new ThemeGroup { Label = label, Items = items });
+        }
+        Add("kb", "键盘");
+        Add("ms", "鼠标");
+        Add("gp", "手柄");
+        var other = _themes.Where(t => !t.Devices.Any(d => d is "kb" or "ms" or "gp")).ToList();
+        if (other.Count > 0) groups.Add(new ThemeGroup { Label = "其它", Items = other });
+        return groups;
+    }
+
+    private static string DeviceText(ThemeInfo t)
+    {
+        var names = new List<string>();
+        if (t.Devices.Contains("kb")) names.Add("键盘");
+        if (t.Devices.Contains("ms")) names.Add("鼠标");
+        if (t.Devices.Contains("gp")) names.Add("手柄");
+        return names.Count > 0 ? string.Join(" · ", names) : "通用";
+    }
+
+    /// <summary>Keep overlay.theme and the selected theme's params out of the generic row list (they render in the theme block).</summary>
+    private bool ShowInGenericList(KeyRow r)
+    {
+        if (r.Key == "overlay.theme") return false;
+        var st = SelectedTheme;
+        return st == null || !st.Params.Any(p => p.Key == r.Key);
+    }
+
+    /// <summary>Rows for the selected theme's params, paired with their manifest spec.</summary>
+    private List<(KeyRow Row, ThemeParam Param)> SelectedParams()
+    {
+        var list = new List<(KeyRow, ThemeParam)>();
+        var st = SelectedTheme;
+        if (st == null) return list;
+        foreach (var p in st.Params)
+        {
+            var row = _rows.FirstOrDefault(x => x.Key == p.Key);
+            if (row != null) list.Add((row, p));
+        }
+        return list;
+    }
+
+    /// <summary>Add a number row for any of the selected theme's params missing from the config.</summary>
+    private void EnsureParamRows(List<KeyRow> rows)
+    {
+        var id = rows.FirstOrDefault(x => x.Key == "overlay.theme")?.Text ?? "";
+        var st = _themes.FirstOrDefault(t => t.Id == id);
+        if (st == null) return;
+        foreach (var p in st.Params)
+        {
+            if (p.Key.Length == 0 || p.Key == "overlay.theme") continue;
+            if (rows.Any(x => x.Key == p.Key)) continue;
+            rows.Add(new KeyRow
+            {
+                Key = p.Key,
+                Label = (p.Label.Length > 0 ? p.Label : p.Key) + " " + p.Key,
+                Kind = "number",
+                Min = p.Min, Max = p.Max,
+                Step = p.Step > 0 ? p.Step : 1,
+                Unit = p.Unit,
+                Num = p.Min,
+            });
+        }
+    }
+
+    private void OnThemeChanged()
+    {
+        EnsureParamRows(_rows);
+        Notify("已切换主题：" + ThemeRowText + " · 自动保存中…", true);
+        SaveRowSoon(200);
+    }
+
+    private async Task RefreshThemes()
+    {
+        _themeLoading = true;
+        try
+        {
+            await LoadManifest();
+            Notify(_themesFallback
+                ? "主题清单拉取失败，已改用内置兜底清单"
+                : $"已刷新主题清单 · {_themes.Count} 套", !_themesFallback);
+        }
+        finally
+        {
+            _themeLoading = false;
+        }
     }
 
     private double ValueOf(string key)

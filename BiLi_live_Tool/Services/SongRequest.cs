@@ -339,35 +339,90 @@ public static partial class MusicApi
         }
         if (platform == "kugou" && song.Length > 0)
         {
-            try
-            {
-                var mobileUa = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/83.0.0.0 Mobile Safari/537.36";
-                var s1 = await FetchJsonAsync("https://krcs.kugou.com/search?ver=1&man=yes&client=mobi&keyword=" + Uri.EscapeDataString(song) +
-                                              (id.Length > 0 ? "&hash=" + Uri.EscapeDataString(id) : ""), null, null,
-                    new Dictionary<string, string> { ["User-Agent"] = mobileUa, ["Referer"] = "https://m.kugou.com/" }, ct);
-                var cands = (s1?["candidates"] as JsonArray) ?? new JsonArray();
-                JsonNode? hit = null;
-                if (artist.Length > 0)
-                    hit = cands.FirstOrDefault(x => (Safe(x?["singer"])).Contains(artist, StringComparison.OrdinalIgnoreCase));
-                hit ??= cands.FirstOrDefault();
-                if (hit != null)
-                {
-                    var s2 = await FetchJsonAsync("https://lyrics.kugou.com/download?ver=1&client=pc&id=" + Uri.EscapeDataString(Safe(hit["id"])) +
-                                                  "&accesskey=" + Uri.EscapeDataString(Safe(hit["accesskey"])) + "&fmt=lrc&charset=utf8", null, null,
-                        new Dictionary<string, string> { ["User-Agent"] = "Mozilla/5.0", ["Referer"] = "https://www.kugou.com/" }, ct);
-                    var content = Safe(s2?["content"]);
-                    if (content.Length > 0)
-                    {
-                        var lrc = Encoding.UTF8.GetString(Convert.FromBase64String(content)).TrimStart('\uFEFF');
-                        if (lrc.Length > 0) return ("kugou", lrc);
-                    }
-                }
-            }
-            catch { }
+            var kugou = await KugouLyricsAsync(song, artist, id, ct);
+            if (kugou.Length > 0) return ("kugou", kugou);
+        }
+        // 兜底：按歌名到酷狗匹配。覆盖三种情况——B站视频（没有平台歌词分支）、
+        // 条目缺 id（仅网易云/QQ 需要 id）、上面各平台取词失败。
+        if (song.Length > 0)
+        {
+            var kugou = await KugouLyricsAsync(song, artist, "", ct);
+            if (kugou.Length > 0) return ("kugou", kugou);
+        }
+        // 第二层兜底：网易云按歌名搜索取 id 再取词（酷狗对部分关键词返回 0 候选，例如「起风了」）
+        if (song.Length > 0)
+        {
+            var nt = await NeteaseLyricsByNameAsync(song, artist, ct);
+            if (nt.Length > 0) return ("netease", nt);
         }
         return ("none", "");
     }
+
+    /// <summary>粗略判断候选歌名是否与查询匹配（去空白与常见标点后双向包含）。
+    /// 上游搜索是模糊的（网易云对无意义关键词也会返回结果），没有这层校验会显示无关歌词。</summary>
+    private static bool NameMatches(string candidate, string query)
+    {
+        static string Norm(string v) =>
+            Regex.Replace(v ?? "", "[\\s()（）【】\\[\\]·、,，.。!！?？~～_\\-—]+", "").ToLowerInvariant();
+        var a = Norm(candidate);
+        var b = Norm(query);
+        if (a.Length == 0 || b.Length == 0) return false;
+        return a.Contains(b) || b.Contains(a);
+    }
+
+    /// <summary>网易云按歌名兜底：搜索取首个（优先歌手匹配）→ 用 id 取歌词。失败返回空串。</summary>
+    private static async Task<string> NeteaseLyricsByNameAsync(string song, string artist, CancellationToken ct)
+    {
+        try
+        {
+            var headers = new Dictionary<string, string> { ["User-Agent"] = Ua, ["Referer"] = "https://music.163.com" };
+            var s1 = await FetchJsonAsync("https://music.163.com/api/search/get?s=" + Uri.EscapeDataString(song) +
+                                          "&type=1&offset=0&limit=5", null, null, headers, ct);
+            var arr = s1?["result"]?["songs"] as JsonArray;
+            if (arr == null || arr.Count == 0) return "";
+            var named = arr.Where(x => NameMatches(Safe(x?["name"]), song)).ToList();
+            if (named.Count == 0) return "";
+            JsonNode? hit = null;
+            if (artist.Length > 0)
+                hit = named.FirstOrDefault(x => Safe(x?["artists"]?[0]?["name"]).Contains(artist, StringComparison.OrdinalIgnoreCase));
+            hit ??= named[0];
+            var id = Safe(hit?["id"]);
+            if (id.Length == 0) return "";
+            var j = await FetchJsonAsync("https://music.163.com/api/song/lyric?id=" + Uri.EscapeDataString(id) + "&lv=1&kv=1&tv=-1",
+                null, null, headers, ct);
+            return Safe(j?["lrc"]?["lyric"]);
+        }
+        catch { return ""; }
+    }
+
+    /// <summary>酷狗歌词：按歌名（可带 hash）搜索候选 → 下载 LRC。失败返回空串。</summary>
+    private static async Task<string> KugouLyricsAsync(string song, string artist, string id, CancellationToken ct)
+    {
+        try
+        {
+            var mobileUa = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/83.0.0.0 Mobile Safari/537.36";
+            var s1 = await FetchJsonAsync("https://krcs.kugou.com/search?ver=1&man=yes&client=mobi&keyword=" + Uri.EscapeDataString(song) +
+                                          (id.Length > 0 ? "&hash=" + Uri.EscapeDataString(id) : ""), null, null,
+                new Dictionary<string, string> { ["User-Agent"] = mobileUa, ["Referer"] = "https://m.kugou.com/" }, ct);
+            var cands = (s1?["candidates"] as JsonArray) ?? new JsonArray();
+            // 只接受歌名对得上的候选，避免「起风了」匹配到名字相似但不相干的歌
+            var named = cands.Where(x => NameMatches(Safe(x?["song"]).Length > 0 ? Safe(x?["song"]) : Safe(x?["songName"]), song)).ToList();
+            JsonNode? hit = null;
+            if (artist.Length > 0)
+                hit = named.FirstOrDefault(x => (Safe(x?["singer"])).Contains(artist, StringComparison.OrdinalIgnoreCase));
+            hit ??= named.FirstOrDefault();
+            if (hit == null) return "";
+            var s2 = await FetchJsonAsync("https://lyrics.kugou.com/download?ver=1&client=pc&id=" + Uri.EscapeDataString(Safe(hit["id"])) +
+                                          "&accesskey=" + Uri.EscapeDataString(Safe(hit["accesskey"])) + "&fmt=lrc&charset=utf8", null, null,
+                new Dictionary<string, string> { ["User-Agent"] = "Mozilla/5.0", ["Referer"] = "https://www.kugou.com/" }, ct);
+            var content = Safe(s2?["content"]);
+            if (content.Length == 0) return "";
+            return Encoding.UTF8.GetString(Convert.FromBase64String(content)).TrimStart('\uFEFF');
+        }
+        catch { return ""; }
+    }
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Port of lib/song-request.js: danmu "点歌 xxx" parsing, permission checks,

@@ -127,25 +127,3 @@ https://github.com/luoyunxiaotian/blt-live-tool/edit/main/announce/announcements
 ### 何时切到控制台（可选，更舒服）
 
 若你愿意把 `ai-daynews.xyz` 的 NS 改到 Cloudflare（阿里云控制台 → 修改 DNS 服务器 → 填 Cloudflare 给的两个 NS，并确认原有解析记录都已在 Cloudflare 里重建，避免白名单服务中断），那么 Worker 的**控制台**（`/admin`：可视化编辑、UID 定向、定时发布、历史回滚、回执统计）就能通过 `https://<你绑的域名>/admin` 使用；届时把客户端 `announceUrl` 改成 Worker 地址、`announceFallbackUrl` 保留仓库 JSON 做兜底即可。
-
----
-
-## 九、上线现状（2026-09-14 完成，可直接使用）
-
-**控制台地址（国内可达，无需改 DNS）**：https://blt-announce.pages.dev/admin
-**客户端接口**：https://blt-announce.pages.dev/announcements
-**登录密钥**：`ADMIN_TOKEN`（部署时设置，见下）
-
-| 组件 | 状态 |
-|---|---|
-| Pages 项目 `blt-announce`（`_worker.js`） | ✅ 已部署，`/admin` 200 |
-| KV 绑定 `ANN` → `blt_announce` | ✅ 已配置并在部署中生效 |
-| 环境变量 `ADMIN_TOKEN` | ✅ 已配置（控制台登录用；当前值由部署者掌握，建议改存在密码管理器） |
-| `GET /announcements` | ✅ 200，带 uid/版本/通道/时间过滤 + ETag 304 |
-| `POST /receipt`（回执） | ✅ 可用（PoW 计数，存 uid 哈希） |
-| `ai-daynews.xyz` 日报网站 | ✅ 未受任何影响（**没有改动任何 DNS 记录**） |
-
-**注意事项**
-- `*.workers.dev` 在国内被封锁，所以用的是 `*.pages.dev`（实测可达）。
-- 从脚本/命令行调 `/admin/api/*` 时，Cloudflare 的 Bot 防护会拦掉默认 UA（返回 403）：带上浏览器 UA 即可（控制台网页本身不受影响）。
-- 可选（更好看，但不是必需）：给 Pages 项目加自定义域 `announce.ai-daynews.xyz`，再在阿里云**新增一条** `announce` CNAME → `blt-announce.pages.dev`；不加就一直用 `pages.dev` 地址。

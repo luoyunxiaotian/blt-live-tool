@@ -26,7 +26,14 @@
 <div class="blt-topstrip">
     <span class="seg">config <b class="@ConfigClass()">@ConfigText()</b></span>
     <span class="seg">api <b>127.0.0.1:@Config.Port</b></span>
-    <span class="seg">engine <b class="amber">@_engine</b></span>
+    <span class="seg" style="display:flex;align-items:center;gap:6px">engine
+        <select class="blt-input bar-engine" style="width:146px;padding:1px 6px;font-size:11px"
+                @bind="_engine" @bind:after="SaveEngineSoon" data-tip="引擎影响念弹幕 / 试听 / 播报队列等多项功能">
+            <option value="edge">edge · 在线</option>
+            <option value="sys">sys · 系统语音</option>
+            <option value="moss">moss · 本地离线</option>
+        </select>
+    </span>
     <span class="seg">引擎状态 <b class="@EngineClass()">@EngineText()</b></span>
     <span class="seg">edge 音色 <b>@_voices.Count</b></span>
     <span class="seg">总开关 <b class="@OnOff(_enabled)">@OnOffText(_enabled)</b></span>

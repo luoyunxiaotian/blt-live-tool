@@ -138,10 +138,9 @@
                        @bind="_disclaimerAgreed" @bind:after="SaveDisclaimer" />
                 我已知晓：使用登录 Cookie 存在账号风险，且仅在本机保存
             </label>
-            <textarea class="blt-input mono" rows="4" style="min-height:76px" disabled="@(!_disclaimerAgreed)"
-                      placeholder="粘贴整段 Cookie，例如：enable_web_push=DISABLE; ...; SESSDATA=xxx; bili_jct=xxx"
-                      @bind="_cookieInput" @bind:event="oninput"
-                      data-tip="从浏览器 F12 请求标头里复制整段 Cookie 粘贴到这里"></textarea>
+<BltSecretInput Multiline="true" Disabled="@(!_disclaimerAgreed)" @bind-Value="_cookieInput"
+                                     Placeholder="粘贴整段 Cookie（含 SESSDATA=… 等）"
+                                     Tip="从浏览器 F12 请求标头里复制整段 Cookie 粘贴到这里" />
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
                 <button class="blt-btn primary" @onclick="ImportCookie" disabled="@(!_disclaimerAgreed)"
                         data-tip="解析粘贴的 Cookie 并写入本机 config.json">解析并保存</button>

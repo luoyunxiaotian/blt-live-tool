@@ -23,6 +23,10 @@
   let curIdx = -1;
   let wsState = 'connecting';
   let msgCount = 0, lastMsgAt = 0, lastPollAt = 0, lastPollOk = null, lastPollErr = '';
+  // song_progress frames are the authority on what is playing; the playlist poll only fills in
+  // when they stop arriving (paused playback still reports every 3s, so 12s means真断了).
+  let lastProgressAt = 0;
+  const PROGRESS_STALE_MS = 12000;
 
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function fmtTime(s){ s = Math.max(0, Math.floor(s || 0)); const m = Math.floor(s / 60), sec = s % 60; return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0'); }
@@ -146,6 +150,7 @@
       msgs: msgCount,
       lastMsg: lastMsgAt ? (Math.round((Date.now() - lastMsgAt) / 1000) + 's ago') : 'never',
       poll: lastPollAt ? (Math.round((Date.now() - lastPollAt) / 1000) + 's ago ok=' + lastPollOk + (lastPollErr ? ' err=' + lastPollErr : '')) : 'never',
+      progress: lastProgressAt ? (Math.round((Date.now() - lastProgressAt) / 1000) + 's ago') : 'never',
       song: song && song.name, platform: song && song.platform, songId: song && song.songId,
       pos: Math.round(position), dur: Math.round(duration), paused: paused,
       lrcSource: lrcSource, lrcLines: lrcLines.length, curIdx: curIdx, curLine: curLine,
@@ -168,8 +173,12 @@
       const r = await fetch('/api/song-request/playlist');
       const j = await r.json();
       const pl = j.playlist || [];
-      const idx = j.currentIndex != null ? j.currentIndex : -1;
       lastPollOk = true; lastPollErr = '';
+      // While progress frames keep coming they win: the poll used to follow the request-queue
+      // cursor (j.currentIndex) and flipped the card between two songs every 5 seconds.
+      if (lastProgressAt && Date.now() - lastProgressAt < PROGRESS_STALE_MS) { renderDebug(); return; }
+      // Fallback only (no live frames): follow the player's own index, not the queue cursor.
+      const idx = Number.isInteger(j.playingIndex) ? j.playingIndex : -1;
       if (idx >= 0 && pl[idx]) setSong({ name: pl[idx].name, artist: pl[idx].artist || '', requester: pl[idx].requester || '', platform: pl[idx].platform || '', songId: pl[idx].id || '' });
       else setSong(null);
     } catch (e) { lastPollOk = false; lastPollErr = e.message || 'fetch failed'; }
@@ -188,6 +197,7 @@
       msgCount++; lastMsgAt = Date.now();
       if (m.type === 'song_progress' && m.data) {
         const d = m.data;
+        lastProgressAt = Date.now();
         setSong({ name: d.name || '', artist: d.artist || '', requester: d.requester || '', platform: d.platform || '', songId: d.songId || '' });
         position = Number(d.position) || 0;
         duration = Number(d.duration) || 0;

@@ -601,7 +601,7 @@ public sealed class KestrelHost
                 (int)(body?["from"]?.GetValue<long?>() ?? -1), (int)(body?["to"]?.GetValue<long?>() ?? -1)), JsonWeb);
         });
         app.MapPost("/api/song-request/playlist/clear", () => Results.Json(_pipeline.SongRequest.ClearPlaylist(), JsonWeb));
-        app.MapPost("/api/song-request/skip", () => Results.Json(_pipeline.SongRequest.SkipCurrent(), JsonWeb));
+        app.MapPost("/api/song-request/skip", async () => Results.Json(await _pipeline.SongRequest.SkipCurrentAsync(), JsonWeb));
 
         // Player progress relay: the Blazor song player posts here and the frame
         // is broadcast to WS clients (OBS lyrics overlay consumes song_progress).

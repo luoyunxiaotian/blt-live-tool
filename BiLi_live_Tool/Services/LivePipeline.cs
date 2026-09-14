@@ -68,6 +68,11 @@ public sealed class LivePipeline : IDisposable
         // 播放结束时要把放完的歌从列表移除：SongRequestService 在本类内部创建，
         // 所以在这里把钩子交给播放器（SongPlayer 不依赖本类，无循环依赖）。
         player.RemovePlaylistAt = idx => _songRequest.RemoveFromPlaylistCount(idx);
+        // 点歌列表接口要把「真正在播的那首」告诉浮层：请求队列游标 _currentIndex 与播放器
+        // 索引是两回事，浮层曾经因此每 5 秒在《送别》和《晴天》之间来回切。
+        _songRequest.PlayerState = () => (player.PlayingIndex, player.IsPlaying, player.CurrentSongId);
+        _songRequest.PlayIndex = idx => player.PlayIndexAsync(idx);
+        _songRequest.StopPlaybackAction = () => player.StopPlayback();
     }
 
     public AutoDanmu AutoDanmu => _autoDanmu;

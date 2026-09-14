@@ -597,6 +597,15 @@ public sealed class SongRequestService
     private readonly object _lock = new();
     private readonly List<PlaylistEntry> _playlist = new();
     private int _currentIndex = -1;
+
+    /// <summary>Set by LivePipeline: (playing index, is playing, playing song id).</summary>
+    public Func<(int, bool, string)>? PlayerState { get; set; }
+
+    /// <summary>Set by LivePipeline: start the given playlist index (used by the skip action).</summary>
+    public Func<int, Task>? PlayIndex { get; set; }
+
+    /// <summary>Set by LivePipeline: stop playback (skip past the last track).</summary>
+    public Action? StopPlaybackAction { get; set; }
     private readonly List<JsonObject> _recent = new();
     private readonly List<(string Name, long Time)> _recentSongs = new();
     private long _lastGlobalRequest;
@@ -830,23 +839,40 @@ public sealed class SongRequestService
         return new { ok = true };
     }
 
-    public object SkipCurrent()
+    /// <summary>跳过正在播的那首（对应旧版 next()）。旧实现只把队列游标 +1，既不切歌也不影响
+    /// 播放，按钮等于是哑的；现在从播放器索引出发真的切到下一首，越过末首则停止播放。</summary>
+    public async Task<object> SkipCurrentAsync()
     {
-        lock (_lock)
+        var (idx, _, _) = PlayerState?.Invoke() ?? (-1, false, "");
+        if (idx < 0 || PlayIndex == null) return new { ok = false, reason = "not_playing" };
+        int count;
+        lock (_lock) count = _playlist.Count;
+        if (idx + 1 >= count)
         {
-            if (_currentIndex >= 0 && _currentIndex < _playlist.Count)
-            {
-                _currentIndex++;
-                if (_currentIndex >= _playlist.Count) _currentIndex = -1;
-            }
-            return new { ok = true, currentIndex = _currentIndex };
+            StopPlaybackAction?.Invoke();
+            return new { ok = true, stopped = true };
         }
+        await PlayIndex(idx + 1);
+        return new { ok = true, playingIndex = idx + 1 };
     }
 
     public object PlaylistPayload()
     {
         lock (_lock)
-            return new { playlist = _playlist.Cast<object>().ToList(), currentIndex = _currentIndex };
+        {
+            // The request-queue cursor (_currentIndex) is not the track that is actually
+            // playing, so the payload also carries the player's own state — the OBS lyrics
+            // overlay follows the audio, and consumers must not have to guess.
+            var state = PlayerState?.Invoke() ?? (-1, false, "");
+            return new
+            {
+                playlist = _playlist.Cast<object>().ToList(),
+                currentIndex = _currentIndex,
+                playingIndex = state.Item1,
+                playing = state.Item2,
+                playingSongId = state.Item3,
+            };
+        }
     }
 
     public async Task<object> GetSongUrlAsync(int index, CancellationToken ct)
@@ -856,7 +882,13 @@ public sealed class SongRequestService
         {
             if (index < 0 || index >= _playlist.Count) return new { ok = false, reason = "invalid_index" };
             song = _playlist[index];
+            // Legacy contract (Bin/public/song-player.js): currentIndex IS the playing track —
+            // the playlist row badge and the OBS overlay both read it. The port had turned it
+            // into a request-queue cursor that nothing consumes, so a row that was not playing
+            // (and the overlay) pointed at the wrong song.
+            _currentIndex = index;
         }
+        SavePlaylist();
         var cookie = CookieFor(song.Platform);
         try
         {

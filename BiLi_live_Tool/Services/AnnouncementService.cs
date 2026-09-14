@@ -130,8 +130,17 @@ public sealed class AnnouncementService : IDisposable
         var uid = _config.Uid;
         var sep = url.Contains('?') ? '&' : '?';
         var target = $"{url}{sep}uid={Uri.EscapeDataString(uid)}&v={Uri.EscapeDataString(KestrelHost.VersionText)}&ch=maui";
-        var sources = new List<string> { target };
-        if (FallbackUrl.Length > 0) sources.Add($"{FallbackUrl}{(FallbackUrl.Contains('?') ? '&' : '?')}uid={Uri.EscapeDataString(uid)}&v={Uri.EscapeDataString(KestrelHost.VersionText)}&ch=maui");
+        // Raw GitHub URLs are frequently throttled/blocked: expand every source through the same
+        // mirror list the updater uses (ghfast.top / gh-proxy.com / ghproxy.net ...), official first.
+        var sources = new List<string>();
+        foreach (var baseUrl in new[] { target, FallbackUrl.Length > 0
+            ? $"{FallbackUrl}{(FallbackUrl.Contains('?') ? '&' : '?')}uid={Uri.EscapeDataString(uid)}&v={Uri.EscapeDataString(KestrelHost.VersionText)}&ch=maui"
+            : "" })
+        {
+            if (baseUrl.Length == 0) continue;
+            foreach (var cand in GhMirrors.Expand(GhMirrors.Download, baseUrl))
+                if (!sources.Contains(cand, StringComparer.OrdinalIgnoreCase)) sources.Add(cand);
+        }
 
         string? body = null;
         string lastErr = "";

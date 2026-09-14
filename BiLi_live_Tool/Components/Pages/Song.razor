@@ -38,6 +38,7 @@
         <button class="blt-btn @(_platform == "qq" ? "on" : "")" @onclick="PickQq">QQ音乐</button>
         <button class="blt-btn @(_platform == "netease" ? "on" : "")" @onclick="PickNetease">网易云音乐</button>
         <button class="blt-btn @(_platform == "kugou" ? "on" : "")" @onclick="PickKugou">酷狗音乐</button>
+        <button class="blt-btn @(_platform == "migu" ? "on" : "")" @onclick="PickMigu">咪咕音乐</button>
         <button class="blt-btn @(_platform == "bilibili" ? "on" : "")" @onclick="PickBilibili">B站</button>
     </span>
     <span class="right" style="margin-left:auto;display:flex;align-items:center;gap:8px">
@@ -392,6 +393,14 @@
                             @onclick="ClearKugou">清除</button>
                 </div>
 
+                <div class="blt-kv">
+                    <span class="k">咪咕音乐</span>
+                    <span class="v"><span class="blt-badge blue">免登录</span></span>
+                </div>
+                <div style="font-size:12px;opacity:.65;margin:6px 0 12px">
+                    咪咕的免费曲库无需登录即可播放（会员歌曲只有 60 秒试听，会标为 VIP）；歌词与播放地址都取自咪咕曲库，不需要 Cookie。
+                </div>
+
                 @if (_musicLoginMsg.Length > 0)
                 {
                     <div class="blt-hint" style="margin:0 0 8px;color:var(--amber-ink)">@_musicLoginMsg</div>
@@ -669,9 +678,12 @@
             _lyricShownActive = lyricActive;
             try
             {
+                // Center by rects: the box is not positioned, so a.offsetTop is measured against a
+                // distant ancestor and always overflows the box — that pinned it to the bottom.
                 await JS.InvokeVoidAsync("eval",
                     "(function(){var b=document.getElementById('blt-lyric-box');var a=b&&b.querySelector('.blt-lyric-on');" +
-                    "if(!b||!a)return;var t=a.offsetTop-(b.clientHeight-a.clientHeight)/2;b.scrollTo({top:t<0?0:t,behavior:'smooth'});})()");
+                    "if(!b||!a)return;var t=b.scrollTop+(a.getBoundingClientRect().top-b.getBoundingClientRect().top)" +
+                    "-(b.clientHeight-a.clientHeight)/2;b.scrollTo({top:t<0?0:t,behavior:'smooth'});})()");
             }
             catch { }
         }
@@ -888,6 +900,7 @@
         "netease" => "网易云",
         "qq" => "QQ音乐",
         "kugou" => "酷狗",
+        "migu" => "咪咕",
         "" => "—",
         _ => _lyricSource,
     };
@@ -1261,6 +1274,7 @@
     private void PickQq() => SetPlatform("qq");
     private void PickNetease() => SetPlatform("netease");
     private void PickKugou() => SetPlatform("kugou");
+    private void PickMigu() => SetPlatform("migu");
     private void PickBilibili() => SetPlatform("bilibili");
 
     /// <summary>切换点歌平台：影响弹幕点歌与手动搜索，选中即保存。</summary>
@@ -1464,6 +1478,7 @@
         "qq" => "QQ音乐",
         "netease" => "网易云",
         "kugou" => "酷狗",
+        "migu" => "咪咕",
         "bilibili" => "B站",
         _ => p.Length > 0 ? p : "—",
     };
@@ -1473,6 +1488,7 @@
         "qq" => "blue",
         "netease" => "red",
         "kugou" => "amber",
+        "migu" => "blue",
         "bilibili" => "green",
         _ => "off",
     };

@@ -714,7 +714,7 @@ public sealed class KestrelHost
             return Results.Json(new { ok = true, upList = list }, JsonWeb);
         });
 
-        // ---- lyrics (local → netease → qq → kugou) ----
+        // ---- lyrics (local → netease → qq → kugou → migu) ----
         app.MapGet("/api/lyrics", async (HttpContext ctx) =>
         {
             var song = ctx.Request.Query["song"].ToString().Trim();

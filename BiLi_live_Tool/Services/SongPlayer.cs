@@ -280,8 +280,13 @@ public sealed class SongPlayer
                 ["requester"] = CurrentRequester,
                 ["platform"] = CurrentPlatform,
                 ["songId"] = CurrentSongId,
+                // Field names follow the overlay contract (Bin/public/song-player.js emits
+                // position/paused and the OBS overlay reads exactly those). Sending `current`
+                // alone left the overlay's position pinned at 0, so its lyrics never scrolled.
+                ["position"] = Math.Round(Current * 10) / 10,
                 ["current"] = Math.Round(Current * 10) / 10,
                 ["duration"] = Math.Round(Duration * 10) / 10,
+                ["paused"] = !IsPlaying,
                 ["playing"] = IsPlaying,
                 ["index"] = PlayingIndex,
             };

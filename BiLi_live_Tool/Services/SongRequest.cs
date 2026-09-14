@@ -151,9 +151,14 @@ public static partial class MusicApi
         foreach (var s in (j?["result"]?["songs"] as JsonArray) ?? new JsonArray())
         {
             var artists = string.Join("/", ((s?["artists"] as JsonArray) ?? new JsonArray()).Select(x => Safe(x?["name"])));
+            // Netease fee: 0 free, 1 VIP, 4 paid album, 8 free at low bitrate ("低音质免费").
+            // Measured 2026-09-14 on 196 search hits: fee 1/4 never resolve without login
+            // (0/144 playable, all land on music.163.com/404), fee 0/8 resolve to a playable
+            // CDN mp3 (54/55) — so only 1/4 may be badged VIP. Anything unknown stays VIP.
+            var neteaseFee = s?["fee"]?.GetValue<long?>() ?? 0;
             list.Add(new Song(
                 Safe(s?["id"]), Safe(s?["name"]), artists, Safe(s?["album"]?["name"]), "netease",
-                Vip: (s?["fee"]?.GetValue<long?>() ?? 0) != 0));
+                Vip: neteaseFee != 0 && neteaseFee != 8));
         }
         return list;
     }
@@ -263,6 +268,105 @@ public static partial class MusicApi
         return new PlayUrl(Safe(best?["baseUrl"]), false);
     }
 
+    // ─── migu ───
+    // Recovered from the v5 web player (music.migu.cn/v5/static/js/@migusdk-*.js). Search and
+    // lyrics are plain JSON; the listen endpoint obfuscates its response with a 4-byte header
+    // (171,205,1,rand) followed by a byte-wise add/subtract of the env-0 key, and requires the
+    // signature/birth/channel headers the H5 page sends. No login is needed for the free
+    // catalogue — only the 60-second-audition songs (member tracks) refuse a url.
+    private const string MiguKey = "Jk8qzuePiJ1qE3mDYhLQ3T73DtDoAhLP";
+
+    private static readonly Dictionary<string, string> MiguHeaders = new()
+    {
+        ["User-Agent"] = Ua,
+        ["Referer"] = "https://music.migu.cn/v5/",
+        ["Accept"] = "application/json, */*",
+        ["Content-Type"] = "application/json;charset=UTF-8",
+        ["signature"] = "1",
+        ["birth"] = "h5page",
+        ["channel"] = "014X031",
+        ["subchannel"] = "014X031",
+    };
+
+    /// <summary>Undo the listen-response obfuscation; null when the payload has no valid header.</summary>
+    private static string? MiguDecode(byte[] b)
+    {
+        if (b.Length < 4 || b[0] != 171 || b[1] != 205 || b[2] != 1) return null;
+        var r = b[3];
+        var k = Encoding.UTF8.GetBytes(MiguKey);
+        var plain = new byte[b.Length - 4];
+        for (var i = 0; i < plain.Length; i++)
+            plain[i] = (byte)((b[4 + i] + r - k[i % k.Length]) & 0xFF);
+        return Encoding.UTF8.GetString(plain);
+    }
+
+    private static async Task<JsonArray> MiguSearchRawAsync(string keyword, int limit, CancellationToken ct)
+    {
+        var url = "https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/search_all.do?text=" + Uri.EscapeDataString(keyword) +
+                  "&pageNo=1&pageSize=" + (limit > 0 ? limit : 10) + "&isCopyright=1&sort=1&searchSwitch=%7B%22song%22%3A1%7D";
+        var j = await FetchJsonAsync(url, null, null,
+            new Dictionary<string, string> { ["User-Agent"] = Ua, ["Referer"] = "https://m.music.migu.cn/" }, ct);
+        return (j?["songResultData"]?["result"] as JsonArray) ?? new JsonArray();
+    }
+
+    public static async Task<List<Song>> MiguSearchAsync(string keyword, int limit, CancellationToken ct)
+    {
+        var list = new List<Song>();
+        foreach (var s in await MiguSearchRawAsync(keyword, limit, ct))
+        {
+            var artists = string.Join("/", ((s?["singers"] as JsonArray) ?? new JsonArray()).Select(x => Safe(x?["name"])));
+            // chargeAuditions == 1 means "member track, 60s audition only" (listen answers
+            // cannotCode 440013 with no url). Measured 2026-09-14 on ~110 songs: chargeAuditions
+            // 1 always refused, 0/200 always played; vipType alone is not decisive (vipType 1
+            // with chargeAuditions 0 still plays). copyrightId rides in Mid for the play call.
+            // The field arrives as a string on some hits and a number on others → ToFlag.
+            var vip = ToFlag(s?["chargeAuditions"]) == 1;
+            list.Add(new Song(Safe(s?["contentId"]), Safe(s?["name"]), artists, "", "migu", vip,
+                Mid: Safe(s?["copyrightId"])));
+        }
+        return list;
+    }
+
+    public static async Task<PlayUrl> MiguGetSongUrlAsync(string contentId, string? copyrightId, CancellationToken ct)
+    {
+        var url = "https://app.u.nf.migu.cn/strategy/pc/listen/v2.0?contentId=" + Uri.EscapeDataString(contentId) +
+                  "&copyrightId=" + Uri.EscapeDataString(copyrightId ?? "") +
+                  "&resourceType=2&netType=01&toneFlag=PQ&scene=";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        foreach (var kv in MiguHeaders) req.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
+        using var resp = await Http.SendAsync(req, ct);
+        var text = MiguDecode(await resp.Content.ReadAsByteArrayAsync(ct));
+        if (text == null) return new PlayUrl("", true);
+        var j = JsonNode.Parse(text);
+        var playUrl = Safe(j?["data"]?["url"]);
+        return playUrl.Length == 0 ? new PlayUrl("", true) : new PlayUrl(playUrl, false);
+    }
+
+    /// <summary>Migu lyrics: pick a search hit whose name matches, then download its own LRC.</summary>
+    private static async Task<string> MiguLyricsByNameAsync(string song, string artist, CancellationToken ct)
+    {
+        try
+        {
+            var items = (await MiguSearchRawAsync(song, 8, ct))
+                .Where(x => NameMatches(Safe(x?["name"]), song)).ToList();
+            if (items.Count == 0) return "";
+            JsonNode? hit = null;
+            if (artist.Length > 0)
+                hit = items.FirstOrDefault(x => string.Join("/", ((x?["singers"] as JsonArray) ?? new JsonArray())
+                    .Select(y => Safe(y?["name"]))).Contains(artist, StringComparison.OrdinalIgnoreCase));
+            hit ??= items[0];
+            var lyricUrl = Safe(hit?["lyricUrl"]);
+            if (lyricUrl.Length == 0) return "";
+            using var req = new HttpRequestMessage(HttpMethod.Get, lyricUrl);
+            req.Headers.TryAddWithoutValidation("User-Agent", Ua);
+            req.Headers.TryAddWithoutValidation("Referer", "https://music.migu.cn/");
+            using var resp = await Http.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode) return "";
+            return (await resp.Content.ReadAsStringAsync(ct)).TrimStart('\uFEFF');
+        }
+        catch { return ""; }
+    }
+
     // ─── unified ───
 
     public static async Task<List<Song>> SearchAsync(string platform, string keyword, int limit, string? cookie, string? searchType, List<string>? upList, CancellationToken ct)
@@ -271,6 +375,7 @@ public static partial class MusicApi
         {
             "qq" => await QqSearchAsync(keyword, limit, searchType ?? "song", ct),
             "netease" => await NeteaseSearchAsync(keyword, limit, searchType ?? "song", ct),
+            "migu" => await MiguSearchAsync(keyword, limit, ct),
             "kugou" => await KugouSearchAsync(keyword, limit, ct),
             "bilibili" => await BilibiliSearchAsync(keyword, limit, cookie, upList, ct),
             _ => throw new Exception("不支持的平台: " + platform),
@@ -283,6 +388,7 @@ public static partial class MusicApi
     {
         "qq" => QqGetSongUrlAsync(!string.IsNullOrEmpty(song.Mid) ? song.Mid : song.Id, cookie, ct),
         "netease" => NeteaseGetSongUrlAsync(song.Id, cookie, ct),
+        "migu" => MiguGetSongUrlAsync(song.Id, song.Mid, ct),
         "kugou" => KugouGetSongUrlAsync(!string.IsNullOrEmpty(song.Hash) ? song.Hash : song.Id, cookie, ct),
         "bilibili" => BilibiliGetSongUrlAsync(!string.IsNullOrEmpty(song.Bvid) ? song.Bvid : song.Id, cookie, ct),
         _ => Task.FromException<PlayUrl>(new Exception("不支持的平台: " + platform)),
@@ -380,6 +486,11 @@ public static partial class MusicApi
             var kugou = await KugouLyricsAsync(song, artist, id, ct);
             if (kugou.Length > 0) return ("kugou", kugou);
         }
+        if (platform == "migu" && song.Length > 0)
+        {
+            var migu = await MiguLyricsByNameAsync(song, artist, ct);
+            if (migu.Length > 0) return ("migu", migu);
+        }
         // 兜底：按歌名到酷狗匹配。覆盖三种情况——B站视频（没有平台歌词分支）、
         // 条目缺 id（仅网易云/QQ 需要 id）、上面各平台取词失败。
         if (song.Length > 0)
@@ -392,6 +503,12 @@ public static partial class MusicApi
         {
             var nt = await NeteaseLyricsByNameAsync(song, artist, ct);
             if (nt.Length > 0) return ("netease", nt);
+        }
+        // 第三层兜底：咪咕曲库自带 LRC，命中范围与酷狗/网易云互补
+        if (song.Length > 0)
+        {
+            var mg = await MiguLyricsByNameAsync(song, artist, ct);
+            if (mg.Length > 0) return ("migu", mg);
         }
         return ("none", "");
     }

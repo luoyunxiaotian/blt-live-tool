@@ -66,7 +66,13 @@
                 {
                     @foreach (var r in _rank)
                     {
-                        <div class="blt-kv"><span class="k">@r.Name</span><span class="v">@r.Score.ToString("N0")</span></div>
+                        <div class="blt-kv">
+                            <span class="k">
+                                <span class="blt-badge @RankBadge(r.Rank)">@r.Rank</span>
+                                <span style="@RankStyle(r.Rank)">@r.Name</span>
+                            </span>
+                            <span class="v" style="@RankStyle(r.Rank)">@r.Score.ToString("N0")</span>
+                        </div>
                     }
                 }
             </div>
@@ -100,24 +106,31 @@
         </div>
     </div>
 
-    @* ── 右列：实时事件流（最多保留 200 条） ── *@
+    @* ── 右列：实时事件流（Tab 过滤：每类独立缓冲 300 条，最多显示 200 条） ── *@
     <div>
+        @* Tab 条：全部 / 弹幕 / 礼物 / 盲盒 / 舰长 / SC，切换即按各类型缓冲渲染 *@
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+            @foreach (var t in TabDefs)
+            {
+                <button class="@TabClass(t.Key)" style="@TabStyle(t.Key)" @onclick="() => SelectTab(t.Key)">@t.Label <span style="font-family:var(--mono);font-size:10px;margin-left:5px;opacity:.72">@t.En</span></button>
+            }
+        </div>
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t"><BltIcon Emoji="📜" /> 实时事件流</span><span class="en">LIVE EVENTS</span>
                 <span class="right">
-                    <span>tail -f · @_events.Count / @MaxEvents</span>
+                    <span>tail -f · @TabLabel() · @_view.Count / @MaxEvents</span>
                     <button class="blt-btn" style="padding:2px 10px" @onclick="ClearEvents">清空显示</button>
                 </span>
             </div>
             <div class="blt-panel-body" style="padding:6px 0">
-                @if (_events.Count == 0)
+                @if (_view.Count == 0)
                 {
-                    <div class="blt-empty">等待事件… 连接直播间后实时滚动显示 弹幕 / 礼物 / 舰长 / SC / 互动</div>
+                    <div class="blt-empty">@EmptyText()</div>
                 }
                 else
                 {
                     <div class="blt-log" style="max-height:640px">
-                        @foreach (var ev in _events)
+                        @foreach (var ev in _view)
                         {
                             <div class="blt-logrow">
                                 <span class="t">@ev.Time</span>
@@ -134,6 +147,7 @@
 
 @code {
     private const int MaxEvents = 200;
+    private const int TabCap = 300;   // 每个类型的独立缓冲上限（同原 Electron 版 / EventHub.RecentCap）
 
     // Shared static client: local API on 127.0.0.1, short timeout keeps the UI responsive.
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
@@ -148,12 +162,30 @@
         ("interact", "互动（进房/关注）", "INTER"),
     };
 
+    // ── Tab 过滤定义：Types 为该 Tab 对应的事件类型；空数组 = 不过滤（「全部」）──
+    private static readonly (string Key, string Label, string En, string[] Types)[] TabDefs =
+    {
+        ("all", "全部", "ALL", Array.Empty<string>()),
+        ("danmu", "弹幕", "DANMU", new[] { "danmu" }),
+        ("gifts", "礼物", "GIFTS", new[] { "gifts", "gifts_merged" }),
+        ("blindbox", "盲盒", "BOX", new[] { "blindbox" }),
+        ("guard", "舰长", "GUARD", new[] { "guard" }),
+        ("superchat", "SC", "SUPERCHAT", new[] { "superchat" }),
+    };
+
+    // 预热类型：覆盖 5 个 Tab 用到的全部类型 + 「全部」视图里的互动事件
+    private static readonly string[] SeedTypes =
+        { "danmu", "gifts", "gifts_merged", "blindbox", "guard", "superchat", "interact" };
+
     private readonly Dictionary<string, int> _counts = new()
     {
         ["danmu"] = 0, ["gifts"] = 0, ["guard"] = 0, ["superchat"] = 0, ["interact"] = 0,
     };
 
-    private List<LiveEvent> _events = new();
+    private List<LiveEvent> _events = new();                                   // 「全部」合并流（新→旧，最多 200 条）
+    private List<LiveEvent> _view = new();                                     // 当前 Tab 的可见列表（「全部」时即 _events）
+    private readonly Dictionary<string, List<LiveEvent>> _buffers = new();     // 每类独立缓冲（新→旧，最多 300 条）
+    private string _tab = "all";                                               // 当前 Tab，默认「全部」
     private List<TopGuard> _top3 = new();
     private List<RankItem> _rank = new();
     private long _online;
@@ -166,13 +198,14 @@
     private bool _disposed;
 
     private sealed record TopGuard(string Name, long Accompany, int GuardLevel);
-    private sealed record RankItem(string Name, long Score);
+    private sealed record RankItem(int Rank, string Name, long Score);
 
     private string BaseUrl => "http://127.0.0.1:" + Api.Port;
 
     protected override async Task OnInitializedAsync()
     {
         Hub.OnEvent += OnEvent;
+        RebuildView();   // 默认「全部」Tab：可见列表直接复用合并流
         // 5s auto refresh; first tick shortly after mount.
         _timer = new System.Threading.Timer(_ =>
         {
@@ -185,8 +218,14 @@
     private void OnEvent(LiveEvent ev) => InvokeAsync(() =>
     {
         if (_disposed) return;
-        _events.Insert(0, ev);
+        PushBuffer(ev.Type, ev);                          // 每类独立缓冲（Tab 过滤用）
+        _events.Insert(0, ev);                            // 「全部」合并流
         if (_events.Count > MaxEvents) _events.RemoveAt(_events.Count - 1);
+        if (_tab != "all" && MatchesTab(_tab, ev.Type))   // 命中当前 Tab 时同步进可见列表
+        {
+            _view.Insert(0, ev);
+            if (_view.Count > MaxEvents) _view.RemoveAt(_view.Count - 1);
+        }
         if (_counts.ContainsKey(ev.Type)) _counts[ev.Type]++;
         StateHasChanged();
     });
@@ -221,16 +260,21 @@
             _rank = new List<RankItem>();
             if (j["onlineRank"] is JsonArray ra)
             {
+                var idx = 0;
                 foreach (var n in ra)
                 {
                     if (n is not JsonObject o) continue;
-                    var name = GetStr(o["name"]);
-                    if (name.Length == 0) name = GetStr(o["uname"]);
+                    idx++;
+                    // 后端字段：uid(number) / uname(string) / score(string) / rank(number)
+                    var name = GetStr(o["uname"]);
+                    if (name.Length == 0) name = GetStr(o["name"]);
                     if (name.Length == 0) name = GetStr(o["nickname"]);
                     if (name.Length == 0) name = GetStr(o["uid"]);
+                    var rank = (int)GetLong(o["rank"]);
+                    if (rank <= 0) rank = idx;                 // rank 缺失时按数组顺序补位
                     var score = GetLong(o["score"]);
                     if (score == 0) score = GetLong(o["value"]);
-                    _rank.Add(new RankItem(name.Length > 0 ? name : "—", score));
+                    _rank.Add(new RankItem(rank, name.Length > 0 ? name : "—", score));
                 }
             }
 
@@ -248,27 +292,34 @@
         }
     }
 
-    /// <summary>Seed counters and the log tail from the server-side ring buffers.</summary>
+    /// <summary>Seed counters and the per-type tab buffers from the server-side ring buffers.</summary>
     private async Task LoadRecentAsync()
     {
         var merged = new List<LiveEvent>();
-        foreach (var c in CounterDefs)
+        foreach (var type in SeedTypes)
         {
             try
             {
-                var j = await GetJsonAsync("/api/recent?type=" + c.Key);
+                var j = await GetJsonAsync("/api/recent?type=" + type);
                 if (j?["events"] is not JsonArray arr) continue;
-                _counts[c.Key] = arr.Count;
+                var buf = new List<LiveEvent>(arr.Count);
                 foreach (var n in arr)
                 {
                     var ev = n?.Deserialize<LiveEvent>(WebJson);
-                    if (ev != null && !string.IsNullOrEmpty(ev.Type)) merged.Add(ev);
+                    if (ev != null && !string.IsNullOrEmpty(ev.Type)) buf.Add(ev);
                 }
+                buf.Reverse();                                  // 服务端为旧→新，页面按新→旧渲染
+                if (buf.Count > TabCap) buf.RemoveRange(TabCap, buf.Count - TabCap);
+                _buffers[type] = buf;
+                merged.AddRange(buf);
+                if (_counts.ContainsKey(type)) _counts[type] = arr.Count;   // 计数卡初始值
             }
             catch { /* seeding is best-effort */ }
         }
         if (_disposed) return;
-        _events = merged.OrderByDescending(e => e.Ts).Take(MaxEvents).ToList();
+        _events.Clear();
+        _events.AddRange(merged.OrderByDescending(e => e.Ts).Take(MaxEvents));
+        RebuildView();
         StateHasChanged();
     }
 
@@ -319,7 +370,83 @@
         foreach (var key in _counts.Keys.ToList()) _counts[key] = 0;
     }
 
-    private void ClearEvents() => _events.Clear();
+    /// <summary>清空事件流：各类型缓冲与「全部」合并流一并清空，避免切换 Tab 后旧事件重现。</summary>
+    private void ClearEvents()
+    {
+        _events.Clear();
+        foreach (var buf in _buffers.Values) buf.Clear();
+        RebuildView();
+    }
+
+    // ── Tab 过滤 ──
+
+    private string TabLabel() => TabDef(_tab).Label;
+
+    /// <summary>选中态：blt.css 没有 .blt-btn.active 规则，故同时挂 active 类并内联琥珀色高亮。</summary>
+    private string TabClass(string key) => _tab == key ? "blt-btn active" : "blt-btn";
+
+    private string TabStyle(string key) => _tab == key
+        ? "background:var(--amber-dim);color:var(--amber-ink);border-color:rgba(255,178,36,.5)"
+        : "";
+
+    private static (string Key, string Label, string En, string[] Types) TabDef(string key)
+    {
+        foreach (var t in TabDefs)
+            if (t.Key == key) return t;
+        return TabDefs[0];   // 未知 key 回退「全部」
+    }
+
+    /// <summary>事件类型是否属于指定 Tab（「全部」的 Types 为空，恒为 true）。</summary>
+    private static bool MatchesTab(string key, string type)
+    {
+        var def = TabDef(key);
+        if (def.Types.Length == 0) return true;
+        foreach (var ty in def.Types)
+            if (ty == type) return true;
+        return false;
+    }
+
+    /// <summary>切换 Tab：直接从各类型缓冲重建可见列表（无需等新事件）。</summary>
+    private void SelectTab(string key)
+    {
+        if (_tab == key) return;
+        _tab = key;
+        RebuildView();
+    }
+
+    /// <summary>重建当前 Tab 的可见列表；「全部」直接复用合并流 _events。</summary>
+    private void RebuildView()
+    {
+        var def = TabDef(_tab);
+        if (def.Types.Length == 0) { _view = _events; return; }
+        var merged = new List<LiveEvent>();
+        foreach (var ty in def.Types)
+            if (_buffers.TryGetValue(ty, out var buf)) merged.AddRange(buf);
+        merged.Sort((a, b) => b.Ts.CompareTo(a.Ts));   // 礼物 = gifts + gifts_merged，按时间倒序
+        if (merged.Count > MaxEvents) merged.RemoveRange(MaxEvents, merged.Count - MaxEvents);
+        _view = merged;
+    }
+
+    /// <summary>写入某类型的独立环形缓冲（新→旧，最多 TabCap 条）。</summary>
+    private void PushBuffer(string type, LiveEvent ev)
+    {
+        if (string.IsNullOrEmpty(type)) return;
+        if (!_buffers.TryGetValue(type, out var buf)) _buffers[type] = buf = new List<LiveEvent>();
+        buf.Insert(0, ev);
+        if (buf.Count > TabCap) buf.RemoveRange(TabCap, buf.Count - TabCap);
+    }
+
+    private string EmptyText()
+    {
+        var def = TabDef(_tab);
+        return def.Types.Length == 0
+            ? "等待事件… 连接直播间后实时滚动显示 弹幕 / 礼物 / 盲盒 / 舰长 / SC / 互动"
+            : $"等待「{def.Label}」事件… 连接直播间后将实时滚动显示（该类型缓冲最近 {TabCap} 条）";
+    }
+
+    private static string RankBadge(int rank) => rank <= 3 ? "amber" : "off";
+
+    private static string RankStyle(int rank) => rank <= 3 ? "color:var(--amber-ink)" : "";
 
     private string StateBadge() => Hub.LastStatus.State switch
     {
@@ -346,7 +473,7 @@
     private string TagClass(string type) => type switch
     {
         "danmu" => "danmu",
-        "gifts" or "gifts_merged" => "gifts",
+        "gifts" or "gifts_merged" or "blindbox" => "gifts",
         "guard" => "guard",
         "superchat" => "superchat",
         "interact" => "interact",
@@ -377,12 +504,21 @@
         _ => "",
     };
 
+    /// <summary>宽松取整：兼容 number 与 "1234"/"1234.5" 这类字符串（在线榜 score 为字符串）。</summary>
     private static long GetLong(JsonNode? n)
     {
         if (n == null) return 0;
         try { return n.GetValue<long>(); } catch { }
         try { return (long)n.GetValue<double>(); } catch { }
-        try { return long.TryParse(n.ToString(), out var v) ? v : 0; } catch { return 0; }
+        try { return (long)n.GetValue<decimal>(); } catch { }
+        try
+        {
+            var s = n.ToString();
+            if (long.TryParse(s, out var v)) return v;
+            if (double.TryParse(s, out var d)) return (long)d;
+        }
+        catch { }
+        return 0;
     }
 
     private static string GetStr(JsonNode? n)

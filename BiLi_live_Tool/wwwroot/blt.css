@@ -287,3 +287,55 @@ input.blt-input::-webkit-calendar-picker-indicator{filter:invert(.75)}
   .blt-g2,.blt-g3{grid-template-columns:1fr}
   .blt-steps{grid-template-columns:repeat(2,1fr)}
 }
+
+/* ===========================================================================
+   Shared UI kit (port of the Electron UI's toast/confirm/tooltip/btnLoading).
+   Behaviour lives in wwwroot/blt-ui.js.
+   =========================================================================== */
+.blt-tip{position:fixed;z-index:80;max-width:340px;padding:6px 9px;border-radius:5px;
+  font-size:11.5px;line-height:1.55;background:var(--panel);color:var(--ink);
+  border:1px solid var(--line-2);box-shadow:0 6px 20px rgba(0,0,0,.35);
+  pointer-events:none;opacity:0;transition:opacity .12s ease}
+.blt-tip.show{opacity:1}
+#blt-toast{position:fixed;right:14px;bottom:40px;z-index:70;display:flex;flex-direction:column;
+  gap:8px;align-items:flex-end}
+.blt-toast{max-width:380px;padding:8px 12px;border-radius:6px;font-size:12.5px;line-height:1.55;
+  background:var(--panel);color:var(--ink);border:1px solid var(--line-2);
+  border-left:3px solid var(--green-ink);box-shadow:0 8px 24px rgba(0,0,0,.35);
+  opacity:0;transform:translateY(6px);transition:opacity .18s ease,transform .18s ease}
+.blt-toast.show{opacity:1;transform:none}
+.blt-toast.err{border-left-color:var(--red-ink)}
+.blt-toast.warn{border-left-color:var(--amber-ink)}
+.blt-modal{position:fixed;inset:0;z-index:75;display:flex;align-items:center;justify-content:center;
+  background:rgba(6,8,12,.5);backdrop-filter:blur(1.5px)}
+.blt-modal-box{width:min(430px,88vw);background:var(--panel);border:1px solid var(--line-2);
+  border-radius:8px;padding:16px 16px 12px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.blt-modal-box .msg{font-size:13.5px;line-height:1.7;color:var(--ink);white-space:pre-wrap}
+.blt-modal-box .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.is-busy{opacity:.6;pointer-events:none}
+.is-busy::after{content:'';display:inline-block;width:9px;height:9px;margin-left:6px;border-radius:50%;
+  border:1.5px solid currentColor;border-top-color:transparent;animation:blt-spin .7s linear infinite;
+  vertical-align:-1px}
+@keyframes blt-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.is-busy::after{animation:none}}
+
+/* ===========================================================================
+   公告通道（Cloudflare 推送）：三类固定位置 —— 顶部常驻横幅 / 右下角卡片 /
+   全屏强确认模态。类型由作者在控制台选择，客户端只负责按类型落位。
+   =========================================================================== */
+.blt-ann-banner{display:flex;flex-direction:column;gap:6px;margin:0 0 8px}
+.blt-ann-sticky{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  padding:7px 10px;border-radius:6px;background:var(--amber-dim);
+  border-left:3px solid var(--amber-ink);color:var(--ink);font-size:12.5px;line-height:1.6}
+.blt-ann-sticky.level-critical{background:var(--red-dim);border-left-color:var(--red-ink)}
+.blt-ann-sticky .blt-ann-body{color:var(--ink-2)}
+.blt-ann-cards{position:fixed;right:14px;bottom:40px;z-index:68;display:flex;
+  flex-direction:column;gap:8px;width:min(380px,80vw)}
+.blt-ann-card{background:var(--panel);border:1px solid var(--line-2);border-left:3px solid var(--amber-ink);
+  border-radius:7px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.35);
+  font-size:12.5px;line-height:1.6}
+.blt-ann-card.level-critical{border-left-color:var(--red-ink)}
+.blt-ann-card.level-info{border-left-color:var(--blue-ink)}
+.blt-ann-title{font-weight:700;color:var(--ink);display:inline-block;margin-right:6px}
+.blt-ann-body{color:var(--ink-2);white-space:pre-wrap}
+.blt-ann-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}

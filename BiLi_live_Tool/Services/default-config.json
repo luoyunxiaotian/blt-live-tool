@@ -419,5 +419,8 @@
       "2046693818",
       "37791459"
     ]
-  }
+  },
+  "announceEnabled": true,
+  "announceUrl": "https://announce.ai-daynews.xyz/announcements",
+  "announceFallbackUrl": ""
 }

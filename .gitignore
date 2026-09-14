@@ -6,3 +6,10 @@ wwwroot/legacy/
 
 # 授权校验密钥（不进仓库，随构建复制）
 verify-key.txt
+
+# runtime data (contains login cookies) and local test artefacts
+BiLi_live_Tool/data/
+data/
+announce-sample.json
+.wrangler/
+*.wrangler.toml

@@ -22,6 +22,8 @@ public sealed class LivePipeline : IDisposable
 
     // debug stats (/api/debug/stats)
     private readonly object _statLock = new();
+    private List<OnlineRankEntry> _onlineRank = new();
+    private string _onlineRankAt = "";
     private readonly Dictionary<string, (long Count, string Last, string Sample)> _stats = new();
 
     // pk state
@@ -94,6 +96,10 @@ public sealed class LivePipeline : IDisposable
         try
         {
             NoteStat(ev);
+            if (ev.Type == "online_rank" && ev.Rank != null)
+            {
+                lock (_statLock) { _onlineRank = ev.Rank; _onlineRankAt = ev.Time; }
+            }
             _recorder.HandleEvent(ev);
             if (ev.Type == "gifts")
                 _aggregator.Push(ev);   // thanks fire after the silence window via gifts_merged
@@ -117,6 +123,10 @@ public sealed class LivePipeline : IDisposable
             _stats[ev.Type] = (count + 1, ev.Time, sample);
         }
     }
+
+    /// <summary>Latest 在线榜 (ONLINE_RANK_V2/V3) snapshot for /api/room/live-info.</summary>
+    public IReadOnlyList<OnlineRankEntry> OnlineRank { get { lock (_statLock) return _onlineRank; } }
+    public string OnlineRankAt { get { lock (_statLock) return _onlineRankAt; } }
 
     public object DebugStats()
     {

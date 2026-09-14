@@ -1,0 +1,168 @@
+@* 首启向导（3 步图文）——移植原 Electron 版的 onb-mask / ONB_KEY = 'blt_onboarded_v1'。
+   自包含：自己读/写 localStorage、自带全屏遮罩，不引用 UiKit，也不需要任何参数。
+   挂载方式：<FirstRunWizard /> （放在 MainLayout 的 .blt-app 内即可，位置不影响 fixed 遮罩）。
+   注意：本页 Razor 属性值里不出现嵌套双引号，样式串一律由 @code 中的无参/纯参数方法给出。 *@
+@inject IJSRuntime JS
+
+@if (_visible)
+{
+    <div style="@MaskStyle()">
+        <div class="blt-panel" style="@CardStyle()">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="@Step.Icon" /> @Step.Title</span>
+                <span class="en">FIRST RUN · @StepNo() / @Steps.Length</span>
+                <span class="right">
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="SkipAsync">跳过</button>
+                </span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:flex;gap:14px;align-items:flex-start">
+                    <span style="@IconStyle()">@Step.Icon</span>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:13.5px;color:var(--ink);line-height:1.75">@Step.Desc</div>
+                        <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
+                            @foreach (var p in Step.Points)
+                            {
+                                <div class="blt-hint" style="margin:0;display:flex;gap:8px">
+                                    <span style="color:var(--amber-ink);font-family:var(--mono);flex:none">·</span>
+                                    <span>@p</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="@FootStyle()">
+                <span style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">STEP @StepNo() / @Steps.Length</span>
+                <span style="display:inline-flex;gap:4px;align-items:center;margin-left:4px">
+                    @for (var i = 0; i < Steps.Length; i++)
+                    {
+                        <span style="@DotStyle(i == _step)"></span>
+                    }
+                </span>
+                <span style="margin-left:auto;display:flex;gap:8px">
+                    @if (_step > 0)
+                    {
+                        <button class="blt-btn" @onclick="Prev">上一步</button>
+                    }
+                    @if (_step < Steps.Length - 1)
+                    {
+                        <button class="blt-btn primary" @onclick="Next">下一步</button>
+                    }
+                    else
+                    {
+                        <button class="blt-btn primary" @onclick="FinishAsync">完成</button>
+                    }
+                </span>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>localStorage flag written on finish/skip (same key as the legacy panel).</summary>
+    private const string OnboardKey = "blt_onboarded_v1";
+
+    private sealed record StepInfo(string Icon, string Title, string Desc, string[] Points);
+
+    private static readonly StepInfo[] Steps =
+    {
+        new StepInfo("👋",
+            "欢迎使用 B站直播助手",
+            "这是一款免费的 B站直播辅助工具：语音念弹幕、自动欢迎/感谢、点歌、礼物记录、OBS 键鼠可视化等。开始前请先登录 B站账号。",
+            new[]
+            {
+                "登录位置：左侧「房间管理」→「打开 B站浏览器」，用B站 APP 扫码登录",
+                "登录后 Cookie 自动同步：弹幕/礼物记录更完整，自动弹幕等发送类功能才可用",
+                "不登录也能连接直播间，但部分发送类功能会受限",
+            }),
+        new StepInfo("🏠",
+            "填写直播间房间号",
+            "房间号是直播间网址 live.bilibili.com/ 后面的数字，注意不是你的 UID。",
+            new[]
+            {
+                "示例：live.bilibili.com/2233 → 房间号填 2233",
+                "UID 是个人主页 space.bilibili.com/ 后面的那串数字，别填错",
+                "位置：左侧「房间管理」→「直播间连接」卡片，输入连接后自动保存",
+            }),
+        new StepInfo("🚀",
+            "开始使用",
+            "连接成功（状态灯变绿）后各功能即开始工作。常用入口都在左侧导航，随时可切换。",
+            new[]
+            {
+                "语音念弹幕：「直播控制」→「语音念弹幕」",
+                "点歌：「直播控制」→「点歌功能」（观众弹幕发「点歌 歌名」）",
+                "OBS 浮层：「OBS 浮层」分组下的 提醒特效墙 / 文字挂件 / 键鼠手柄可视化",
+                "记录与排查：「日志记录」分组，以及「设置」→「网络诊断」",
+            }),
+    };
+
+    private bool _checked;
+    private bool _visible;
+    private int _step;
+
+    private StepInfo Step => Steps[Math.Clamp(_step, 0, Steps.Length - 1)];
+
+    private string StepNo() => (_step + 1).ToString();
+
+    /// <summary>First render only: localStorage decides whether the wizard shows at all.
+    /// JS interop never runs before render (same pattern as MainLayout's fold restore).</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _checked) return;
+        _checked = true;
+        try
+        {
+            var done = await JS.InvokeAsync<string>("localStorage.getItem", OnboardKey);
+            _visible = string.IsNullOrEmpty(done);
+        }
+        catch
+        {
+            // localStorage unavailable → legacy behaviour: show once for this session.
+            _visible = true;
+        }
+        if (_visible) StateHasChanged();
+    }
+
+    private void Next()
+    {
+        if (_step < Steps.Length - 1) _step++;
+    }
+
+    private void Prev()
+    {
+        if (_step > 0) _step--;
+    }
+
+    private Task FinishAsync() => DismissAsync();
+
+    private Task SkipAsync() => DismissAsync();
+
+    /// <summary>Hide immediately, then persist the flag (a failed write only re-shows next launch).</summary>
+    private async Task DismissAsync()
+    {
+        _visible = false;
+        try { await JS.InvokeVoidAsync("localStorage.setItem", OnboardKey, "1"); } catch { }
+    }
+
+    // ----- inline styles (helpers keep double quotes out of markup attributes) -----
+
+    private static string MaskStyle()
+        => "position:fixed;inset:0;z-index:60;background:rgba(6,8,14,.62);backdrop-filter:blur(2px);"
+        + "display:flex;align-items:center;justify-content:center;padding:24px";
+
+    private static string CardStyle()
+        => "width:min(600px,100%);max-height:86vh;overflow:auto;margin:0;"
+        + "box-shadow:0 20px 60px rgba(0,0,0,.55)";
+
+    private static string FootStyle()
+        => "display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid var(--line)";
+
+    private static string IconStyle()
+        => "flex:none;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;"
+        + "justify-content:center;background:var(--amber-dim);font-size:21px;line-height:1";
+
+    private static string DotStyle(bool on)
+        => "width:7px;height:7px;border-radius:50%;display:inline-block;background:"
+        + (on ? "var(--amber)" : "var(--line-2)");
+}

@@ -404,6 +404,102 @@ public sealed class DanmuClient
         return outMs.ToArray();
     }
 
+    private long _lastRankTop1;
+    private long _lastLoggedRoom;
+
+    /// <summary>
+    /// ONLINE_RANK_V2 arrives as JSON (data.list), V3 as base64 protobuf — a direct port of
+    /// bili.js:219-237 (outer field 3 = repeated user, inner 1=uid, 3=score, 4=uname, 5=rank).
+    /// </summary>
+    private static List<OnlineRankEntry> ParseOnlineRank(string cmd, JsonElement msg)
+    {
+        var list = new List<OnlineRankEntry>();
+        if (!msg.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Object) return list;
+
+        if (cmd.StartsWith("ONLINE_RANK_V2", StringComparison.Ordinal))
+        {
+            if (data.TryGetProperty("list", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var it in arr.EnumerateArray())
+                {
+                    var uname = it.TryGetProperty("uname", out var un) && un.ValueKind == JsonValueKind.String ? un.GetString() ?? "" : "";
+                    if (uname.Length == 0) continue;
+                    var score = it.TryGetProperty("score", out var sc)
+                        ? (sc.ValueKind == JsonValueKind.String ? sc.GetString() ?? "0" : sc.ToString()) : "0";
+                    var rk = it.TryGetProperty("rank", out var r) && r.ValueKind == JsonValueKind.Number ? r.GetInt32() : 0;
+                    var ui = it.TryGetProperty("uid", out var u) && u.ValueKind == JsonValueKind.Number ? u.GetInt64() : 0;
+                    list.Add(new OnlineRankEntry(ui, uname, score, rk));
+                }
+            }
+            return list;
+        }
+
+        var pb = data.TryGetProperty("pb", out var pbv) && pbv.ValueKind == JsonValueKind.String ? pbv.GetString() ?? "" : "";
+        if (pb.Length == 0) return list;
+        byte[] buf;
+        try { buf = Convert.FromBase64String(pb); } catch { return list; }
+
+        var pos = 0;
+        ulong ReadVarint()
+        {
+            ulong result = 0; var shift = 0;
+            while (pos < buf.Length)
+            {
+                var b = buf[pos++];
+                result |= (ulong)(b & 0x7F) << shift;
+                if ((b & 0x80) == 0) break;
+                shift += 7;
+            }
+            return result;
+        }
+        while (pos < buf.Length)
+        {
+            var tag = ReadVarint();
+            var fn = (int)(tag >> 3);
+            var wt = (int)(tag & 7);
+            if (wt == 2)
+            {
+                var len = (int)ReadVarint();
+                if (len < 0 || pos + len > buf.Length) break;
+                if (fn == 3)
+                {
+                    var end = pos + len;
+                    long uid = 0; var score = "0"; var uname = ""; var rank = 0;
+                    while (pos < end)
+                    {
+                        var t2 = ReadVarint();
+                        var f2 = (int)(t2 >> 3);
+                        var w2 = (int)(t2 & 7);
+                        if (w2 == 0)
+                        {
+                            var v = (long)ReadVarint();
+                            if (f2 == 1) uid = v; else if (f2 == 5) rank = (int)v;
+                        }
+                        else if (w2 == 2)
+                        {
+                            var l2 = (int)ReadVarint();
+                            if (pos + l2 > end) break;
+                            var txt = System.Text.Encoding.UTF8.GetString(buf, pos, l2);
+                            pos += l2;
+                            if (f2 == 3) score = txt; else if (f2 == 4) uname = txt;
+                        }
+                        else if (w2 == 5) pos += 4;
+                        else if (w2 == 1) pos += 8;
+                        else break;
+                    }
+                    if (uname.Length > 0) list.Add(new OnlineRankEntry(uid, uname, score, rank));
+                    pos = end;
+                }
+                else pos += len;
+            }
+            else if (wt == 0) ReadVarint();
+            else if (wt == 5) pos += 4;
+            else if (wt == 1) pos += 8;
+            else break;
+        }
+        return list;
+    }
+
     private void HandleJson(JsonElement msg, long realRoomId)
     {
         var cmd = msg.ValueKind == JsonValueKind.Object && msg.TryGetProperty("cmd", out var c) && c.ValueKind == JsonValueKind.String
@@ -411,11 +507,39 @@ public sealed class DanmuClient
             : "";
         CaptureFrame(cmd, msg);
 
+        if (cmd.StartsWith("ONLINE_RANK_V2", StringComparison.Ordinal) || cmd.StartsWith("ONLINE_RANK_V3", StringComparison.Ordinal))
+        {
+            var rank = ParseOnlineRank(cmd, msg);
+            if (rank.Count > 0)
+            {
+                var now2 = DateTime.Now;
+                _hub.Publish(new LiveEvent
+                {
+                    Type = "online_rank",
+                    Time = now2.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Ts = new DateTimeOffset(now2, TimeZoneInfo.Local.GetUtcOffset(now2)).ToUnixTimeMilliseconds(),
+                    Rank = rank,
+                });
+                var top = rank[0].Uid;
+                if (top != _lastRankTop1)
+                {
+                    _lastRankTop1 = top;
+                    ServiceLog.Info("\u76f4\u64ad", $"\u5728\u7ebf\u699c\u5df2\u66f4\u65b0\uff1a{rank.Count} \u4eba\uff08\u7b2c 1 \u540d {rank[0].Uname}\uff09");
+                }
+            }
+            return;
+        }
+
         if (cmd.StartsWith("ONLINE_RANK_COUNT", StringComparison.Ordinal))
         {
             long count = 0;
             if (msg.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Object)
                 count = d.TryGetProperty("count", out var cd) && cd.ValueKind == JsonValueKind.Number ? cd.GetInt64() : 0;
+            if (realRoomId != _lastLoggedRoom)
+            {
+                _lastLoggedRoom = realRoomId;
+                ServiceLog.Info("\u76f4\u64ad", $"\u5df2\u8fde\u63a5\u76f4\u64ad\u95f4 {realRoomId}");
+            }
             Status("connected", realRoomId.ToString(), popularity: count);
             return;
         }

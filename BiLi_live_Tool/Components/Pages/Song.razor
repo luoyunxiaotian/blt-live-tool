@@ -6,6 +6,8 @@
 @inject AppConfig Config
 @inject SongPlayer Player
 @inject BiLi_live_Tool.Services.DebouncedSaver Saver
+@inject IJSRuntime JS
+@inject BiLi_live_Tool.Services.UiKit UI
 @implements IDisposable
 
 <div class="blt-pagehead"><h1>点歌功能</h1><span class="en">SONG REQUEST</span></div>
@@ -203,7 +205,10 @@
                 {
                     @foreach (var row in _playlistRows)
                     {
-                        <div style="@row.RowStyle">
+                        @* draggable + data-index are the contract of wwwroot/blt-drag.js; the
+                           ↑ / ↓ buttons stay as the accessible / no-JS fallback. *@
+                        <div style="@row.RowStyle" draggable="true" data-index="@row.Index" data-blt-drag="playlist"
+                             title="拖动调整播放顺序（也可用 ↑ / ↓ 按钮）">
                             <span style="@row.NoStyle">@row.NoText</span>
                             <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                                 @row.Title<span style="color:var(--ink-3)"> - @row.Artist</span>
@@ -227,6 +232,7 @@
                             </span>
                         </div>
                     }
+                    <div class="blt-hint" style="padding:6px 12px 0;margin:0">拖动行可直接调整播放顺序 · 也可用 ↑ / ↓ 按钮逐行移动</div>
                 }
             </div>
         </div>
@@ -456,6 +462,10 @@
     private string _feedback = "";
     private string _feedbackCls = "off";
 
+    // Live page instance behind the static [JSInvokable] ReorderPlaylist (JS drag callback);
+    // refreshed on every render, nulled in Dispose.
+    private static Song? _page;
+
     // ---------- auto-save state ----------
     private readonly SemaphoreSlim _saveGate = new(1, 1);   // serializes POSTs (auto-save can fire back to back)
     private DateTime? _savedAt;
@@ -483,8 +493,57 @@
         await RefreshAll(false);
     }
 
+    /// <summary>
+    /// Mounts wwwroot/blt-drag.js. index.html belongs to the build/coordinator step, so the
+    /// script is injected here on first render; the file is self-contained (document-level
+    /// event delegation) and idempotent, so a later &lt;script src="blt-drag.js?v=014"&gt; in
+    /// index.html is harmless and this injection can then be dropped.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        _page = this;   // static slot read by the [JSInvokable] drag callback below
+        if (!firstRender) return;
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "(function(){if(window.bltDrag||document.getElementById('blt-drag-js'))return;" +
+                "var s=document.createElement('script');s.id='blt-drag-js';s.src='blt-drag.js?v=014';" +
+                "s.defer=true;document.head.appendChild(s);})()");
+        }
+        catch { /* JS interop unavailable → the ↑ / ↓ buttons remain the fallback */ }
+    }
+
+    /// <summary>
+    /// Drag &amp; drop callback from blt-drag.js (DotNet.invokeMethodAsync by assembly name).
+    /// Static so JS needs no DotNetObjectReference; the live page instance comes from _page.
+    /// </summary>
+    [JSInvokable]
+    public static Task ReorderPlaylist(int from, int to)
+    {
+        var page = _page;
+        return page == null ? Task.CompletedTask : page.ApplyReorderAsync(from, to);
+    }
+
+    /// <summary>Moves one playlist entry (0-based destination) and persists it, same API as ↑ / ↓.</summary>
+    private async Task ApplyReorderAsync(int from, int to)
+    {
+        if (from == to) return;
+        // The JS callback thread is not the renderer thread → marshal before touching state.
+        await InvokeAsync(async () =>
+        {
+            await Guard(async () =>
+            {
+                await PostJson("/api/song-request/playlist/reorder", new JsonObject { ["from"] = from, ["to"] = to });
+                await LoadPlaylistAsync();
+                SetMsg("已调整播放顺序", "green");
+                await UI.ToastAsync("已调整播放顺序", true);
+            }, "排序失败");
+        });
+    }
+
     public void Dispose()
     {
+        if (ReferenceEquals(_page, this)) _page = null;   // a stale DOM must not reach a disposed page
         Player.Changed -= OnSongChanged;
         _http?.Dispose();
         _http = null;

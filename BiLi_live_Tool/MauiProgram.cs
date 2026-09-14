@@ -33,6 +33,8 @@ namespace BiLi_live_Tool
             builder.Services.AddSingleton<PanelSoundPlayer>();
             builder.Services.AddSingleton<SongPlayer>();
             builder.Services.AddSingleton<UiBridge>();
+            builder.Services.AddScoped<UiKit>();
+            builder.Services.AddSingleton<AnnouncementService>();
             builder.Services.AddSingleton(sp => new AppUpdater(sp.GetRequiredService<AppConfig>(), KestrelHost.VersionText));
             // Update probe: shared by the panel card, the top strip badge and the
             // silent start-up check (6h throttle, see UpdateChecker).
@@ -99,7 +101,39 @@ namespace BiLi_live_Tool
             // Tray icon must be created on the WinUI UI thread (message pump lives here).
             TrayService.Initialize(AppIdentity.Name,
                 onToggleVisible: App.ToggleMainWindow,
-                onQuit: App.QuitForReal);   // real exit: X only minimizes to tray
+                onQuit: App.QuitForReal,   // real exit: X only minimizes to tray
+                menu: new TrayService.MenuContext(
+                    StatusLine: () =>
+                    {
+                        try
+                        {
+                            var hub = app.Services.GetRequiredService<EventHub>();
+                            var st = hub.LastStatus;
+                            return st.State == "connected" ? $"\u72b6\u6001\uff1a\u5df2\u8fde\u63a5 \u623f\u95f4 {st.RealRoomId}" : "\u72b6\u6001\uff1a\u672a\u8fde\u63a5";
+                        }
+                        catch { return "\u72b6\u6001\uff1a-"; }
+                    },
+                    PortLine: () =>
+                    {
+                        try { return "\u7aef\u53e3\uff1a" + app.Services.GetRequiredService<KestrelHost>().Port; }
+                        catch { return "\u7aef\u53e3\uff1a-"; }
+                    },
+                    OpenPanel: () => App.RestoreMainWindow(),
+                    OpenDataDir: () =>
+                    {
+                        try
+                        {
+                            var dir = Path.Combine(AppContext.BaseDirectory, "data");
+                            Directory.CreateDirectory(dir);
+                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", dir) { UseShellExecute = true });
+                        }
+                        catch { }
+                    },
+                    ServiceStart: () => { try { app.Services.GetRequiredService<KestrelHost>().ServerAction("start"); } catch { } },
+                    ServiceStop: () => { try { app.Services.GetRequiredService<KestrelHost>().ServerAction("stop"); } catch { } },
+                    ServiceRestart: () => { try { app.Services.GetRequiredService<KestrelHost>().ServerAction("restart"); } catch { } },
+                    AutoLaunchGet: () => { try { return AutoLaunchService.Get(); } catch { return false; } },
+                    AutoLaunchSet: e => { try { AutoLaunchService.Set(e); } catch { } }));
 #endif
 
             return app;

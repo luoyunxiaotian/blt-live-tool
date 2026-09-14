@@ -81,9 +81,23 @@
                 {
                     <span>加载中…</span>
                 }
+                else if (!_connected)
+                {
+                    <div>
+                        <div>未连接直播间 · 到房间管理页连接后才有记录</div>
+                        <button class="blt-btn primary" style="margin-top:10px" @onclick="GoRoomManage">前往房间管理</button>
+                    </div>
+                }
+                else if (!_recording)
+                {
+                    <div>
+                        <div>该类型未开启录制</div>
+                        <button class="blt-btn primary" style="margin-top:10px" @onclick="EnableRecordingAsync" disabled="@_recBusy">@(_recBusy ? "开启中…" : "开启录制")</button>
+                    </div>
+                }
                 else
                 {
-                    <span>暂无记录 —— 开启录制后的事件会按天写入 jsonl 并在此显示</span>
+                    <span>暂无记录 · 有新事件时会自动出现</span>
                 }
             </div>
         }
@@ -231,7 +245,9 @@
 
     private string _type = "danmu";
     private Col[] _cols = Layout["danmu"];
+    private bool _connected;
     private bool _recording;
+    private bool _recBusy;
     private string _start = "";
     private string _end = "";
 
@@ -341,6 +357,9 @@
         {
             var node = await GetJsonAsync("/api/status");
             if (node == null || type != _type) return;
+            // Connection state drives the empty-state copy: state == "connected" means
+            // events can actually arrive (see EventHub.LiveStatusInfo.State).
+            _connected = node["state"] is JsonValue sv && sv.TryGetValue<string>(out var state) && state == "connected";
             var rec = node["recording"] as JsonObject;
             _recording = rec?.TryGetPropertyValue(type, out var v) == true
                 && v is JsonValue val && val.TryGetValue<bool>(out var b) && b;
@@ -482,6 +501,38 @@
         }
         StateHasChanged();
     }
+
+    /// <summary>Empty-state shortcut: same endpoint as the toolbar switch, forced to on.</summary>
+    private async Task EnableRecordingAsync()
+    {
+        if (_recBusy) return;
+        _recBusy = true;
+        try
+        {
+            var resp = await PostJsonAsync("/api/recording/" + _type, new JsonObject { ["on"] = true });
+            var err = resp?["error"] is JsonValue ev && ev.TryGetValue<string>(out var e) ? e ?? "" : "";
+            if (err.Length > 0)
+            {
+                _notice = "开启录制失败：" + err;
+                return;
+            }
+            _recording = resp?["on"]?.GetValue<bool>() ?? true;
+            _notice = _recording ? "已开启录制" : "开启录制失败";
+            await RefreshStatusAsync();
+            await LoadFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            _notice = "开启录制失败：" + ex.Message;
+        }
+        finally
+        {
+            _recBusy = false;
+        }
+        StateHasChanged();
+    }
+
+    private void GoRoomManage() => Nav.NavigateTo("/");
 
     private Task ApplyQuery()
     {

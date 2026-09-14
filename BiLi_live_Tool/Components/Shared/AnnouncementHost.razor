@@ -1,0 +1,149 @@
+@inject BiLi_live_Tool.Services.AnnouncementService Ann
+@inject BiLi_live_Tool.Services.UiKit UI
+@inject BiLi_live_Tool.Services.UpdateChecker Updates
+@inject BiLi_live_Tool.Services.AppUpdater Updater
+@implements IDisposable
+@* 公告宿主：常驻横幅（顶部）+ 角落卡片（右下角）+ 强确认模态（全屏）
+   数据来自 AnnouncementService（Cloudflare Worker 公告通道），三类位置固定，作者在控制台选择类型。 *@
+
+@{
+    var snap = Ann.Snapshot();
+    _sticky = snap.Sticky;
+    _ack = snap.Ack;
+    _cards = snap.Cards;
+}
+
+@if (_sticky.Count > 0)
+{
+    <div class="blt-ann-banner">
+        @foreach (var v in _sticky)
+        {
+            <div class="blt-ann-sticky level-@v.Item.Level">
+                <span class="blt-ann-title">@v.Item.Title</span>
+                @if (v.Item.Body.Length > 0)
+                {
+                    <span class="blt-ann-body">@v.Item.Body</span>
+                }
+                @if (v.Item.Actions.Count > 0)
+                {
+                    <span class="blt-ann-actions">
+                        @foreach (var a in v.Item.Actions)
+                        {
+                            <button class="blt-btn" style="padding:2px 10px" @onclick="() => RunAction(a)">@a.Label</button>
+                        }
+                    </span>
+                }
+                <button class="blt-btn" style="padding:2px 8px;margin-left:auto" title="仅本次隐藏（公告到期或作者下架后不会再出现）" @onclick="() => HideSticky(v.Item.Id)">收起</button>
+            </div>
+        }
+    </div>
+}
+
+@if (_cards.Count > 0)
+{
+    <div class="blt-ann-cards">
+        @foreach (var v in _cards)
+        {
+            <div class="blt-ann-card level-@v.Item.Level">
+                <div class="blt-ann-title">@v.Item.Title</div>
+                @if (v.Item.Body.Length > 0)
+                {
+                    <div class="blt-ann-body">@v.Item.Body</div>
+                }
+                <div class="blt-ann-actions">
+                    @foreach (var a in v.Item.Actions)
+                    {
+                        <button class="blt-btn" style="padding:3px 10px" @onclick="() => RunAction(a)">@a.Label</button>
+                    }
+                    <button class="blt-btn" style="padding:3px 10px" @onclick="() => Ann.Dismiss(v.Item.Id)">知道了</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (_ack != null)
+{
+    <div class="blt-modal" style="z-index:72">
+        <div class="blt-modal-box" style="@AckAccent()">
+            <div class="blt-ann-title" style="font-size:14.5px">
+                <BltIcon Emoji="@(_ack.Item.Level == "critical" ? "⚠" : "🔔")" /> @_ack.Item.Title
+            </div>
+            @if (_ack.Item.Body.Length > 0)
+            {
+                <div class="blt-modal-box msg" style="margin-top:8px">@_ack.Item.Body</div>
+            }
+            <div class="row" style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap">
+                @foreach (var a in _ack.Item.Actions)
+                {
+                    <button class="blt-btn" @onclick="() => RunAction(a)">@a.Label</button>
+                }
+                @if (_ack.Item.AckMode != "hard")
+                {
+                    <button class="blt-btn" title="稍后处理：本次不挡，下次启动会再提醒" @onclick="() => Ann.Dismiss(_ack.Item.Id)">稍后</button>
+                }
+                <button class="blt-btn primary" @onclick="() => Ann.Ack(_ack.Item.Id)">我已阅读并确认</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AnnouncementService.Visible> _sticky = new();
+    private AnnouncementService.Visible? _ack;
+    private List<AnnouncementService.Visible> _cards = new();
+    private readonly HashSet<string> _hiddenSticky = new();
+    private bool _actionBusy;
+
+    protected override void OnInitialized()
+    {
+        Ann.Changed += OnChanged;
+        Ann.Start();
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private string AckAccent()
+        => _ack != null && string.Equals(_ack.Item.Level, "critical", StringComparison.OrdinalIgnoreCase)
+            ? "border-color:var(--red-ink);border-left:3px solid var(--red-ink)"
+            : "border-left:3px solid var(--amber-ink)";
+
+    private void HideSticky(string id)
+    {
+        _hiddenSticky.Add(id);
+        _sticky = _sticky.Where(v => v.Item.Id != id).ToList();
+    }
+
+    /// <summary>公告按钮：kind=update 调应用内更新，否则用系统浏览器打开链接。</summary>
+    private async Task RunAction((string Label, string Kind, string Url) action)
+    {
+        if (_actionBusy) return;
+        try
+        {
+            if (string.Equals(action.Kind, "update", StringComparison.OrdinalIgnoreCase))
+            {
+                _actionBusy = true;
+                await UI.ToastAsync("正在检查更新…", true);
+                var info = await Updates.CheckAsync(CancellationToken.None, force: true);
+                if (!info.HasUpdate || string.IsNullOrEmpty(info.AssetUrl))
+                {
+                    await UI.ToastAsync(info.HasUpdate ? "请稍后重试" : "已是最新版本", !info.HasUpdate);
+                    return;
+                }
+                _ = Updater.DownloadAndStageAsync(info.AssetUrl, info.AssetName, info.AssetSize,
+                    info.AssetSha256, info.Latest, info.ManifestUrl);
+                await UI.ToastAsync("已开始下载更新，完成后在「房间管理 → 更新并重启」安装", true);
+                return;
+            }
+            if (action.Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                await Launcher.Default.OpenAsync(action.Url);
+        }
+        catch (Exception ex)
+        {
+            await UI.ToastAsync("操作失败：" + ex.Message, false);
+        }
+        finally { _actionBusy = false; }
+    }
+
+    public void Dispose() => Ann.Changed -= OnChanged;
+}

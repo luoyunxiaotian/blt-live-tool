@@ -12,6 +12,7 @@
 @inject DebouncedSaver Saver
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject BiLi_live_Tool.Services.UiKit UI
 @implements IDisposable
 
 <div class="blt-pagehead"><h1>房间管理</h1><span class="en">ROOM MANAGE</span></div>
@@ -35,9 +36,12 @@
         <div class="blt-panel-body">
             <label class="blt-label">room_id</label>
             <div style="display:flex;gap:10px">
-                <input class="blt-input mono" @bind="_roomId" @bind:after="SaveRoomIdSoon" placeholder="直播间号（支持短号）" @onkeydown="OnRoomKey" />
-                <button class="blt-btn primary" @onclick="Connect" disabled="@(Live.IsRunning || Verify.Locked)">连接</button>
-                <button class="blt-btn" @onclick="Disconnect" disabled="@(!Live.IsRunning)">断开</button>
+                <input class="blt-input mono" @bind="_roomId" @bind:after="SaveRoomIdSoon" placeholder="直播间号（支持短号）" @onkeydown="OnRoomKey"
+                       data-tip="直播间网址 live.bilibili.com/ 后面的数字，支持短号" />
+                <button class="blt-btn primary" @onclick="Connect" disabled="@(Live.IsRunning || Verify.Locked)"
+                        data-tip="解析房间号并连上弹幕服务器">连接</button>
+                <button class="blt-btn" @onclick="Disconnect" disabled="@(!Live.IsRunning)"
+                        data-tip="停止弹幕连接（不改动已保存的配置）">断开</button>
             </div>
 
             <div class="blt-steps">
@@ -60,10 +64,11 @@
             </div>
 
             <div style="display:flex;gap:26px;margin-top:14px;flex-wrap:wrap">
-                <span class="blt-switch @_autoConnectClass" @onclick="ToggleAutoConnect">
+                <span class="blt-switch @_autoConnectClass" @onclick="ToggleAutoConnect"
+                      data-tip="启动应用时自动连上次的直播间">
                     <span class="track"></span>自动连接 <span class="blt-hint" style="margin:0">启动时连上次房间</span>
                 </span>
-                <span class="blt-switch on"><span class="track"></span>断线重连 <span class="blt-hint" style="margin:0">15s 间隔</span></span>
+                <span class="blt-switch on" data-tip="掉线后每 15 秒自动重连一次"><span class="track"></span>断线重连 <span class="blt-hint" style="margin:0">15s 间隔</span></span>
             </div>
             <div class="blt-hint">房间号与自动连接改动即时保存 · @AutoSaveText()</div>
 
@@ -71,16 +76,18 @@
             <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center">
                 <button class="blt-btn" @onclick="HideBiliBrowser" data-tip="挪到屏幕外，内存保留">隐藏浏览器</button>
                 <button class="blt-btn" @onclick="CloseBiliBrowser" data-tip="销毁窗口释放内存，再打开自动重建">关闭浏览器</button>
-                <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
+                <button class="blt-btn primary" @onclick="OpenBiliBrowser" data-tip="在内置浏览器打开直播间页面（主面板会临时收窄）">打开B站浏览器</button>
             </div>
 
             @* 闲置自动关闭（biliBrowser.idleCloseMin）：开关与分钟数都走本页自动保存 *@
             <div style="display:flex;gap:10px;margin-top:10px;align-items:center;flex-wrap:wrap">
-                <span class="blt-switch @IdleSwitchClass()" @onclick="ToggleIdleClose">
+                <span class="blt-switch @IdleSwitchClass()" @onclick="ToggleIdleClose"
+                      data-tip="无操作超时后自动关闭 B站浏览器释放内存">
                     <span class="track"></span>闲置自动关闭 B站浏览器
                 </span>
                 <input class="blt-input mono" type="number" min="1" max="120" step="1" style="width:76px"
-                       @bind="_idleMin" @bind:after="SaveIdleSoon" disabled="@(!_idleCloseOn)" />
+                       @bind="_idleMin" @bind:after="SaveIdleSoon" disabled="@(!_idleCloseOn)"
+                       data-tip="空闲多少分钟后自动关闭，可填 1~120" />
                 <span class="blt-hint" style="margin:0">分钟（1~120）</span>
             </div>
             @if (_idleNote.Length > 0)
@@ -103,8 +110,13 @@
             <div class="blt-kv"><span class="k">Cookie</span><span class="v">@(HasCookie() ? "已捕获（SESSDATA/bili_jct）" : "未捕获")</span></div>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
                 <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
-                <button class="blt-btn" @onclick="ClearLogin">清除登录态</button>
+                <button class="blt-btn" @onclick="ClearLogin" disabled="@(!_disclaimerAgreed)"
+                        data-tip="删除本机保存的登录 Cookie（需先勾选风险声明）">清除登录态</button>
             </div>
+            @if (!_disclaimerAgreed)
+            {
+                <div class="blt-hint" style="color:var(--amber-ink)">已禁用：请先在下方「手动导入 Cookie」卡片勾选风险声明。</div>
+            }
         </div>
     </div>
 
@@ -119,12 +131,25 @@
                 推荐用上方「B站登录」扫码。无法扫码时：按 F12 → 网络(Network) → 筛选 Fetch/XHR →
                 点一个 web-room 开头的请求 → 复制「请求标头」里的整段 Cookie，粘贴到下面，会自动解析并保存。
             </p>
-            <textarea class="blt-input mono" rows="4" style="min-height:76px"
+            @* 免责声明门禁：未勾选前，粘贴框与「解析并保存」全部 disabled（原版语义） *@
+            <label class="blt-label" style="display:inline-flex;align-items:center;gap:6px;letter-spacing:0;margin:0 0 8px;cursor:pointer"
+                   data-tip="勾选后才能粘贴、导入或清除登录 Cookie">
+                <input type="checkbox" style="width:auto;margin:0;accent-color:var(--amber)"
+                       @bind="_disclaimerAgreed" @bind:after="SaveDisclaimer" />
+                我已知晓：使用登录 Cookie 存在账号风险，且仅在本机保存
+            </label>
+            <textarea class="blt-input mono" rows="4" style="min-height:76px" disabled="@(!_disclaimerAgreed)"
                       placeholder="粘贴整段 Cookie，例如：enable_web_push=DISABLE; ...; SESSDATA=xxx; bili_jct=xxx"
-                      @bind="_cookieInput" @bind:event="oninput"></textarea>
+                      @bind="_cookieInput" @bind:event="oninput"
+                      data-tip="从浏览器 F12 请求标头里复制整段 Cookie 粘贴到这里"></textarea>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-                <button class="blt-btn primary" @onclick="ImportCookie">解析并保存</button>
+                <button class="blt-btn primary" @onclick="ImportCookie" disabled="@(!_disclaimerAgreed)"
+                        data-tip="解析粘贴的 Cookie 并写入本机 config.json">解析并保存</button>
             </div>
+            @if (!_disclaimerAgreed)
+            {
+                <div class="blt-hint" style="color:var(--amber-ink)">未勾选上方风险声明：Cookie 粘贴框与「解析并保存」按钮暂不可用。</div>
+            }
             @if (_cookieInfo.Length > 0)
             {
                 <div class="blt-hint" style="color:var(--green-ink);margin:8px 0 0">@_cookieInfo</div>
@@ -168,7 +193,7 @@
     @* 📁 记录文件夹 — absolute paths served by GET /api/status → folders. *@
     <div class="blt-panel">
         <div class="blt-panel-head"><span class="t"><BltIcon Emoji="📁" /> 记录文件夹</span><span class="en">RECORD FOLDERS</span>
-            <span class="right"><button class="blt-btn" style="padding:2px 10px" @onclick="OpenDataFolder">打开数据目录</button></span>
+            <span class="right"><button class="blt-btn" style="padding:2px 10px" @onclick="OpenDataFolder" data-tip="在资源管理器中打开 data 目录">打开数据目录</button></span>
         </div>
         <div class="blt-panel-body">
             @if (_folders.Count == 0)
@@ -198,7 +223,7 @@
                 盲盒收入映射（礼物名 → 单个盲盒开出收入）在「礼物截图生成」页维护，用于计算盲盒盈亏，不影响记录。
             </div>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-                <button class="blt-btn primary" @onclick="GoGiftPage">前往「礼物截图生成」</button>
+                <button class="blt-btn primary" @onclick="GoGiftPage" data-tip="盲盒收入映射在「礼物截图生成」页维护">前往「礼物截图生成」</button>
             </div>
         </div>
     </div>
@@ -277,7 +302,8 @@
                 </div>
             }
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-                <button class="blt-btn primary" @onclick="CheckUpdateNow" disabled="@_updateBusy">@(_updateBusy ? "检查中…" : "立即检查")</button>
+                <button class="blt-btn primary" @onclick="CheckUpdateNow" disabled="@_updateBusy"
+                        data-tip="立即查询 Release 上是否有 -maui 结尾的新版本">@(_updateBusy ? "检查中…" : "立即检查")</button>
                 <button class="blt-btn" @onclick="OpenReleasePage">打开发布页</button>
                 <button class="blt-btn primary" @onclick="StartUpdateDownload" disabled="@(!_updateHasAsset || _updaterBusy)">@DownloadBtnText()</button>
                 @if (_updaterPhase == "Staged")
@@ -313,13 +339,59 @@
             <div class="blt-kv"><span class="k">监听地址</span><span class="v">127.0.0.1:@Api.Port</span></div>
             <div class="blt-kv"><span class="k">Edge TTS (8020)</span><span class="v">@(EdgeRunning ? "RUNNING" : "OFF")</span></div>
             <div class="blt-kv"><span class="k">MOSS 引擎 (8021)</span><span class="v">@(MossRunning ? "RUNNING" : "按需")</span></div>
+            @* 开机自启：写 HKCU Run 项（POST /api/maui/autolaunch/set），状态读同族 get 端点 *@
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)">
+                <span class="blt-switch @(_autoLaunchOn ? "on" : "")" @onclick="ToggleAutoLaunch"
+                      data-tip="开机时自动启动本程序（写入当前用户注册表 Run 项）">
+                    <span class="track"></span>开机自启
+                </span>
+                <span class="blt-hint" style="margin:0">@(_autoLaunchBusy ? "设置中…" : "仅当前用户生效，无需管理员权限")</span>
+            </div>
+        </div>
+    </div>
+
+    @* 📜 服务日志 — 服务端环形缓冲，GET /api/maui/server/log（3 s 轮询，只保留最近 200 行） *@
+    <div class="blt-panel">
+        <div class="blt-panel-head"><span class="t"><BltIcon Emoji="📜" /> 服务日志</span><span class="en">SERVER LOG</span>
+            <span class="right"><span>@(_logCount > 0 ? _logCount + " 条" : "等待数据") · 3s</span>
+            <button class="blt-btn" style="padding:2px 10px" @onclick="RefreshServerLog" data-tip="立即拉取最新服务端日志">刷新</button>
+            <button class="blt-btn" style="padding:2px 10px" @onclick="CopyServerLog" data-tip="复制当前显示的日志到剪贴板">复制</button>
+            <button class="blt-btn" style="padding:2px 10px" @onclick="ClearServerLog" data-tip="清空服务端日志缓冲">清空</button></span>
+        </div>
+        <div class="blt-panel-body" style="padding:6px 0">
+            <div class="blt-log" id="blt-server-log" style="max-height:240px">
+                @if (_serverLines.Count == 0)
+                {
+                    <div class="blt-logrow"><span class="txt">@(_logLoaded ? "暂无日志" : "正在读取服务日志…")</span></div>
+                }
+                else
+                {
+                    @foreach (var l in _serverLines)
+                    {
+                        <div class="blt-logrow">
+                            <span class="t">@l.Time</span>
+                            <span class="tag" style="background:@LevelBg(l.Level);color:@LevelInk(l.Level)">@LevelTag(l.Level)</span>
+                            <span class="txt" style="color:@LevelInk(l.Level)">
+                                @if (l.Src.Length > 0)
+                                {
+                                    <span class="u">[@l.Src]</span>
+                                }
+                                @l.Msg
+                            </span>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="blt-hint" style="padding:0 10px">
+                服务端环形缓冲 · 每 3 秒自动刷新，只显示最近 @MaxServerLines 行并自动滚到最新（GET /api/maui/server/log）。
+            </div>
         </div>
     </div>
 
     <div class="blt-panel">
         <div class="blt-panel-head"><span class="t"><BltIcon Emoji="📜" /> 事件日志</span><span class="en">EVENT LOG</span>
             <span class="right"><span>tail -f · 缓存 @Hub.GetRecent("danmu").Count + 最近</span>
-            <button class="blt-btn" style="padding:2px 10px" @onclick="ClearView">清空显示</button></span>
+            <button class="blt-btn" style="padding:2px 10px" @onclick="ClearView" data-tip="只清空本页显示，不影响记录文件">清空显示</button></span>
         </div>
         <div class="blt-panel-body" style="padding:6px 0">
             @if (_view.Count == 0)
@@ -396,6 +468,12 @@
     private string _cookieWarn = "";
     private string _cookieError = "";
 
+    // 免责声明门禁（config: disclaimerAgreed）：未勾选前 Cookie 粘贴/导入/清除全部禁用。
+    private bool _disclaimerAgreed;
+
+    // 「打开B站浏览器」会收窄主面板 —— 每个会话只提示一次 toast。
+    private bool _narrowTipShown;
+
     // Record folder rows (📁 记录文件夹), loaded from GET /api/status → folders.
     private static readonly (string Key, string Label)[] FolderDefs =
     {
@@ -443,6 +521,7 @@
         var skin = (Config.GetNode("skin") as JsonValue)?.GetValue<string>() ?? "";
         if (skin.Length == 0 || skin == "default") skin = "console";
         if (Themes.Contains(skin)) _skin = skin;
+        _disclaimerAgreed = Config.GetNode("disclaimerAgreed") is JsonValue dv && dv.TryGetValue<bool>(out var da) && da;
         LoadIdleCloseConfig();
         _idleSeenAt = MainPage.Current?.BiliIdleClosedAt ?? 0;   // only new auto-closes raise the note
         Hub.OnEvent += OnEvent;
@@ -451,9 +530,13 @@
             TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         _flushTimer = new System.Threading.Timer(_ => FlushTick(), null,
             TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(300));
+        _logTimer = new System.Threading.Timer(_ => _ = PollServerLogAsync(), null,
+            TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
         _ = PollLikeStatus();   // first paint gets the current counters without waiting 1 s
         _ = LoadFoldersAsync();
         _ = LoadUpdateStatusAsync();
+        _ = LoadAutoLaunchAsync();
+        _ = PollServerLogAsync();   // 服务日志：首次立即拉取，之后走 3 s 定时器
     }
 
     /// <summary>
@@ -573,6 +656,7 @@
         {
             var doc = Config.Snapshot();
             doc["autoConnect"] = _autoConnectBool;
+            doc["disclaimerAgreed"] = _disclaimerAgreed;   // 风险声明勾选态跟随同一份配置保存
             WriteIdleCloseConfig(doc);   // biliBrowser.idleCloseMin rides the same debounced write
             var rid = _roomId.Trim();
             if (rid.Length > 0) doc["roomId"] = rid;   // never wipe a stored id from an empty box
@@ -614,6 +698,13 @@
     }
 
     private void SaveIdleSoon() => SaveRoomConfigSoon();
+
+    /// <summary>风险声明勾选态：立即放开/收紧控件，持久化走同一份 debounced 配置写入。</summary>
+    private void SaveDisclaimer()
+    {
+        SaveRoomConfigSoon(150);
+        StateHasChanged();
+    }
 
     /// <summary>Writes the switch + minutes into the snapshot (0 = the switch is off).</summary>
     private void WriteIdleCloseConfig(JsonObject doc)
@@ -657,8 +748,9 @@
     }
 
     /// <summary>Parses the pasted cookie and writes it through the same config path as SaveRoomConfig.</summary>
-    private void ImportCookie()
+    private async Task ImportCookie()
     {
+        if (!_disclaimerAgreed) return;   // gate: the button is disabled anyway
         _cookieInfo = "";
         _cookieWarn = "";
         _cookieError = "";
@@ -667,6 +759,7 @@
         if (pairs.Count == 0)
         {
             _cookieError = "未识别到有效 Cookie";
+            await UI.ToastAsync("未识别到有效 Cookie", false);
             return;
         }
 
@@ -685,6 +778,7 @@
         catch (Exception ex)
         {
             _cookieError = "保存失败：" + ex.Message;
+            await UI.ToastAsync("Cookie 保存失败：" + ex.Message, false);
             return;
         }
 
@@ -698,6 +792,7 @@
 
         Hub.PublishStatus(Hub.LastStatus);   // refresh the login rows above
         StateHasChanged();
+        await UI.ToastAsync(_cookieInfo, true);
     }
 
     // ---- record folders (📁 记录文件夹) ----
@@ -766,6 +861,199 @@
             // panel API down → the click is a no-op
         }
     }
+
+    /// <summary>
+    /// The /api/maui/* bridge is POST-only, but read endpoints may also be mapped as GET;
+    /// POST first, fall back to GET, so either wiring works.
+    /// </summary>
+    private async Task<JsonObject?> MauiReadAsync(string path, JsonObject? body = null)
+    {
+        var o = await PostJsonReadAsync(path, body ?? new JsonObject());
+        if (o != null) return o;
+        try { return await GetJsonAsync(path); } catch { return null; }
+    }
+
+    // ---- 开机自启（HKCU Run；桥接端点 /api/maui/autolaunch/get|set）----
+
+    private bool _autoLaunchOn;
+    private bool _autoLaunchBusy;
+
+    private async Task LoadAutoLaunchAsync()
+    {
+        var on = await FetchAutoLaunchAsync();
+        if (!on.HasValue) return;   // bridge down → leave the switch off
+        try { await InvokeAsync(() => { _autoLaunchOn = on.Value; StateHasChanged(); }); } catch { }
+    }
+
+    /// <summary>Registered Run value; null when the bridge is unreachable.</summary>
+    private async Task<bool?> FetchAutoLaunchAsync()
+    {
+        var o = await MauiReadAsync("/api/maui/autolaunch/get");
+        return o == null ? null : GetBool(o, "enabled", false);
+    }
+
+    /// <summary>Flips the switch, then reads the registered state back and toasts the result.</summary>
+    private async Task ToggleAutoLaunch()
+    {
+        if (_autoLaunchBusy) return;
+        _autoLaunchBusy = true;
+        var want = !_autoLaunchOn;
+        try
+        {
+            var r = await PostJsonReadAsync("/api/maui/autolaunch/set", new JsonObject { ["enabled"] = want });
+            if (r == null)
+            {
+                await UI.ToastAsync("设置开机自启失败：面板服务未响应", false);
+                return;
+            }
+            var read = await FetchAutoLaunchAsync();
+            _autoLaunchOn = read ?? want;
+            var ok = _autoLaunchOn == want;
+            await UI.ToastAsync(ok ? (want ? "已开启开机自启" : "已关闭开机自启") : "设置开机自启失败", ok);
+        }
+        catch (Exception ex)
+        {
+            await UI.ToastAsync("设置开机自启失败：" + ex.Message, false);
+        }
+        finally
+        {
+            _autoLaunchBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    // ---- 服务日志（GET /api/maui/server/log；3 s 轮询，只保留最近 200 行）----
+
+    private sealed class ServerLogLine
+    {
+        public string Time = "";
+        public string Level = "info";
+        public string Src = "";
+        public string Msg = "";
+    }
+
+    private const int MaxServerLines = 200;
+    private System.Threading.Timer? _logTimer;
+    private List<ServerLogLine> _serverLines = new();
+    private int _logCount;
+    private bool _logLoaded;
+    private string _logSig = "";   // count + tail fingerprint: skips repaint when nothing changed
+
+    private async Task PollServerLogAsync()
+    {
+        var o = await MauiReadAsync("/api/maui/server/log");
+        if (o == null) return;   // bridge down → keep the last rendered lines
+
+        var lines = new List<ServerLogLine>();
+        if (o["lines"] is JsonArray arr)
+        {
+            foreach (var row in arr)
+            {
+                if (row is not JsonObject l) continue;
+                lines.Add(new ServerLogLine
+                {
+                    Time = GetStr(l, "time", ""),
+                    Level = GetStr(l, "level", "info").ToLowerInvariant(),
+                    Src = GetStr(l, "src", ""),
+                    Msg = GetStr(l, "msg", ""),
+                });
+            }
+        }
+        if (lines.Count > MaxServerLines) lines.RemoveRange(0, lines.Count - MaxServerLines);   // tail only
+        var count = (int)GetNum(o, "count", lines.Count);
+        var last = lines.Count > 0 ? lines[^1] : null;
+        var sig = count + "|" + lines.Count + "|" + (last == null ? "" : last.Time + last.Msg);
+        if (sig == _logSig) return;   // nothing new → no repaint, no JS scroll
+        _logSig = sig;
+
+        try
+        {
+            // The timer fires on a pool thread → hand state + JS scroll to the renderer.
+            await InvokeAsync(async () =>
+            {
+                _serverLines = lines;
+                _logCount = count;
+                _logLoaded = true;
+                StateHasChanged();
+                await ScrollServerLogAsync();
+            });
+        }
+        catch
+        {
+            // component disposed while the poll was in flight
+        }
+    }
+
+    /// <summary>Pins the log viewport to the newest row (the container has a fixed max-height).</summary>
+    private async Task ScrollServerLogAsync()
+    {
+        try { await JS.InvokeVoidAsync("eval", "var e=document.getElementById('blt-server-log');if(e){e.scrollTop=e.scrollHeight;}"); }
+        catch { }
+    }
+
+    private Task RefreshServerLog() => PollServerLogAsync();
+
+    private async Task ClearServerLog()
+    {
+        await PostJsonAsync("/api/maui/server/log/clear", new JsonObject());
+        _serverLines = new List<ServerLogLine>();
+        _logCount = 0;
+        _logSig = "";
+        _logLoaded = true;
+        StateHasChanged();
+        await UI.ToastAsync("已清空服务日志", true);
+    }
+
+    private async Task CopyServerLog()
+    {
+        if (_serverLines.Count == 0)
+        {
+            await UI.ToastAsync("暂无日志可复制", false);
+            return;
+        }
+        var text = string.Join("\n",
+            _serverLines.Select(l => $"{l.Time} [{l.Level.ToUpperInvariant()}] {l.Src} {l.Msg}".Trim()));
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            await UI.ToastAsync($"已复制 {_serverLines.Count} 行日志", true);
+        }
+        catch
+        {
+            // clipboard API blocked → textarea + execCommand fallback (same as KeyView page)
+            try
+            {
+                var literal = System.Text.Json.JsonSerializer.Serialize(text);
+                await JS.InvokeVoidAsync("eval",
+                    "(function(){var t=document.createElement('textarea');t.value=" + literal +
+                    ";t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.focus();t.select();" +
+                    "document.execCommand('copy');document.body.removeChild(t);})()");
+                await UI.ToastAsync($"已复制 {_serverLines.Count} 行日志", true);
+            }
+            catch { await UI.ToastAsync("复制失败", false); }
+        }
+    }
+
+    private static string LevelInk(string level) => level switch
+    {
+        "error" => "var(--red-ink)",
+        "warn" => "var(--amber-ink)",
+        _ => "var(--ink)",
+    };
+
+    private static string LevelBg(string level) => level switch
+    {
+        "error" => "var(--red-dim)",
+        "warn" => "var(--amber-dim)",
+        _ => "rgba(255,255,255,.06)",
+    };
+
+    private static string LevelTag(string level) => level switch
+    {
+        "error" => "ERR",
+        "warn" => "WARN",
+        _ => "INFO",
+    };
 
     // ---- misc new cards ----
 
@@ -1097,23 +1385,40 @@
     private static double GetNum(JsonObject o, string key, double def)
         => o.TryGetPropertyValue(key, out var v) && v is JsonValue jv && jv.TryGetValue<double>(out var d) ? d : def;
 
-    private void OpenBiliBrowser()
+    private async Task OpenBiliBrowser()
     {
         var rid = Live.IsRunning ? Hub.LastStatus.RealRoomId : _roomId.Trim();
         var url = long.TryParse(rid, out _) ? $"https://live.bilibili.com/{rid}" : "https://live.bilibili.com/";
         MainPage.Current?.ShowBiliBrowser(url);
         _idleNote = "";   // the user reopened it — the idle notice no longer applies
+        // 浏览器面板展开后主面板会收窄：每个会话只提示一次，避免反复打扰。
+        if (!_narrowTipShown)
+        {
+            _narrowTipShown = true;
+            await UI.ToastAsync("B站页面已显示在右侧，主面板暂时收窄；点「隐藏浏览器」可恢复全宽", true);
+        }
     }
 
     private void HideBiliBrowser() => MainPage.Current?.HideBiliBrowser();
     private void CloseBiliBrowser() => MainPage.Current?.CloseBiliBrowser();
 
-    private void ClearLogin()
+    /// <summary>危险操作：先二次确认，再清空本机保存的登录 Cookie（文案对齐原版 confirm）。</summary>
+    private async Task ClearLogin()
     {
-        Config.SetBiliCookie("", "");
-        _view.Clear();
-        Hub.PublishStatus(Hub.LastStatus); // refresh trigger
-        StateHasChanged();
+        if (!_disclaimerAgreed) return;   // gate: the button is disabled anyway
+        if (!await UI.ConfirmAsync("确定要清除已保存的登录 Cookie 吗？")) return;
+        try
+        {
+            Config.SetBiliCookie("", "");
+            _view.Clear();
+            Hub.PublishStatus(Hub.LastStatus); // refresh trigger
+            StateHasChanged();
+            await UI.ToastAsync("已清除登录 Cookie", true);
+        }
+        catch (Exception ex)
+        {
+            await UI.ToastAsync("清除登录 Cookie 失败：" + ex.Message, false);
+        }
     }
 
     private void ClearView() => _view.Clear();
@@ -1278,5 +1583,7 @@
         _likeTimer = null;
         _flushTimer?.Dispose();
         _flushTimer = null;
+        _logTimer?.Dispose();
+        _logTimer = null;
     }
 }

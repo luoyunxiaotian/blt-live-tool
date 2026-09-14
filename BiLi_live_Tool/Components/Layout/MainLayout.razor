@@ -76,6 +76,7 @@
             <span class="seg"><BltIcon Emoji="🏠" />房间 <b>@(string.IsNullOrEmpty(Hub.LastStatus.RealRoomId) ? (string.IsNullOrEmpty(Config.RoomId) ? "—" : Config.RoomId) : Hub.LastStatus.RealRoomId)</b></span>
             <span class="seg">WS <b class="@WsClass()">@WsText()</b></span>
             <span class="seg">在线 <b class="green">@FmtPop()</b></span>
+            <span class="seg">榜 <b class="amber">@RankTop3Text()</b></span>
             <span class="seg">HTTP <b>127.0.0.1:@Api.Port</b> @ApiState()</span>
             <span class="seg">
                 <BltIcon Emoji="🎨" />主题
@@ -130,6 +131,8 @@
                 </div>
             </div>
         }
+        <AnnouncementHost />
+
         @if (Verify.Locked && !IsHelpRoute())
         {
             @* 未授权门禁：遮罩挡住正文所有交互，仅锁卡内的授权/登录按钮可用 *@
@@ -147,6 +150,8 @@
             @Body
         }
     </div>
+
+    <FirstRunWizard />
 
     <div class="blt-foot">
         <span>BLT CONSOLE @KestrelHost.VersionText</span><span class="sep">|</span>
@@ -261,6 +266,31 @@
         ("sys", "设置", new[] { "/help", "/diagnostics", "/" }),
     };
 
+    private List<OnlineRankEntry> _rankTop3 = new();
+
+    /// <summary>Top-3 of the live audience leaderboard (ONLINE_RANK_V2/V3), or "—" when unknown.</summary>
+    private string RankTop3Text()
+    {
+        var r = _rankTop3;
+        if (r.Count == 0) return "\u2014";
+        var parts = new List<string>(3);
+        foreach (var e in r.GetRange(0, Math.Min(3, r.Count)))
+            parts.Add(e.Uname + (e.Score.Length > 0 && e.Score != "0" ? " " + FmtScore(e.Score) : ""));
+        return string.Join(" \u00b7 ", parts);
+    }
+
+    private static string FmtScore(string raw)
+    {
+        return long.TryParse(raw, out var v) && v > 0 ? v.ToString("N0") : raw;
+    }
+
+    private void OnRankEvent(LiveEvent ev)
+    {
+        if (ev.Type != "online_rank" || ev.Rank == null || ev.Rank.Count == 0) return;
+        _rankTop3 = ev.Rank;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
     private string CurrentPath()
     {
         try { return "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0]; }
@@ -353,6 +383,7 @@
         Hub.OnEvent += OnEvent;
         Hub.StatusChanged += OnStatus;
         Nav.LocationChanged += OnLocationChanged;
+        Hub.OnEvent += OnRankEvent;
         var skin = (Config.GetNode("skin") as System.Text.Json.Nodes.JsonValue)?.GetValue<string>() ?? "";
         if (skin.Length == 0 || skin == "default") skin = "console";
         if (Themes.Contains(skin)) _theme = skin;
@@ -475,6 +506,7 @@
         Hub.OnEvent -= OnEvent;
         Hub.StatusChanged -= OnStatus;
         Nav.LocationChanged -= OnLocationChanged;
+        Hub.OnEvent -= OnRankEvent;
         Speaker.Changed -= OnSpeakerChanged;
         Speaker.Stop();
         Sounds.Stop();

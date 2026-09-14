@@ -34,6 +34,7 @@ public sealed class KestrelHost
     private readonly Recorder _recorder;
     private readonly LivePipeline _pipeline;
     private readonly TtsHost _tts;
+    private readonly AnnouncementService _announcements;
     private readonly MusicLoginService _musicLogin;
     private readonly KeyViewService _keyview;
     private readonly TtsSpeaker _speaker;
@@ -84,10 +85,52 @@ public sealed class KestrelHost
 
     public bool IsRunning { get; private set; }
     public string? LastError { get; private set; }
+    /// <summary>Tray menu entry point: same code path as the /api/maui/server/* cases.</summary>
+    public void ServerAction(string action)
+    {
+        switch (action)
+        {
+            case "start": StartServiceFromTray(); break;
+            case "stop": StopServiceFromTray(); break;
+            case "restart": StopServiceFromTray(); StartServiceFromTray(); break;
+        }
+    }
+
+    /// <summary>启动服务: connect the configured room (same as the panel button).</summary>
+    private void StartServiceFromTray()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(_config.RoomId))
+            {
+                _live.Start(_config.RoomId, _config.Cookie);
+                ServiceLog.Info("服务", $"启动服务：连接房间 {_config.RoomId}");
+            }
+            else
+            {
+                ServiceLog.Warn("服务", "启动服务：尚未配置房间号");
+            }
+        }
+        catch (Exception e) { ServiceLog.Error("服务", "启动失败：" + e.Message); }
+    }
+
+    /// <summary>停止服务: stop the connection and the TTS engines.</summary>
+    private void StopServiceFromTray()
+    {
+        try
+        {
+            _live.Stop();
+            _tts.StopAll();
+            ServiceLog.Info("服务", "已停止服务（连接 + TTS 引擎）");
+        }
+        catch (Exception e) { ServiceLog.Error("服务", "停止失败：" + e.Message); }
+    }
+
     public int Port => _config.Port;
 
-    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker, VerifyService verify, AppUpdater updater)
+    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker, VerifyService verify, AppUpdater updater, AnnouncementService announcements)
     {
+        _announcements = announcements;
         _config = config;
         _hub = hub;
         _live = live;
@@ -448,7 +491,7 @@ public sealed class KestrelHost
                     guardTotal = info.GuardTotal,
                     guardCount = info.GuardCount,
                     top3 = info.Top3,
-                    onlineRank = Array.Empty<object>(),
+                    onlineRank = _pipeline.OnlineRank,
                 }, JsonWeb);
             }
             catch { return Results.Json(new { online = 0, guardTotal = 0, guardCount = new long[3], top3 = Array.Empty<object>(), onlineRank = Array.Empty<object>() }, JsonWeb); }
@@ -925,6 +968,7 @@ public sealed class KestrelHost
                 case "autolaunch/get":
                     return Results.Json(new { enabled = AutoLaunchService.Get() }, JsonWeb);
                 case "update/check":
+                    ServiceLog.Info("\u66f4\u65b0", "\u68c0\u67e5\u66f4\u65b0\uff08\u8d70\u955c\u50cf\u5217\u8868\uff09");
                 {
                     // body.force = 用户点「立即检查」→ 忽略 6 小时节流
                     var force = body["force"] is JsonValue fv && fv.TryGetValue<bool>(out var fb) && fb;
@@ -990,6 +1034,37 @@ public sealed class KestrelHost
                 }
                 case "update/clear":
                     _updater.Clear();
+                    return Results.Json(new { ok = true }, JsonWeb);
+                case "server/log":
+                {
+                    var (lines, total) = ServiceLog.Snapshot(300);
+                    return Results.Json(new
+                    {
+                        ok = true,
+                        count = total,
+                        lines = lines.Select(l => new { time = l.Time, level = l.Level, src = l.Src, msg = l.Msg }),
+                    }, JsonWeb);
+                }
+                case "announce/status":
+                    return Results.Json(_announcements.StatusJson(), JsonWeb);
+                case "announce/refresh":
+                {
+                    var r = await _announcements.RefreshAsync(force: true, CancellationToken.None);
+                    ServiceLog.Info("\u516c\u544a", "\u624b\u52a8\u5237\u65b0\u516c\u544a\uff1a" + r.ToJsonString());
+                    return Results.Json(r, JsonWeb);
+                }
+                case "announce/dismiss":
+                case "announce/ack":
+                {
+                    var aid = SafeStr(body["id"]);
+                    if (aid.Length == 0) return Results.Json(new { error = "缺少 id" }, JsonWeb, statusCode: 400);
+                    var wantAck = body["ack"] is JsonValue av && av.TryGetValue<bool>(out var isAck) && isAck;
+                    if (body["kind"] is JsonValue kv && kv.TryGetValue<string>(out var kind) && kind == "ack") wantAck = true;
+                    if (wantAck) _announcements.Ack(aid); else _announcements.Dismiss(aid);
+                    return Results.Json(new { ok = true, id = aid }, JsonWeb);
+                }
+                case "server/log/clear":
+                    ServiceLog.Clear();
                     return Results.Json(new { ok = true }, JsonWeb);
                 case "update/open-page":
                 {
@@ -1060,13 +1135,27 @@ public sealed class KestrelHost
                 case "tts/moss/status":
                     return Results.Json(_tts.MossStatus(), JsonWeb);
                 case "server/start":
+                    StartServiceFromTray();
+                    return Results.Json(new { ok = true, started = true }, JsonWeb);
                 case "server/stop":
+                    StopServiceFromTray();
+                    return Results.Json(new { ok = true, stopped = true }, JsonWeb);
                 case "server/restart":
-                    return Results.Json(new { ok = true, note = "服务内嵌于 MAUI 应用，随应用启停" }, JsonWeb);
+                    StopServiceFromTray();
+                    StartServiceFromTray();
+                    return Results.Json(new { ok = true, restarted = true }, JsonWeb);
                 case "server/status":
                     return Results.Json(new { ok = true, running = IsRunning, port = Port }, JsonWeb);
                 case "server/readlog":
-                    return Results.Json(new { ok = true, lines = Array.Empty<string>() }, JsonWeb);
+                {
+                    var (rl, rt) = ServiceLog.Snapshot(300);
+                    return Results.Json(new
+                    {
+                        ok = true,
+                        count = rt,
+                        lines = rl.Select(l => l.Time + " [" + l.Level + "] " + l.Src + " " + l.Msg),
+                    }, JsonWeb);
+                }
                 case "debug/tray":
                     return Results.Json(new
                     {

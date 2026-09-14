@@ -4,6 +4,7 @@
 @using BiLi_live_Tool.Services
 @inject KestrelHost Api
 @inject IJSRuntime JS
+@inject BiLi_live_Tool.Services.UiKit UI
 
 <div class="blt-pagehead"><h1>网络诊断</h1><span class="en">DIAGNOSTICS</span></div>
 
@@ -74,6 +75,88 @@
 </div>
 
 <div class="blt-panel">
+    <div class="blt-panel-head"><span class="t"><BltIcon Emoji="📊" /> 事件统计</span><span class="en">EVENT STATS</span>
+        <span class="right">
+            <span class="blt-badge @StatsBadge()">@StatsStateText()</span>
+            <span>@StatsRoomText()</span>
+            <button class="blt-btn" style="padding:3px 12px" @onclick="RefreshStatsAsync" disabled="@_statsBusy">@(_statsBusy ? "刷新中…" : "刷新")</button>
+        </span>
+    </div>
+    <div class="blt-panel-body">
+        @if (_statsError.Length > 0)
+        {
+            <div style="color:var(--red-ink);font-size:12px;padding:2px 0 8px">@_statsError</div>
+        }
+        @if (_stats.Count == 0 && _statsError.Length == 0)
+        {
+            <div class="blt-empty" style="padding:16px 10px">@StatsEmptyText()</div>
+        }
+        else
+        {
+            <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+                    <thead>
+                        <tr>
+                            <th style="@StatsThStyle()">事件类型</th>
+                            <th style="@StatsThStyleRight()">次数</th>
+                            <th style="@StatsThStyle()">最近时间</th>
+                            <th style="@StatsThStyle()">最近样本</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in _stats)
+                        {
+                            <tr>
+                                <td style="padding:6px 8px;border-bottom:1px dashed var(--line);white-space:nowrap">
+                                    <b>@TypeText(s.Type)</b>
+                                    <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-left:6px">@s.Type</span>
+                                </td>
+                                <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);color:var(--ink)">@s.Count</td>
+                                <td style="padding:6px 8px;border-bottom:1px dashed var(--line);font-family:var(--mono);font-size:11.5px;color:var(--ink-2);white-space:nowrap">@Dash(s.Last)</td>
+                                <td style="padding:6px 8px;border-bottom:1px dashed var(--line);color:var(--ink-2)">@Dash(s.Sample)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);padding-top:8px">
+                来源 GET /api/debug/stats · 统计本次运行期间进入管线的事件（含下方模拟事件）
+            </div>
+        }
+    </div>
+</div>
+
+<div class="blt-panel">
+    <div class="blt-panel-head"><span class="t"><BltIcon Emoji="🚀" /> 模拟事件</span><span class="en">DEBUG INJECTION</span>
+        <span class="right"><span>POST /api/debug/event</span></span>
+    </div>
+    <div class="blt-panel-body">
+        <label class="blt-label">固定 UID 进房 · FIXED UID ENTER</label>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+            <div style="width:150px">
+                <label class="blt-label">UID</label>
+                <input class="blt-input mono" @bind="_simUid" placeholder="例如 10001" />
+            </div>
+            <div style="width:180px">
+                <label class="blt-label">昵称</label>
+                <input class="blt-input mono" @bind="_simUname" placeholder="例如 测试观众" />
+            </div>
+            <button class="blt-btn primary" style="margin-bottom:1px" @onclick="SendEnterAsync" disabled="@_simBusy">发送进房事件</button>
+            <span class="blt-hint" style="margin:0 0 9px 0">type=interact（进房），带输入的 uid / uname</span>
+        </div>
+
+        <label class="blt-label" style="margin-top:14px">礼物数量快捷 · GIFT QUANTITY</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="blt-btn" @onclick="() => SendGiftAsync(1)" disabled="@_simBusy">×1</button>
+            <button class="blt-btn" @onclick="() => SendGiftAsync(10)" disabled="@_simBusy">×10</button>
+            <button class="blt-btn" @onclick="() => SendGiftAsync(100)" disabled="@_simBusy">×100</button>
+            <button class="blt-btn" @onclick="() => SendGiftAsync(111)" disabled="@_simBusy">×111</button>
+            <span class="blt-hint" style="margin:0">小花花 · 固定 uid=10001 / uname=测试观众，用于验证礼物聚合与感谢链路</span>
+        </div>
+    </div>
+</div>
+
+<div class="blt-panel">
     <div class="blt-panel-head"><span class="t">ℹ 说明</span><span class="en">NOTES</span></div>
     <div class="blt-panel-body">
         <div class="blt-empty" style="padding:0;text-align:left">
@@ -95,9 +178,133 @@
     private string _copyHint = "";
     private bool _showText;
 
+    // ---- debug: event stats (GET /api/debug/stats) ----
+    private sealed record StatRow(string Type, long Count, string Last, string Sample);
+
+    private List<StatRow> _stats = new();
+    private bool _statsBusy;
+    private bool _statsLoaded;
+    private string _statsError = "";
+    private bool _statsConnected;
+    private string _statsRoomId = "";
+
+    // ---- debug: simulated events (POST /api/debug/event) ----
+    private string _simUid = "10001";
+    private string _simUname = "测试观众";
+    private bool _simBusy;
+
     private sealed record DiagItem(string Name, string State, long Latency, string Detail);
 
     private string BaseUrl => "http://127.0.0.1:" + Api.Port;
+
+    protected override Task OnInitializedAsync() => RefreshStatsAsync();
+
+    // ----- debug: event stats -----
+
+    private async Task RefreshStatsAsync()
+    {
+        if (_statsBusy) return;
+        _statsBusy = true;
+        _statsError = "";
+        try
+        {
+            var txt = await Http.GetStringAsync(BaseUrl + "/api/debug/stats");
+            var j = JsonNode.Parse(txt) as JsonObject;
+            var err = GetStr(j?["error"]);
+            if (err.Length > 0)
+            {
+                _statsError = "统计读取失败：" + err;
+                return;
+            }
+            var rows = new List<StatRow>();
+            if (j?["stats"] is JsonArray arr)
+            {
+                foreach (var n in arr)
+                {
+                    if (n is not JsonObject o) continue;
+                    rows.Add(new StatRow(GetStr(o["type"]), GetLong(o["count"]), GetStr(o["last"]), GetStr(o["sample"])));
+                }
+            }
+            _stats = rows;
+            _statsConnected = j?["connected"] is JsonValue cv && cv.TryGetValue<bool>(out var cb) && cb;
+            _statsRoomId = GetStr(j?["roomId"]);
+            _statsLoaded = true;
+        }
+        catch (Exception e)
+        {
+            _statsError = "统计读取失败：" + e.Message;
+        }
+        finally
+        {
+            _statsBusy = false;
+        }
+    }
+
+    // ----- debug: simulated events -----
+
+    /// <summary>Fixed-UID enter event (BuildMockEvent maps interact/enter → MsgType 1).</summary>
+    private async Task SendEnterAsync()
+    {
+        var uid = _simUid.Trim();
+        var uname = _simUname.Trim();
+        if (uid.Length == 0)
+        {
+            await UI.ToastAsync("请先填写 UID", false);
+            return;
+        }
+        if (uname.Length == 0) uname = "观众" + uid;
+        var body = new JsonObject { ["type"] = "interact", ["uid"] = uid, ["uname"] = uname };
+        await SendDebugEventAsync(body, "已发送进房事件 · " + uname + "（UID " + uid + "）");
+    }
+
+    /// <summary>Gift quick buttons: same mock endpoint, fixed tester identity (aggregation check).</summary>
+    private async Task SendGiftAsync(int num)
+    {
+        var body = new JsonObject
+        {
+            ["type"] = "gifts",
+            ["giftName"] = "小花花",
+            ["num"] = num,
+            ["uid"] = "10001",
+            ["uname"] = "测试观众",
+        };
+        await SendDebugEventAsync(body, "已发送礼物事件 · 小花花 ×" + num);
+    }
+
+    private async Task SendDebugEventAsync(JsonObject body, string okText)
+    {
+        if (_simBusy) return;
+        _simBusy = true;
+        try
+        {
+            var content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+            using var resp = await Http.PostAsync(BaseUrl + "/api/debug/event", content);
+            var txt = await resp.Content.ReadAsStringAsync();
+            JsonObject? j = null;
+            try { j = JsonNode.Parse(txt) as JsonObject; } catch { }
+            var err = GetStr(j?["error"]);
+            if (err.Length > 0)
+            {
+                await UI.ToastAsync("发送失败：" + err, false);
+                return;
+            }
+            if (!resp.IsSuccessStatusCode)
+            {
+                await UI.ToastAsync("发送失败：HTTP " + (int)resp.StatusCode, false);
+                return;
+            }
+            await UI.ToastAsync(okText, true);
+            await RefreshStatsAsync();
+        }
+        catch (Exception e)
+        {
+            await UI.ToastAsync("发送失败：" + e.Message, false);
+        }
+        finally
+        {
+            _simBusy = false;
+        }
+    }
 
     private async Task RunAsync()
     {
@@ -182,6 +389,41 @@
     }
 
     private string GeneratedText() => _generatedAt.Length > 0 ? "生成于 " + _generatedAt : "未运行";
+
+    // ----- debug: stats helpers -----
+
+    private string StatsBadge() => !_statsLoaded ? "off" : (_statsConnected ? "green" : "off");
+
+    private string StatsStateText() => !_statsLoaded ? "读取中…" : (_statsConnected ? "已连接" : "未连接");
+
+    private string StatsRoomText() => _statsRoomId.Length > 0 ? "房间 " + _statsRoomId : "房间 —";
+
+    private string StatsEmptyText() => _statsBusy
+        ? "读取统计…"
+        : "暂无事件统计 —— 连接直播间或发送下方模拟事件后点「刷新」";
+
+    private static string StatsThStyle() => StatsThStyle(false);
+
+    private static string StatsThStyleRight() => StatsThStyle(true);
+
+    private static string StatsThStyle(bool right)
+        => "text-align:" + (right ? "right" : "left")
+        + ";padding:6px 8px;font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:1px;border-bottom:1px solid var(--line)";
+
+    private static string TypeText(string type) => type switch
+    {
+        "danmu" => "弹幕",
+        "gifts" => "礼物",
+        "gifts_merged" => "礼物聚合",
+        "blindbox" => "盲盒",
+        "guard" => "舰长",
+        "superchat" => "SC",
+        "interact" => "互动/进房",
+        "pk" => "PK",
+        _ => type,
+    };
+
+    private static string Dash(string s) => s.Length > 0 ? s : "—";
 
     private static string StateText(string state) => state switch
     {

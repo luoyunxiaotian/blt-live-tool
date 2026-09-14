@@ -8,6 +8,7 @@
 @inject LivePipeline Pipeline
 @inject TtsSpeaker Speaker
 @inject BiLi_live_Tool.Services.DebouncedSaver Saver
+@inject BiLi_live_Tool.Services.UiKit UI
 @implements IDisposable
 @* TTS page: engine panel, master switch, per-type switches, tone presets and voice preview.
    Config is read from GET /api/config and written back as the whole document via POST /api/config
@@ -153,6 +154,88 @@
                 <div class="blt-hint">试听走 POST /api/tts/edge/（text + voice）· 返回 audio/mpeg 字节</div>
             </div>
         </div>
+
+        @* ── MOSS 自定义（克隆）音色：走 Kestrel 反代 /api/tts/moss/* → 127.0.0.1:8021，
+              路径与原版 legacy/tts.js 完全一致（GET /voices · POST /voices/add · /voices/remove）。 ── *@
+        @if (_engine == "moss")
+        {
+            var cloneReady = _mossInstalled && _mossRunning;
+            <div class="blt-panel">
+                <div class="blt-panel-head"><span class="t"><BltIcon Emoji="🎙" /> 自定义克隆音色</span><span class="en">CLONE VOICES</span>
+                    <span class="right"><span>GET /api/tts/moss/voices · POST .../voices/add | remove</span></span>
+                </div>
+                <div class="blt-panel-body">
+                    @if (!_mossInstalled)
+                    {
+                        <div class="blt-empty">引擎未安装 · 无法管理克隆音色（请重新安装本程序，或把 moss_tts_server.exe 放到 @_mossPath 同级目录）</div>
+                    }
+                    else if (!_mossRunning)
+                    {
+                        <div class="blt-empty">引擎未运行 · 点上方「启动」后再管理克隆音色</div>
+                    }
+
+                    <label class="blt-label">名称（留空则取参考音频文件名，最长 20 字）</label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <input class="blt-input" style="flex:1;min-width:130px" placeholder="如：主播本音"
+                               @bind="_cloneName" @bind:event="oninput" disabled="@(_busy || !cloneReady)"
+                               data-tip="3–10 秒清晰人声；克隆在本地 MOSS 服务完成，参考音频不上传" />
+                        <button class="blt-btn" style="flex:none" @onclick="PickCloneAudio" disabled="@(_busy || !cloneReady)">选择参考音频</button>
+                        <button class="blt-btn primary" style="flex:none" @onclick="AddCloneVoice"
+                                disabled="@(_busy || !cloneReady || _clonePath.Length == 0)">添加</button>
+                    </div>
+                    <div class="blt-hint" style="font-family:var(--mono);word-break:break-all">
+                        参考音频：@(_clonePath.Length > 0 ? _clonePath : "未选择（wav / mp3 / flac / m4a / ogg）")
+                    </div>
+
+                    <div class="blt-kv" style="margin-top:12px;border-top:1px solid var(--line)">
+                        <span class="k">已有克隆音色</span>
+                        <span class="v amber">@_cloneVoices.Count 个</span>
+                    </div>
+                    @if (_cloneLoading)
+                    {
+                        <div class="blt-empty">音色清单加载中…</div>
+                    }
+                    else if (_cloneVoices.Count == 0)
+                    {
+                        <div class="blt-empty">暂无克隆音色 · 选一段参考音频后点「添加」</div>
+                    }
+                    else
+                    {
+                        <div style="margin-top:6px">
+                            @foreach (var v in _cloneVoices)
+                            {
+                                <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)">
+                                    <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                        @v.Name <span class="blt-hint" style="margin:0;font-family:var(--mono)">@v.Id</span>
+                                    </span>
+                                    <button class="blt-btn" style="padding:3px 10px;flex:none" @onclick="() => PreviewClone(v)"
+                                            disabled="@(_busy || !cloneReady)">试听</button>
+                                    <button class="blt-btn" style="padding:3px 10px;flex:none" @onclick="() => DeleteClone(v)"
+                                            disabled="@(_busy || !cloneReady)">删除</button>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+                        <button class="blt-btn" @onclick="RefreshCloneVoices" disabled="@(_busy || !cloneReady)">刷新音色清单</button>
+                        <span class="blt-hint" style="margin:0">@_cloneMsg</span>
+                    </div>
+                    @if (_clonePreviewMsg.Length > 0)
+                    {
+                        <div class="blt-hint">@_clonePreviewMsg</div>
+                    }
+                    @if (_clonePreviewUrl.Length > 0)
+                    {
+                        <audio controls src="@_clonePreviewUrl" style="width:100%;margin-top:8px"></audio>
+                    }
+                    <div class="blt-hint">
+                        克隆在本地 MOSS 服务完成（POST /api/tts/moss/voices/add · name + 参考音频路径），删除需二次确认；试听走 POST /api/tts/moss/（voiceId）。
+                        播报音色仍由 tts.mossVoice 决定（当前 @_mossVoice），本卡片只负责管理克隆音色清单。
+                    </div>
+                </div>
+            </div>
+        }
 
         <div class="blt-panel">
             <div class="blt-panel-head"><span class="t">总开关 &amp; 语音</span><span class="en">MASTER</span>
@@ -360,6 +443,8 @@
 @code {
     // ---- shared HTTP client (localhost config API) ----
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
+    // MOSS synthesis needs longer than 30 s (first run loads the model); legacy used 90 s.
+    private static readonly HttpClient MossHttp = new() { Timeout = TimeSpan.FromSeconds(90) };
     private string Base => "http://127.0.0.1:" + Config.Port;
 
     private JsonObject? _doc;
@@ -374,6 +459,15 @@
 
     // moss engine installer (on-demand 44.5 MB exe; model stays lazy)
     private bool _mossInstalled;              // engineInstalled from MossStatus: exe present on disk
+
+    // moss custom (cloned) voices — same list the legacy panel shows
+    // (GET /api/tts/moss/voices · POST /api/tts/moss/voices/add · /voices/remove).
+    private readonly List<CloneVoice> _cloneVoices = new();
+    private bool _cloneLoading;               // GET /voices in flight
+    private string _cloneName = "";           // new voice name (empty → reference file name, max 20 chars)
+    private string _clonePath = "";           // reference audio full path, read by the local MOSS server
+    private string _cloneMsg = "";            // card status line (list fetch errors)
+    private string _clonePreviewId = "", _clonePreviewMsg = "", _clonePreviewUrl = "";
 
     // master
     private bool _enabled;
@@ -416,6 +510,13 @@
 
     private sealed record VoiceItem(string Name, string Label, bool Zh);
 
+    /// <summary>One MOSS custom (cloned) voice from GET /api/tts/moss/voices → custom[].</summary>
+    private sealed class CloneVoice
+    {
+        public string Id = "";
+        public string Name = "";
+    }
+
     private sealed record TonePreset(string Key, string Label, string Desc);
 
     /// <summary>Editable row of tts.tone.byType; Selected == "" means 「跟随全局」.</summary>
@@ -452,14 +553,22 @@
         Speaker.Changed += OnSpeakerChanged;
         await LoadConfigAsync();
         await RefreshAll();
-        // Keep the engine lamps fresh without hammering the API.
-        _tick = new System.Threading.Timer(_ => _ = InvokeAsync(() => { RefreshEngineLocal(); StateHasChanged(); }), null, 10000, 10000);
+        // Keep the engine lamps fresh without hammering the API; a running→stopped (or back)
+        // flip also refreshes the clone-voice list, which is only valid while the engine runs.
+        _tick = new System.Threading.Timer(_ => _ = InvokeAsync(async () =>
+        {
+            var wasRunning = _mossRunning;
+            RefreshEngineLocal();
+            if (_engine == "moss" && _mossRunning != wasRunning) await FetchMossVoicesAsync();
+            StateHasChanged();
+        }), null, 10000, 10000);
     }
 
     private async Task RefreshAll()
     {
         RefreshEngineLocal();
         await FetchMossStatusAsync();
+        await FetchMossVoicesAsync();
         await FetchEdgeVoicesAsync();
     }
 
@@ -649,6 +758,7 @@
         ApplyToDoc();
         await SaveAsync("引擎已保存（" + _engine + "）");
         if (_engine == "moss" && !_mossRunning) await MossActionAsync("ensure");
+        await FetchMossVoicesAsync();   // refresh the clone list together with the engine switch
     }
 
     private async Task SaveVoice()
@@ -958,6 +1068,7 @@
             _busy = false;
             _saveGate.Release();
             RefreshEngineLocal();
+            await FetchMossVoicesAsync();   // list is valid while running, cleared when stopped
         }
     }
 
@@ -973,6 +1084,233 @@
     /// <summary>Installer hint line: "42% · 18.7 MB / 44.5 MB" while running, else the last message.</summary>
 
     private string MossInstalledText() => _mossInstalled ? "已安装" : "未安装";
+
+    // ---- MOSS custom (cloned) voices ----
+    // Real paths (from legacy wwwroot/legacy/tts.js; the Kestrel proxy keeps the same names):
+    //   GET  /api/tts/moss/voices        → { builtin:[{id,name,desc}], custom:[{id,name,desc}] }
+    //   POST /api/tts/moss/voices/add    → { name, path }   (path = local reference-audio file)
+    //   POST /api/tts/moss/voices/remove → { id }
+    //   POST /api/tts/moss/              → { text, speed, voiceId } → WAV bytes (试听)
+    // Kestrel proxies /api/tts/{engine}/{**rest} to 127.0.0.1:8021, so the page only calls the local API.
+
+    /// <summary>GET /api/tts/moss/voices → custom[] (engine must be installed + running).</summary>
+    private async Task FetchMossVoicesAsync()
+    {
+        if (!_mossInstalled || !_mossRunning)
+        {
+            _cloneVoices.Clear();
+            _cloneMsg = "";
+            return;
+        }
+        _cloneLoading = true;
+        try
+        {
+            using var resp = await Http.GetAsync(Base + "/api/tts/moss/voices");
+            var text = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                _cloneMsg = "音色清单 HTTP " + (int)resp.StatusCode + ErrText(text);
+                return;
+            }
+            if (JsonNode.Parse(text) is not JsonObject o)
+            {
+                _cloneMsg = "音色清单格式异常";
+                return;
+            }
+            _cloneVoices.Clear();
+            if (o["custom"] is JsonArray arr)
+            {
+                foreach (var n in arr)
+                {
+                    if (n is not JsonObject v) continue;
+                    var id = Str(v, "id");
+                    if (id.Length == 0) continue;
+                    var name = Str(v, "name");
+                    _cloneVoices.Add(new CloneVoice { Id = id, Name = name.Length > 0 ? name : id });
+                }
+            }
+            _cloneMsg = "";
+        }
+        catch (Exception ex) { _cloneMsg = "音色清单读取失败：" + Short(ex.Message); }
+        finally { _cloneLoading = false; }
+    }
+
+    private async Task RefreshCloneVoices()
+    {
+        _busy = true;
+        try { await FetchMossVoicesAsync(); }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>Picks the reference audio; the MOSS service clones from the file path (never uploaded).</summary>
+    private async Task PickCloneAudio()
+    {
+        try
+        {
+            var file = await Microsoft.Maui.Storage.FilePicker.Default.PickAsync(
+                new Microsoft.Maui.Storage.PickOptions { PickerTitle = "选择参考音频（3–10 秒清晰人声）" });
+            if (file == null) return;   // cancelled
+            var path = file.FullPath ?? "";
+            var ext = System.IO.Path.GetExtension(file.FileName ?? "").ToLowerInvariant();
+            if (path.Length == 0) { await UI.ToastAsync("无法读取文件路径，请重试", false); return; }
+            if (ext.Length == 0 || Array.IndexOf(AudioExtensions, ext) < 0)
+            {
+                await UI.ToastAsync("请选择音频文件（wav / mp3 / flac / m4a / ogg）", false);
+                return;
+            }
+            _clonePath = path;
+            _cloneMsg = "";
+            if (_cloneName.Trim().Length == 0)
+            {
+                var bare = System.IO.Path.GetFileNameWithoutExtension(file.FileName ?? "");
+                if (bare.Length == 0) bare = "自定义音色";
+                _cloneName = bare.Length > 20 ? bare[..20] : bare;   // legacy slices to 20 chars as well
+            }
+        }
+        catch (Exception ex)
+        {
+            await UI.ToastAsync("选择参考音频失败：" + Short(ex.Message), false);
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private static readonly string[] AudioExtensions = { ".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac", ".wma", ".opus" };
+
+    /// <summary>POST /api/tts/moss/voices/add { name, path } — legacy response is { ok, error }.</summary>
+    private async Task AddCloneVoice()
+    {
+        var path = _clonePath;
+        if (path.Length == 0) { await UI.ToastAsync("请先选择参考音频", false); return; }
+        var name = _cloneName.Trim();
+        if (name.Length == 0) name = "自定义音色";
+        _busy = true;
+        try
+        {
+            var body = new JsonObject { ["name"] = name, ["path"] = path };
+            using var resp = await Http.PostAsync(Base + "/api/tts/moss/voices/add",
+                new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"));
+            var text = await resp.Content.ReadAsStringAsync();
+            var o = TryObject(text);
+            if (resp.IsSuccessStatusCode && Flag(o, "ok", true))
+            {
+                await UI.ToastAsync("已添加自定义音色「" + name + "」", true);
+                _cloneName = "";
+                _clonePath = "";
+                await FetchMossVoicesAsync();
+            }
+            else
+            {
+                var err = Str(o, "error");
+                await UI.ToastAsync("添加失败：" + (err.Length > 0 ? err : "HTTP " + (int)resp.StatusCode + ErrText(text)), false);
+            }
+        }
+        catch (Exception ex)
+        {
+            await UI.ToastAsync("添加失败：" + Short(ex.Message), false);
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>POST /api/tts/moss/voices/remove { id } — deletes after the confirm dialog.</summary>
+    private async Task DeleteClone(CloneVoice v)
+    {
+        if (!await UI.ConfirmAsync("确定删除该克隆音色？")) return;
+        _busy = true;
+        try
+        {
+            var body = new JsonObject { ["id"] = v.Id };
+            using var resp = await Http.PostAsync(Base + "/api/tts/moss/voices/remove",
+                new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"));
+            var text = await resp.Content.ReadAsStringAsync();
+            var o = TryObject(text);
+            if (resp.IsSuccessStatusCode && Flag(o, "ok", true))
+            {
+                if (_clonePreviewId == v.Id) { _clonePreviewId = ""; _clonePreviewMsg = ""; _clonePreviewUrl = ""; }
+                await UI.ToastAsync("已删除自定义音色「" + v.Name + "」", true);
+                await FetchMossVoicesAsync();
+            }
+            else
+            {
+                var err = Str(o, "error");
+                await UI.ToastAsync("删除失败：" + (err.Length > 0 ? err : "HTTP " + (int)resp.StatusCode + ErrText(text)), false);
+            }
+        }
+        catch (Exception ex)
+        {
+            await UI.ToastAsync("删除失败：" + Short(ex.Message), false);
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>Test-play one clone: POST /api/tts/moss/ with voiceId (same payload as legacy playMoss).</summary>
+    private async Task PreviewClone(CloneVoice v)
+    {
+        _busy = true;
+        _clonePreviewId = v.Id;
+        _clonePreviewMsg = "合成中…";
+        _clonePreviewUrl = "";
+        StateHasChanged();
+        try
+        {
+            var body = new JsonObject
+            {
+                ["text"] = "你好，这是当前音色的试听效果。",
+                ["speed"] = 1,
+                ["voiceId"] = v.Id,
+            };
+            using var resp = await MossHttp.PostAsync(Base + "/api/tts/moss/",
+                new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"));
+            if (!resp.IsSuccessStatusCode)
+            {
+                var err = await resp.Content.ReadAsStringAsync();
+                _clonePreviewMsg = "合成失败 · HTTP " + (int)resp.StatusCode + ErrText(err);
+                await UI.ToastAsync("试听失败：" + _clonePreviewMsg, false);
+                return;
+            }
+            var bytes = await resp.Content.ReadAsByteArrayAsync();
+            var mime = resp.Content.Headers.ContentType?.MediaType ?? "audio/wav";
+            if (bytes.Length < 100)
+            {
+                _clonePreviewMsg = "合成失败 · 仅返回 " + bytes.Length + " 字节";
+                return;
+            }
+            _clonePreviewMsg = "已合成 " + bytes.Length + " 字节（" + mime + "）";
+            // Inline data URL keeps the preview playable without extra JS assets (same as edge preview).
+            if (bytes.Length <= 2 * 1024 * 1024)
+                _clonePreviewUrl = "data:" + mime + ";base64," + Convert.ToBase64String(bytes);
+            else
+                _clonePreviewMsg += " · 超过 2MB，未内联播放";
+        }
+        catch (Exception ex)
+        {
+            _clonePreviewMsg = "试听失败：" + Short(ex.Message);
+            await UI.ToastAsync("试听失败：" + Short(ex.Message), false);
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>Parses a JSON body that may be empty or non-JSON (null on failure).</summary>
+    private static JsonObject? TryObject(string json)
+    {
+        try { return JsonNode.Parse(json) as JsonObject; }
+        catch { return null; }
+    }
 
     // ---- preview ----
 

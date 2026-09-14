@@ -71,6 +71,27 @@ public static class TrayService
     // Context menu command ids (arrive as WM_COMMAND with LOWORD(wParam) == id).
     private const int MenuToggleWindow = 1;
     private const int MenuQuit = 2;
+    private const int MenuOpenPanel = 3;
+    private const int MenuOpenDataDir = 4;
+    private const int MenuSvcStart = 5;
+    private const int MenuSvcStop = 6;
+    private const int MenuSvcRestart = 7;
+    private const int MenuAutoLaunch = 8;
+
+    /// <summary>
+    /// Extra tray entries, ported from the Electron tray.js menu (status/port lines,
+    /// open panel / data dir, service start\u00b7stop\u00b7restart, autostart checkbox).
+    /// </summary>
+    public sealed record MenuContext(
+        Func<string> StatusLine,
+        Func<string> PortLine,
+        Action OpenPanel,
+        Action OpenDataDir,
+        Action ServiceStart,
+        Action ServiceStop,
+        Action ServiceRestart,
+        Func<bool> AutoLaunchGet,
+        Action<bool> AutoLaunchSet);
 
     // Win32 message constants.
     private const uint WmCommand = 0x0111;
@@ -88,6 +109,8 @@ public static class TrayService
 
     // Menu / popup flags.
     private const uint MfString = 0x0000;
+    private const uint MfDisabled = 0x0002;
+    private const uint MfChecked = 0x0008;
     private const uint MfSeparator = 0x0800;
     private const uint TpmRightButton = 0x0002;
     private const uint TpmBottomAlign = 0x0020;
@@ -100,6 +123,7 @@ public static class TrayService
     private static bool _initialized;
     private static IntPtr _hwnd;
     private static Action? _onToggleVisible;
+    private static MenuContext? _menu;
     private static Action? _onQuit;
 
     /// <summary>Diagnostics for the optional-tray silent-failure path.</summary>
@@ -121,13 +145,14 @@ public static class TrayService
     /// <param name="title">Tooltip text shown when hovering the tray icon.</param>
     /// <param name="onToggleVisible">Invoked on left click and on "显示/隐藏窗口".</param>
     /// <param name="onQuit">Invoked on the "退出" menu item.</param>
-    public static void Initialize(string title, Action? onToggleVisible, Action? onQuit)
+    public static void Initialize(string title, Action? onToggleVisible, Action? onQuit, MenuContext? menu = null)
     {
         if (_initialized)
             return;
 
         _onToggleVisible = onToggleVisible;
         _onQuit = onQuit;
+        _menu = menu;
 
         try
         {
@@ -234,10 +259,19 @@ public static class TrayService
 
             case WmCommand:
                 int id = unchecked((int)(long)wParam) & 0xFFFF;
-                if (id == MenuToggleWindow)
-                    _onToggleVisible?.Invoke();
-                else if (id == MenuQuit)
-                    _onQuit?.Invoke();
+                switch (id)
+                {
+                    case MenuToggleWindow: _onToggleVisible?.Invoke(); break;
+                    case MenuQuit: _onQuit?.Invoke(); break;
+                    case MenuOpenPanel: _menu?.OpenPanel(); break;
+                    case MenuOpenDataDir: _menu?.OpenDataDir(); break;
+                    case MenuSvcStart: _menu?.ServiceStart(); break;
+                    case MenuSvcStop: _menu?.ServiceStop(); break;
+                    case MenuSvcRestart: _menu?.ServiceRestart(); break;
+                    case MenuAutoLaunch:
+                        if (_menu != null) _menu.AutoLaunchSet(!_menu.AutoLaunchGet());
+                        break;
+                }
                 break;
         }
 
@@ -265,6 +299,23 @@ public static class TrayService
 
         try
         {
+            if (_menu != null)
+            {
+                AppendMenuW(menu, MfString | MfDisabled, IntPtr.Zero, _menu.StatusLine());
+                AppendMenuW(menu, MfString | MfDisabled, IntPtr.Zero, _menu.PortLine());
+                AppendMenuW(menu, MfSeparator, IntPtr.Zero, null);
+                AppendMenuW(menu, MfString, (IntPtr)MenuOpenPanel, "\u6253\u5f00\u7ba1\u7406\u9762\u677f");
+                AppendMenuW(menu, MfString, (IntPtr)MenuOpenDataDir, "\u6253\u5f00\u6570\u636e\u76ee\u5f55");
+                AppendMenuW(menu, MfSeparator, IntPtr.Zero, null);
+                AppendMenuW(menu, MfString, (IntPtr)MenuSvcStart, "\u542f\u52a8\u670d\u52a1");
+                AppendMenuW(menu, MfString, (IntPtr)MenuSvcStop, "\u505c\u6b62\u670d\u52a1");
+                AppendMenuW(menu, MfString, (IntPtr)MenuSvcRestart, "\u91cd\u542f\u670d\u52a1");
+                AppendMenuW(menu, MfSeparator, IntPtr.Zero, null);
+                bool auto = false;
+                try { auto = _menu.AutoLaunchGet(); } catch { }
+                AppendMenuW(menu, MfString | (auto ? MfChecked : 0u), (IntPtr)MenuAutoLaunch, "\u5f00\u673a\u81ea\u542f");
+            }
+            AppendMenuW(menu, MfSeparator, IntPtr.Zero, null);
             AppendMenuW(menu, MfString, (IntPtr)MenuToggleWindow, "显示/隐藏窗口");
             AppendMenuW(menu, MfString, (IntPtr)MenuQuit, "退出");
 

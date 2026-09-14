@@ -19,6 +19,9 @@ public sealed class LiveEvent
     public int Num { get; set; } = 1;
     public long Price { get; set; }
     public long TotalCoin { get; set; }
+
+    /// <summary>ONLINE_RANK_V2/V3 payload: the current audience leaderboard (\u5728\u7ebf\u699c).</summary>
+    public List<OnlineRankEntry>? Rank { get; set; }
     public string CoinType { get; set; } = "gold";
     public double Value { get; set; }            // CNY estimate
     public int Level { get; set; }               // guard level 1/2/3
@@ -100,3 +103,6 @@ public sealed class EventHub
         StatusChanged?.Invoke(st);
     }
 }
+
+/// <summary>One 在线榜 entry (uid/uname/score/rank) as pushed by ONLINE_RANK_V2/V3.</summary>
+public sealed record OnlineRankEntry(long Uid, string Uname, string Score, int Rank);

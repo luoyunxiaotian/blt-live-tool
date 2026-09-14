@@ -66,17 +66,6 @@ public static partial class MusicApi
 
     // ─── QQ ───
 
-    /// <summary>把 JSON 的布尔/数字/字符串统一读成 0/1 标志（QQ 的 pay 字段实际是数字）。</summary>
-    private static long ToFlag(JsonNode? node)
-    {
-        if (node is not JsonValue v) return 0;
-        if (v.TryGetValue<bool>(out var b)) return b ? 1 : 0;
-        if (v.TryGetValue<long>(out var l)) return l;
-        if (v.TryGetValue<double>(out var d)) return (long)d;
-        if (v.TryGetValue<string>(out var s2) && long.TryParse(s2, out var p)) return p;
-        return 0;
-    }
-
     public static async Task<List<Song>> QqSearchAsync(string keyword, int limit, string searchType, CancellationToken ct)
     {
         var st = searchType == "lyric" ? 7 : 0;
@@ -91,8 +80,8 @@ public static partial class MusicApi
             foreach (var s in arr ?? new JsonArray())
             {
                 var artists = string.Join("/", ((s?["singer"] as JsonArray) ?? new JsonArray()).Select(x => Safe(x?["name"])));
-                // QQ 的 pay.payplay / paydownload 是数字（0/1），旧代码按 bool 解析永远失败 → VIP 歌被标成免费
-                bool vip = ToFlag(s?["pay"]?["payplay"]) > 0 || ToFlag(s?["pay"]?["paydownload"]) > 0 || ToFlag(s?["pay"]?["price_track"]) > 1;
+                bool vip = false;
+                if (s?["pay"]?["payplay"] is JsonValue pv && pv.TryGetValue<bool>(out var payplay)) vip = payplay;
                 list.Add(new Song(
                     Safe(s?["songmid"]), Safe(s?["songname"]) is var n && n.Length > 0 ? n : Safe(s?["title"]),
                     artists, Safe(s?["albumname"]), "qq", vip, Mid: Safe(s?["songmid"])));
@@ -757,12 +746,10 @@ public sealed class SongRequestService
         var cookies = cfg["cookies"] as JsonObject ?? new JsonObject();
         return new
         {
-            // 只认「登录标记」Cookie：登录页一打开就会下发游客 Cookie，
-            // 按非空判断会把未登录状态显示成「已配置」（用户实测反馈）。
-            qq = MusicLoginService.IsLoggedInCookie("qq", S(cookies, "qq")),
-            netease = MusicLoginService.IsLoggedInCookie("netease", S(cookies, "netease")),
-            kugou = MusicLoginService.IsLoggedInCookie("kugou", S(cookies, "kugou")),
-            bilibili = MusicLoginService.IsLoggedInCookie("bilibili", _config.Cookie),
+            qq = !string.IsNullOrEmpty(S(cookies, "qq")),
+            netease = !string.IsNullOrEmpty(S(cookies, "netease")),
+            kugou = !string.IsNullOrEmpty(S(cookies, "kugou")),
+            bilibili = !string.IsNullOrEmpty(_config.Cookie),
         };
     }
 

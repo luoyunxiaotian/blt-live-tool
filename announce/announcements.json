@@ -1,6 +1,35 @@
 {
   "schema": 1,
-  "updatedAt": "2026-09-14T11:23:53Z",
-  "pollAfterSeconds": 300,
-  "items": []
+  "updatedAt": "2026-09-14T11:25:33Z",
+  "pollAfterSeconds": 60,
+  "items": [
+    {
+      "id": "ann-test-sticky",
+      "type": "sticky",
+      "level": "info",
+      "title": "公告通道已上线",
+      "body": "这条常驻提示来自 GitHub 上的公告文件（经镜像拉取）。作者随时可在网页上改内容，客户端 1 分钟内更新，无需发新版。"
+    },
+    {
+      "id": "ann-test-normal",
+      "type": "normal",
+      "level": "info",
+      "title": "普通通知测试",
+      "body": "这条出现在右下角，点「知道了」后不再出现。",
+      "actions": [
+        {
+          "label": "查看仓库",
+          "url": "https://github.com/luoyunxiaotian/blt-live-tool"
+        }
+      ]
+    },
+    {
+      "id": "ann-test-ack",
+      "type": "ack",
+      "level": "critical",
+      "title": "强通知测试（需确认）",
+      "body": "这条必须点「我已阅读并确认」。确认后不会再弹，直到作者下架或过期。",
+      "ackMode": "soft"
+    }
+  ]
 }

@@ -185,19 +185,7 @@ export default {
             seen: parseInt((await env.ANN.get('stat:' + it.id + ':seen')) || '0', 10) || 0,
           };
         }
-        // 历史明细：最近 10 个快照里逐条公告（控制台按日期折叠、逐条查看/编辑/复制/恢复）
-        const detail = [];
-        for (const h of histRaw.slice(0, 10)) {
-          const snapItems = (await env.ANN.get('hist:' + h.ts, 'json')) || [];
-          detail.push({
-            ts: h.ts, at: h.at,
-            items: snapItems.map((it) => ({
-              id: it.id, type: it.type, level: it.level, title: it.title,
-              publishAt: it.publishAt || '', expireAt: it.expireAt || '',
-            })),
-          });
-        }
-        return json({ ok: true, live, cfg, draft, history: histRaw, historyDetail: detail, stats, serverTime: nowSec() });
+        return json({ ok: true, live, cfg, draft, history: histRaw, stats, serverTime: nowSec() });
       }
       if (action === 'draft' && req.method === 'POST') {
         const b = (await readJson(req)) || {};
@@ -313,17 +301,6 @@ label{display:block;font-size:12px;color:var(--ink2);margin:10px 0 4px}
 table{width:100%;border-collapse:collapse;font-size:12px}
 td,th{border-bottom:1px solid var(--line);padding:5px 4px;text-align:left}
 #login{max-width:420px;margin:80px auto}
-.tpl{flex:1;min-width:88px}
-.hist-group{border:1px solid var(--line);border-radius:6px;margin-bottom:8px;background:var(--panel2)}
-.hist-group>summary{cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink2);list-style:none}
-.hist-group>summary::-webkit-details-marker{display:none}
-.hist-group>summary::before{content:'\u25b8 ';color:var(--ink2)}
-.hist-group[open]>summary::before{content:'\u25be '}
-.hist-item{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 10px;border-top:1px solid var(--line);font-size:12.5px}
-.hist-item .t{flex:1 0 100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px}
-.hist-item button{padding:2px 8px;font-size:11.5px}
-.itm-acts{display:flex;gap:6px;margin-top:6px}
-.itm-acts button{padding:2px 8px;font-size:11.5px}
 </style></head><body>
 <header>
   <h1>BLT 公告控制台</h1>
@@ -344,18 +321,11 @@ td,th{border-bottom:1px solid var(--line);padding:5px 4px;text-align:left}
 
 <div class="wrap" id="app" style="display:none">
   <div class="card">
-    <h2>快速新建</h2>
-    <div class="row" id="tpl">
-      <button class="tpl" data-tpl="normal">＋ 普通通知</button>
-      <button class="tpl" data-tpl="sticky">＋ 持续通知</button>
-      <button class="tpl" data-tpl="ack">＋ 强通知</button>
-    </div>
-    <div class="hint">点模板即按该类型新建：普通=右下角卡片，持续=顶部常驻横幅，强通知=必须点确认。</div>
-    <h2 style="margin-top:14px">线上公告</h2>
+    <h2>公告列表</h2>
     <div id="list"></div>
-    <div class="row" style="margin-top:8px"><button id="btnNew">＋ 空白新建</button><button id="btnReload">刷新</button></div>
+    <div class="row" style="margin-top:8px"><button id="btnNew">＋ 新建公告</button><button id="btnReload">刷新</button></div>
     <div class="hint" id="listHint"></div>
-    <h2 style="margin-top:14px">发布历史（按日期折叠）</h2>
+    <h2 style="margin-top:14px">发布历史</h2>
     <div id="hist"></div>
   </div>
 
@@ -455,167 +425,41 @@ function statusOf(it){
   return '<span style="color:var(--green)">生效中</span>';
 }
 
-function liveStatus(it){
-  var now = Date.now();
-  if (it.publishAt && Date.parse(it.publishAt) > now) return '已排期';
-  if (it.expireAt && Date.parse(it.expireAt) <= now) return '已过期';
-  return '生效中';
-}
-
 function render(){
-  // ---- 线上公告：点标题编辑；行内小按钮可 编辑/复制/提前结束/删除 ----
   var l = $('list'); l.innerHTML = '';
   state.live.forEach(function(it, i){
     var d = document.createElement('div');
     d.className = 'item' + (editing === i ? ' active' : '');
     d.innerHTML = typeBadge(it.type) + '<b>' + esc(it.title) + '</b><div class="muted">' + statusOf(it) +
       (it.level === 'critical' ? ' · <span style="color:var(--red)">紧急</span>' : '') +
-      ((it.uids && it.uids.length) ? ' · 定向 ' + it.uids.length + ' 个 UID' : '') + '</div>' +
-      '<div class="itm-acts">' +
-        '<button data-a="edit">编辑</button>' +
-        '<button data-a="copy">复制</button>' +
-        '<button data-a="end" title="把过期时间设为现在，客户端下一次轮询后即不再显示">提前结束</button>' +
-        '<button data-a="del" class="danger">删除</button>' +
-      '</div>';
-    d.querySelector('b').onclick = function(){ loadItem(i); };
-    d.querySelector('[data-a=edit]').onclick = function(ev){ ev.stopPropagation(); loadItem(i); };
-    d.querySelector('[data-a=copy]').onclick = function(ev){ ev.stopPropagation(); duplicateItem(i); };
-    d.querySelector('[data-a=end]').onclick = function(ev){ ev.stopPropagation(); endItem(i); };
-    d.querySelector('[data-a=del]').onclick = function(ev){ ev.stopPropagation(); deleteItem(i); };
+      ((it.uids && it.uids.length) ? ' · 定向 ' + it.uids.length + ' 个 UID' : '') + '</div>';
+    d.onclick = function(){ loadItem(i); };
     l.appendChild(d);
   });
   if (!state.live.length) l.innerHTML = '<div class="muted">线上暂无公告</div>';
 
-  // ---- 发布历史：按日期折叠，逐条列出并可单独操作 ----
   var h = $('hist'); h.innerHTML = '';
-  var detail = state.historyDetail || [];
-  if (!detail.length) h.innerHTML = '<div class="muted">暂无历史</div>';
-  detail.forEach(function(g){
-    var gd = document.createElement('details');
-    gd.className = 'hist-group';
-    gd.open = detail.indexOf(g) === 0;
-    var when = g.at ? String(g.at).replace('T', ' ').slice(0, 16) : g.ts;
-    gd.innerHTML = '<summary>' + esc(when) + ' · ' + g.items.length + ' 条</summary>';
-    g.items.forEach(function(e){
-      var liveIdx = -1;
-      for (var k = 0; k < state.live.length; k++) if (state.live[k].id === e.id) liveIdx = k;
-      var row = document.createElement('div');
-      row.className = 'hist-item';
-      row.innerHTML = typeBadge(e.type) +
-        '<span class="t" title="' + esc(e.title) + '">' + esc(e.title) + '</span>' +
-        '<span class="muted">' + (liveIdx >= 0 ? liveStatus(state.live[liveIdx]) : '已下架') + '</span>' +
-        '<button data-a="load">编辑</button>' +
-        '<button data-a="copy">复制</button>' +
-        (liveIdx >= 0 ? '<button data-a="end">结束</button><button data-a="del" class="danger">删除</button>' : '') +
-        '<button data-a="rb" title="把线上内容整体回滚到这一次发布">恢复</button>';
-      row.querySelector('[data-a=load]').onclick = function(){ loadFromHistory(e, liveIdx); };
-      row.querySelector('[data-a=copy]').onclick = function(){ copyFromEntry(e); };
-      if (liveIdx >= 0) {
-        row.querySelector('[data-a=end]').onclick = function(){ endItem(liveIdx); };
-        row.querySelector('[data-a=del]').onclick = function(){ deleteItem(liveIdx); };
-      }
-      row.querySelector('[data-a=rb]').onclick = function(){ rollback(g.ts); };
-      gd.appendChild(row);
-    });
-    h.appendChild(gd);
+  (state.history || []).forEach(function(x){
+    var d = document.createElement('div');
+    d.className = 'item';
+    d.innerHTML = '<span class="muted">' + esc(x.at) + '</span> · ' + x.count + ' 条 <button style="float:right;padding:2px 8px" data-ts="' + esc(x.ts) + '">恢复此版</button>';
+    d.querySelector('button').onclick = function(ev){ ev.stopPropagation(); rollback(x.ts); };
+    h.appendChild(d);
   });
+  if (!state.history || !state.history.length) h.innerHTML = '<div class="muted">暂无历史</div>';
 
-  // ---- 回执统计 ----
-  var st = $('stats'); st.innerHTML = '';
+  var s = $('stats'); s.innerHTML = '';
   state.live.forEach(function(it){
-    var v = state.stats[it.id] || { ack: 0, seen: 0 };
+    var st = state.stats[it.id] || { ack: 0, seen: 0 };
     var tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + esc(it.title).slice(0, 18) + '</td><td>' + v.seen + '</td><td>' + v.ack + '</td>';
-    st.appendChild(tr);
+    tr.innerHTML = '<td>' + esc(it.title).slice(0, 18) + '</td><td>' + st.seen + '</td><td>' + st.ack + '</td>';
+    s.appendChild(tr);
   });
 
   $('emergency').checked = !!(state.cfg && state.cfg.emergency);
   $('enabled').checked = !(state.cfg && state.cfg.enabled === false);
   var t = editing != null && state.live[editing] ? state.live[editing].type : 'normal';
   preview(t);
-}
-
-// ---- 逐条操作 ----
-
-function newId(){ return 'a' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36); }
-
-function newFromTemplate(type){
-  resetForm();
-  var r = document.querySelector('input[name=type][value="' + type + '"]');
-  if (r) { r.checked = true; preview(type); }
-  $('title').focus();
-  showErr($('editMsg'), type === 'ack'
-    ? '强通知：客户端全屏弹出、必须点确认（soft 可稍后，hard 不确认不能用）'
-    : (type === 'sticky' ? '持续通知：常驻顶部横幅，直到过期或被下架' : '普通通知：右下角卡片，用户可点「知道了」关闭'), true);
-}
-
-function duplicateItem(i){
-  var src = state.live[i]; if (!src) return;
-  resetForm();
-  var copy = JSON.parse(JSON.stringify(src));
-  copy.id = newId();
-  copy.title = (src.title + '（副本）').slice(0, 120);
-  state.live = state.live.concat([copy]);
-  editing = state.live.length - 1;
-  loadItem(editing);
-  showErr($('editMsg'), '已复制为一条新公告（尚未发布）：改好后点发布', true);
-}
-
-function findHistoryEntry(id){
-  var found = null;
-  (state.historyDetail || []).forEach(function(g){
-    g.items.forEach(function(x){ if (x.id === id && !found) found = x; });
-  });
-  return found;
-}
-
-function copyFromEntry(e){
-  resetForm();
-  $('title').value = ((e.title || '') + '（副本）').slice(0, 120);
-  var r = document.querySelector('input[name=type][value="' + (e.type || 'normal') + '"]');
-  if (r) r.checked = true;
-  $('level').value = e.level || 'info';
-  if (e.expireAt) $('expire').value = isoToLocal(e.expireAt);
-  preview(e.type || 'normal');
-  showErr($('editMsg'), '已按该条新建副本（未发布，请补正文后点发布）', true);
-}
-
-function loadFromHistory(e, liveIdx){
-  if (liveIdx >= 0) { loadItem(liveIdx); return; }
-  resetForm();
-  $('title').value = e.title || '';
-  var r = document.querySelector('input[name=type][value="' + (e.type || 'normal') + '"]');
-  if (r) r.checked = true;
-  $('level').value = e.level || 'info';
-  if (e.expireAt) $('expire').value = isoToLocal(e.expireAt);
-  preview(e.type || 'normal');
-  showErr($('editMsg'), '该条已不在线上：这里是历史内容；发布会以同 id 重新上线，或先点「复制」换新 id', true);
-}
-
-async function publishItems(items, msg){
-  try {
-    await api('publish', 'POST', { items: items, cfg: state.cfg });
-    showErr($('editMsg'), msg, true);
-    editing = null;
-    await reload();
-  } catch (e) { showErr($('editMsg'), e.message, false); }
-}
-
-function endItem(i){
-  var items = state.live.slice();
-  if (!items[i]) return;
-  if (!confirm('提前结束「' + items[i].title + '」？客户端下一次轮询后就会停止显示。')) return;
-  items[i] = JSON.parse(JSON.stringify(items[i]));
-  items[i].expireAt = new Date().toISOString();
-  publishItems(items, '已提前结束该条公告');
-}
-
-function deleteItem(i){
-  var items = state.live.slice();
-  if (!items[i]) return;
-  if (!confirm('从线上删除「' + items[i].title + '」？（内容仍保留在发布历史里，可随时恢复）')) return;
-  items.splice(i, 1);
-  publishItems(items, '已删除该条公告');
 }
 
 function preview(type){
@@ -711,9 +555,8 @@ async function saveCfg(){
 }
 async function reload(){
   var s = await api('state');
-  state.live = s.live || []; state.cfg = s.cfg || {}; state.history = s.history || [];
-  state.historyDetail = s.historyDetail || []; state.stats = s.stats || {};
-  $('status').textContent = '已连接 · 线上 ' + state.live.length + ' 条 · 历史 ' + (state.historyDetail || []).length + ' 版' + (state.cfg.emergency ? ' · 紧急模式' : '');
+  state.live = s.live || []; state.cfg = s.cfg || {}; state.history = s.history || []; state.stats = s.stats || {};
+  $('status').textContent = '已连接 · 线上 ' + state.live.length + ' 条' + (state.cfg.emergency ? ' · 紧急模式' : '');
   $('listHint').textContent = '点击列表中的公告可编辑；发布后立即生效。';
   render();
 }
@@ -744,9 +587,6 @@ $('btnLogin').onclick = function(){
 };
 $('btnLogout').onclick = function(){ localStorage.removeItem('blt_admin_token'); location.reload(); };
 $('btnNew').onclick = resetForm;
-Array.prototype.forEach.call(document.querySelectorAll('#tpl .tpl'), function(b){
-  b.onclick = function(){ newFromTemplate(b.getAttribute('data-tpl')); };
-});
 $('btnReload').onclick = function(){ reload().catch(function(e){ showErr($('editMsg'), e.message, false); }); };
 $('btnPublish').onclick = publish;
 $('btnDelete').onclick = removeItem;

@@ -556,6 +556,16 @@ public sealed class AppUpdater
 
     // ---------------- internals ----------------
 
+    /// <summary>
+    /// Writes the .cmd that swaps the files after the app exits. Three things it must get
+    /// right (all three were wrong and produced "robocopy exited with 11" — the dll/exe/pri
+    /// were still held by a live process, so a *partial* install was left behind):
+    ///   1. wait for the launching PID *and* retry the copy while Windows still holds the
+    ///      files (a second instance, or delayed handle release, keeps them locked);
+    ///   2. verify the three lock-prone files really match the payload before reporting OK;
+    ///   3. keep result.txt ASCII-only — the app reads it as UTF-8 while cmd writes the
+    ///      console codepage, so a Chinese message would arrive garbled.
+    /// </summary>
     private void WriteApplyScript()
     {
         var script = """
@@ -563,25 +573,55 @@ public sealed class AppUpdater
 setlocal enableextensions
 for %%a in ("%~dp0..") do set "APP=%%~fa"
 set "PAY=%~dp0payload"
+set "LOG=%~dp0apply.log"
+set "RES=%~dp0result.txt"
 set "BAK=%~dp0..\update_backup\%date:~0,4%%date:~5,2%%date:~8,2%-%time:~0,2%%time:~3,2%%time:~6,2%"
 set "PID=%~1"
 
-for /l %%i in (1,1,90) do (
-  tasklist /FI "PID eq %PID%" 2>nul | find "%PID%" >nul || goto :swapped
-  ping -n 2 127.0.0.1 >nul
+rem 1) wait for the instance that launched us (up to ~60 s)
+if not "%PID%"=="" (
+  for /l %%i in (1,1,60) do (
+    tasklist /FI "PID eq %PID%" /NH 2>nul | find "%PID%" >nul || goto :backup
+    ping -n 2 127.0.0.1 >nul
+  )
 )
 
-:swapped
-robocopy "%APP%" "%BAK%" /E /XF config.json /XD data update_staging update_backup /NFL /NDL /NJH /NJS /R:1 /W:1 >nul 2>&1
-robocopy "%PAY%" "%APP%" /E /XF config.json /XD data update_staging update_backup /NFL /NDL /NJH /NJS /R:2 /W:1 > "%~dp0apply.log" 2>&1
-start "" "%APP%\BiLi_live_Tool.exe"
-if %ERRORLEVEL% LEQ 7 (
-  echo OK %date% %time% - files copied, app restarted> "%~dp0result.txt"
+:backup
+rem Back up the current install. The WebView2 profile is skipped: it is large and its host
+rem processes keep files open, which used to slow this step down for no benefit.
+robocopy "%APP%" "%BAK%" /E /XF config.json /XD data update_staging update_backup BiLi_live_Tool.exe.WebView2 /NFL /NDL /NJH /NJS /R:1 /W:1 >nul 2>&1
+
+rem 2) copy the payload, retrying while Windows still holds the exe/dll
+echo ==== %date% %time% apply ==== >> "%LOG%"
+set /a tries=0
+:copy
+robocopy "%PAY%" "%APP%" /E /XF config.json /XD data update_staging update_backup /NFL /NDL /NJH /NJS /R:2 /W:1 >> "%LOG%" 2>&1
+set "RC=%ERRORLEVEL%"
+if %RC% LSS 8 goto :report
+set /a tries+=1
+if %tries% GEQ 12 goto :report
+echo retry %tries% rc=%RC% (files still in use) >> "%LOG%"
+ping -n 3 127.0.0.1 >nul
+goto :copy
+
+:report
+rem 3) the lock-prone files must really be the payload's version
+set "BAD="
+for %%f in (BiLi_live_Tool.dll BiLi_live_Tool.exe resources.pri) do call :cmp "%%f"
+if defined BAD (
+  echo FAIL %date% %time% - files still locked, not replaced:%BAD% >> "%RES%"
 ) else (
-  echo FAIL %date% %time% - robocopy exited with %ERRORLEVEL%> "%~dp0result.txt"
+  echo OK %date% %time% - files copied, app restarted >> "%RES%"
 )
+start "" "%APP%\BiLi_live_Tool.exe"
 endlocal
 exit /b 0
+
+:cmp
+if not exist "%PAY%\%~1" goto :eof
+fc /b "%PAY%\%~1" "%APP%\%~1" >nul 2>&1
+if errorlevel 1 set "BAD=%BAD% %~1"
+goto :eof
 """;
         File.WriteAllText(ApplyScript, script.Replace("\r\n", "\n").Replace("\n", "\r\n"), System.Text.Encoding.UTF8);
     }

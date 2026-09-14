@@ -30,6 +30,7 @@ public sealed class AnnouncementService : IDisposable
     private readonly object _lock = new();
     private readonly Dictionary<string, string> _read = new();      // id → 已读时间
     private readonly Dictionary<string, string> _acked = new();     // id → 确认时间
+    private readonly HashSet<string> _hiddenSticky = new();         // 已「收起」的常驻公告 id
     private List<Item> _items = new();
     private Visible? _pendingAck;
     private int _pollSeconds = 300;
@@ -54,6 +55,7 @@ public sealed class AnnouncementService : IDisposable
             var cards = new List<Visible>();
             foreach (var it in _items)
             {
+                if (_hiddenSticky.Contains(it.Id)) continue;      // 用户点过「收起」
                 var v = Kind(it);
                 if (v.Sticky) sticky.Add(v);
                 else if (v.Card) cards.Add(v);
@@ -248,6 +250,17 @@ public sealed class AnnouncementService : IDisposable
         _pendingAck = pending.Count > 0 ? new Visible(pending[0], false, true, false) : null;
     }
 
+    /// <summary>收起一条常驻提示（持久化，重启后依然收起；作者换 id 或删掉该条后自然恢复）。</summary>
+    public void HideSticky(string id)
+    {
+        lock (_lock)
+        {
+            if (!_hiddenSticky.Add(id)) return;
+            SaveStateLocked();
+        }
+        Changed?.Invoke();
+    }
+
     public void Dismiss(string id)
     {
         lock (_lock)
@@ -301,6 +314,7 @@ public sealed class AnnouncementService : IDisposable
                 ["read"] = _read.Count,
                 ["acked"] = _acked.Count,
                 ["pendingAck"] = _pendingAck?.Item.Id ?? "",
+                ["hiddenSticky"] = _hiddenSticky.Count,
                 ["pollSeconds"] = _pollSeconds,
                 ["failStreak"] = _failStreak,
             };
@@ -322,6 +336,8 @@ public sealed class AnnouncementService : IDisposable
                     foreach (var kv in rd) _read[kv.Key] = kv.Value?.ToString() ?? "";
                 if (root?["ack"] is JsonObject ak)
                     foreach (var kv in ak) _acked[kv.Key] = kv.Value?.ToString() ?? "";
+                if (root?["hidden"] is JsonArray hd)
+                    foreach (var x in hd) { var v = x?.ToString(); if (!string.IsNullOrEmpty(v)) _hiddenSticky.Add(v!); }
             }
             if (File.Exists(CachePath))
             {
@@ -356,6 +372,7 @@ public sealed class AnnouncementService : IDisposable
             {
                 ["read"] = new JsonObject(_read.Select(kv => KeyValuePair.Create<string, JsonNode?>(kv.Key, kv.Value))),
                 ["ack"] = new JsonObject(_acked.Select(kv => KeyValuePair.Create<string, JsonNode?>(kv.Key, kv.Value))),
+                ["hidden"] = new JsonArray(_hiddenSticky.Select(x => (JsonNode?)x).ToArray()),
             };
             File.WriteAllText(StatePath, obj.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }

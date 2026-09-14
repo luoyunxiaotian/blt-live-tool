@@ -339,3 +339,10 @@ input.blt-input::-webkit-calendar-picker-indicator{filter:invert(.75)}
 .blt-ann-title{font-weight:700;color:var(--ink);display:inline-block;margin-right:6px}
 .blt-ann-body{color:var(--ink-2);white-space:pre-wrap}
 .blt-ann-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+
+/* 公告弹窗与横幅的排版修正：长正文限高滚动、不撑破弹窗；收起按钮靠右 */
+.blt-modal-box{max-height:min(78vh,720px);overflow:auto;overflow-wrap:anywhere}
+.blt-modal-box .msg{max-height:52vh;overflow:auto}
+.blt-ann-sticky .blt-ann-body{overflow-wrap:anywhere}
+.blt-ann-collapse{margin-left:auto;padding:2px 8px;white-space:nowrap;align-self:center}
+.blt-ann-ack-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap}

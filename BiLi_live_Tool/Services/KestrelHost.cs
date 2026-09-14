@@ -1019,6 +1019,7 @@ public sealed class KestrelHost
                     if (body["assetSize"] is JsonValue sv && sv.TryGetValue<long>(out var s2) && s2 > 0) size = s2;
                     if (url.Length == 0)
                         return Results.Json(new { error = "没有可下载的更新资产：请先检查更新" }, JsonWeb, statusCode: 400);
+                    _updater.MarkStarting();   // 立即给出"检测线路"状态，页面轮询第一拍就能看到
                     _ = _updater.DownloadAndStageAsync(url, name, size, sha, info?.Latest ?? "", manifestUrl);
                     return Results.Json(new { ok = true, started = true, url, name, size, sha, manifestUrl, version = info?.Latest ?? "" }, JsonWeb);
                 }

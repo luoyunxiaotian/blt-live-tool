@@ -304,10 +304,10 @@
                 <button class="blt-btn primary" @onclick="CheckUpdateNow" disabled="@_updateBusy"
                         data-tip="立即查询 Release 上是否有 -maui 结尾的新版本">@(_updateBusy ? "检查中…" : "立即检查")</button>
                 <button class="blt-btn" @onclick="OpenReleasePage">打开发布页</button>
-                @if (_updateHasUpdate && _updateHasAsset)
+                @if (_updateHasUpdate && _updateHasAsset && _updaterPhase != "Staged")
                 {
                     @* 已是最新时不出现下载入口（此前一直显示"下载并安装完整包 156.5 MB"） *@
-                    <button class="blt-btn primary" @onclick="StartUpdateDownload" disabled="@_updaterBusy">@DownloadBtnText()</button>
+                    <button class="blt-btn primary @(_updaterBusy ? "is-busy" : "")" @onclick="StartUpdateDownload" disabled="@_updaterBusy">@DownloadBtnText()</button>
                 }
                 @if (_updaterPhase == "Staged")
                 {
@@ -315,6 +315,15 @@
                     <button class="blt-btn" @onclick="CancelUpdate">稍后</button>
                 }
             </div>
+            @if (_updaterPhase == "Staged")
+            {
+                @* 显式告知自动重启：用户曾因不知道会自动重启而手动启动应用，
+                   正在被替换的 dll/exe 被占用，安装以 robocopy 11 失败。 *@
+                <div class="blt-hint" style="margin-top:8px;color:var(--amber-ink)">
+                    ⚠ 点「更新并重启」后：应用会<b>自动退出</b> → 替换文件 → <b>自动重新启动</b>（约十几秒，无需你手动开）。
+                    替换期间<b>请勿手动启动应用</b>，否则文件被占用会导致安装失败。
+                </div>
+            }
             @if (IncrementalHint().Length > 0)
             {
                 <div class="blt-hint" style="margin-top:8px;color:var(--green)">@IncrementalHint()</div>
@@ -322,9 +331,17 @@
             @if (_updaterMsg.Length > 0 || _updaterPercent > 0)
             {
                 <div style="margin-top:10px">
-                    <div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden">
-                        <div style="height:100%;width:@(_updaterPercent)%;background:var(--amber);transition:width .2s"></div>
-                    </div>
+                    @if (UpdaterIndeterminate())
+                    {
+                        @* 还没收数据（检测线路/拉清单/比对/解压）→ 走马灯式不定进度 *@
+                        <div style="height:6px;border-radius:3px;background:var(--line)" class="blt-bar-indet"></div>
+                    }
+                    else
+                    {
+                        <div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden">
+                            <div style="height:100%;width:@(_updaterPercent)%;background:var(--amber);transition:width .2s"></div>
+                        </div>
+                    }
                     <div class="blt-hint" style="margin-top:6px;color:@UpdaterNoteColor()">@_updaterMsg</div>
                 </div>
             }
@@ -1326,16 +1343,37 @@
     private string UpdaterNoteColor()
         => _updaterPhase == "Failed" ? "var(--red)" : _updaterPhase == "Staged" ? "var(--green)" : "var(--ink-3)";
 
+    /// <summary>True while no bytes are arriving yet (mirror detection, manifest fetch, file
+    /// comparison, extraction): the bar animates instead of sitting at 0 %, which used to look
+    /// like the click had done nothing.</summary>
+    private bool UpdaterIndeterminate()
+        => _updaterPhase is "Verifying" or "Extracting" or "Applying"
+           || (_updaterPhase == "Downloading" && _updaterPercent <= 0);
+
     private async Task StartUpdateDownload()
     {
         _updaterBusy = true;
         _updaterPercent = 0;
-        _updaterMsg = "正在准备下载…";
+        _updaterPhase = "Verifying";
+        _updaterMsg = "正在检测下载线路…";
         StateHasChanged();
         try
         {
+            // 一次点击必须够用：面板还没拿到检查结果时（刚启动/缓存按版本失效）先补一次检查，
+            // 再直接进入下载，避免"点一下没反应、要点第二下"。
+            if (!_updateHasAsset)
+            {
+                await CheckUpdateNow();
+                if (!_updateHasAsset)
+                {
+                    _updaterPhase = "Failed";
+                    _updaterMsg = "没有可下载的更新：请先点「立即检查」，或该版本暂无更新资产";
+                    return;
+                }
+            }
             await PostJsonAsync("/api/maui/update/download", new JsonObject());
             // 轮询进度（下载 156MB 视网络需要数十秒到数分钟）
+            var sawActivity = false;
             for (var i = 0; i < 600; i++)
             {
                 await Task.Delay(1000);
@@ -1345,7 +1383,11 @@
                 _updaterPercent = u["percent"] is JsonValue pct && pct.TryGetValue<int>(out var pi) ? pi : 0;
                 _updaterMsg = u["message"] is JsonValue mv && mv.TryGetValue<string>(out var ms) ? ms ?? "" : "";
                 StateHasChanged();
-                if (_updaterPhase is "Staged" or "Failed" or "Idle") break;
+                if (_updaterPhase is "Verifying" or "Downloading" or "Extracting" or "Applying") sawActivity = true;
+                if (_updaterPhase is "Staged" or "Failed" or "UpToDate") break;
+                // Idle 只在"已经看到任务跑起来"之后才算结束：否则点下载后的第一拍（任务还没开始，
+                // 服务端仍是上一次的 Idle）就会把进度显示掐掉，看起来像点了没反应。
+                if (_updaterPhase == "Idle" && sawActivity) break;
             }
         }
         catch (Exception ex)
@@ -1362,7 +1404,18 @@
 
     private async Task ApplyUpdateNow()
     {
-        _updaterMsg = "正在退出并安装，应用会自动重启…";
+        // 先确认：安装会退出应用并由脚本重启；期间手动启动会占用文件（首次失败就是这个原因）。
+        var go = true;
+        try
+        {
+            go = await JS.InvokeAsync<bool>("bltConfirm",
+                "应用将自动退出并替换文件，随后自动重新启动（约十几秒）。\n\n替换期间请勿手动启动应用，否则文件被占用会导致安装失败。\n\n现在开始安装？",
+                "开始安装", "取消");
+        }
+        catch { go = true; }
+        if (!go) return;
+        _updaterPhase = "Applying";
+        _updaterMsg = "正在退出并安装（请勿手动启动，会自动重启）…";
         StateHasChanged();
         await PostJsonAsync("/api/maui/update/apply", new JsonObject());
     }

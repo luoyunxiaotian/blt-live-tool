@@ -548,6 +548,12 @@ public sealed class AppUpdater
         return Current;
     }
 
+    /// <summary>Publishes the "starting" status synchronously, before the fire-and-forget
+    /// download task gets its first slice: the panel polls the moment it is clicked and would
+    /// otherwise read the previous Idle state, stop showing progress and look like a no-op.</summary>
+    public void MarkStarting() =>
+        Set(new Status(Phase.Verifying, 0, "正在检测下载线路…", 0, 0, "", false, ""));
+
     /// <summary>Deletes the staged payload, the apply script and any *.part downloads.
     /// Called after a successful install; a failure keeps the staging so the verified
     /// package can be reused for a retry.</summary>

@@ -4,13 +4,18 @@
 ;   /DPayloadDir=<打包好的发布树>   /DOutputDir=<产物目录>
 ;   /DAppVer=0.1.3                 /DOutputBase=<产物文件名（不含扩展名）>
 ;   /DSetupIcon=<tray.ico 路径>    /DChineseIsl=<ChineseSimplified.isl 路径，可选>
+;   /DLauncherExe=<直播小帮手.exe 路径>  /DReadmeFile=<说明.txt 路径>  /DLayoutFile=<layout.json 路径>
 ;
 ; 注意：本文件必须保存为「UTF-8 带 BOM」，否则 Inno 会按系统 ANSI 码页读取，
 ;       AppName/快捷方式里的中文会变乱码（make-installer.py 会自动补 BOM）。
 ;
-; 为什么默认装到 {localappdata}\Programs：应用把 data\（配置/歌词/录屏/点歌列表）、
-; update_staging\、update_backup\ 和 WebView2 配置目录全部写在 exe 旁边，并且内置更新器
-; 会就地替换自身文件 —— Program Files 下非管理员不可写，装过去整个应用都会出问题。
+; 目录布局（v0.1.4 起）：程序与全部依赖装在 {app}\app\（.NET 自包含的加载器要求依赖与主程序
+; 同目录，搬不走），根目录只保留启动器 直播小帮手.exe、app\、data\ 与 说明.txt。
+; data\（配置/歌词/录屏/点歌列表）放在安装根：app\layout.json 是布局标记，应用据此把数据
+; 目录指向安装根；update_staging\/update_backup\ 与 WebView2 配置仍在 exe 旁（{app}\app\）。
+;
+; 为什么默认装到 {localappdata}\Programs：应用要写自己的目录（数据、更新暂存、浏览器数据），
+; Program Files 下非管理员不可写，装过去整个应用都会出问题。
 
 #ifndef PayloadDir
   #error 缺少 /DPayloadDir=<发布树目录>
@@ -45,12 +50,14 @@ DisableDirPage=no
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 AllowNoIcons=yes
+; 卸载器也放进 app\，让安装根目录保持「启动器 + app\ + data\ + 说明.txt」四项
+UninstallFilesDir={app}\app
 OutputDir={#OutputDir}
 OutputBaseFilename={#OutputBase}
 #if SetupIcon != ""
 SetupIconFile={#SetupIcon}
 #endif
-UninstallDisplayIcon={app}\BiLi_live_Tool.exe
+UninstallDisplayIcon={app}\app\BiLi_live_Tool.exe
 UninstallDisplayName=直播小帮手 {#AppVer}
 Compression=lzma2/max
 SolidCompression=yes
@@ -77,22 +84,29 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 ; 整棵发布树（788 个文件：程序本体 + wwwroot + wwwroot\legacy 浮层/面板 + tts 两个引擎 exe
 ; + verify-key.txt + default-config.json + update-now.* 等），已由打包流程排除 data\、
 ; update_staging\、update_backup\、WebView2 配置与 config.json
-Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PayloadDir}\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs createallsubdirs
+; 根目录三样：启动器（双击即运行）、说明文件、布局标记（放在 app\ 内，见文件头注释）
+Source: "{#LauncherExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#ReadmeFile}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#LayoutFile}"; DestDir: "{app}\app"; Flags: ignoreversion
 
 [Icons]
 ; 开始菜单：组内一份 + Programs 根目录一份（后者保证开始菜单搜索能命中）
-Name: "{group}\直播小帮手"; Filename: "{app}\BiLi_live_Tool.exe"; WorkingDir: "{app}"; IconFilename: "{app}\tray.ico"; Comment: "直播小帮手 {#AppVer}"
-Name: "{autoprograms}\直播小帮手"; Filename: "{app}\BiLi_live_Tool.exe"; WorkingDir: "{app}"; IconFilename: "{app}\tray.ico"; Comment: "直播小帮手 {#AppVer}"
-Name: "{autodesktop}\直播小帮手"; Filename: "{app}\BiLi_live_Tool.exe"; WorkingDir: "{app}"; IconFilename: "{app}\tray.ico"; Tasks: desktopicon
+Name: "{group}\直播小帮手"; Filename: "{app}\直播小帮手.exe"; WorkingDir: "{app}"; IconFilename: "{app}\app\tray.ico"; Comment: "直播小帮手 {#AppVer}"
+Name: "{autoprograms}\直播小帮手"; Filename: "{app}\直播小帮手.exe"; WorkingDir: "{app}"; IconFilename: "{app}\app\tray.ico"; Comment: "直播小帮手 {#AppVer}"
+Name: "{autodesktop}\直播小帮手"; Filename: "{app}\直播小帮手.exe"; WorkingDir: "{app}"; IconFilename: "{app}\app\tray.ico"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\BiLi_live_Tool.exe"; Description: "立即启动 直播小帮手"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\直播小帮手.exe"; Description: "立即启动 直播小帮手"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-; 只清「运行期残留」；用户数据 data\ 刻意保留（Inno 本来也不会删运行期生成的文件）
-Type: filesandordirs; Name: "{app}\update_staging"
-Type: filesandordirs; Name: "{app}\update_backup"
-Type: filesandordirs; Name: "{app}\BiLi_live_Tool.exe.WebView2"
+; 程序文件由 Inno 按安装清单自动删除；这里只清运行期残留；
+; 用户数据 {app}\data 刻意保留
+Type: filesandordirs; Name: "{app}\app\update_staging"
+Type: filesandordirs; Name: "{app}\app\update_backup"
+Type: filesandordirs; Name: "{app}\app\BiLi_live_Tool.exe.WebView2"
+Type: files; Name: "{app}\直播小帮手.exe"
+Type: files; Name: "{app}\说明.txt"
 
 [Code]
 const

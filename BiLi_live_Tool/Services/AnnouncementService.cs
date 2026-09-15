@@ -322,8 +322,9 @@ public sealed class AnnouncementService : IDisposable
     }
 
     // ---------------- 本地持久化 ----------------
-    private static string StatePath => Path.Combine(AppContext.BaseDirectory, "data", "announcements-state.json");
-    private static string CachePath => Path.Combine(AppContext.BaseDirectory, "data", "announcements-cache.json");
+    // 走 AppConfig.DataDir：安装版的数据目录在安装根（app\ 的上一级），硬编码 exe 旁会指错地方
+    private static string StatePath => Path.Combine(AppConfig.DataDir, "announcements-state.json");
+    private static string CachePath => Path.Combine(AppConfig.DataDir, "announcements-cache.json");
 
     private void LoadState()
     {

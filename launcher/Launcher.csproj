@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 直播小帮手 · 启动器
+       安装根目录里那个"一眼可见、双击即运行"的程序。真正的程序与全部依赖在 app\ 里
+       （.NET 自包含的加载器要求依赖与主程序同目录，搬不走），这里只把它拉起来并立刻退出。
+       本工程位于应用工程之外（仓库根的 launcher\ 子目录），不会被应用工程的 **/*.cs 收进去。 -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>            <!-- GUI 子系统：不弹控制台窗口 -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>BLTLauncher</AssemblyName>
+    <RootNamespace>BltLauncher</RootNamespace>
+    <ApplicationIcon>..\BiLi_live_Tool\Assets\tray.ico</ApplicationIcon>
+    <AssemblyTitle>直播小帮手</AssemblyTitle>
+    <Product>直播小帮手</Product>
+    <Company>罗运小天</Company>
+    <Version>0.1.4</Version>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- AOT 体积最小（约 1.5MB），需要本机有 MSVC 链接器；构建脚本会在失败时退回裁剪单文件 -->
+    <PublishAot Condition="'$(PublishAot)' == ''">false</PublishAot>
+    <PublishTrimmed Condition="'$(PublishTrimmed)' == ''">false</PublishTrimmed>
+    <StripSymbols>true</StripSymbols>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+</Project>

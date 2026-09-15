@@ -38,6 +38,7 @@ public sealed class KestrelHost
     private readonly MusicLoginService _musicLogin;
     private readonly KeyViewService _keyview;
     private readonly TtsSpeaker _speaker;
+    private readonly CleanupService _cleanup;
     private readonly SongPlayer _songPlayer;
     private readonly UiBridge _ui;
     private readonly UpdateChecker _updateChecker;
@@ -128,7 +129,7 @@ public sealed class KestrelHost
 
     public int Port => _config.Port;
 
-    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker, VerifyService verify, AppUpdater updater, AnnouncementService announcements)
+    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker, VerifyService verify, AppUpdater updater, AnnouncementService announcements, CleanupService cleanup)
     {
         _announcements = announcements;
         _config = config;
@@ -140,6 +141,7 @@ public sealed class KestrelHost
         _musicLogin = musicLogin;
         _keyview = keyview;
         _speaker = speaker;
+        _cleanup = cleanup;
         _songPlayer = songPlayer;
         _ui = ui;
         _updateChecker = updateChecker;
@@ -972,7 +974,10 @@ public sealed class KestrelHost
                 {
                     // body.force = 用户点「立即检查」→ 忽略 6 小时节流
                     var force = body["force"] is JsonValue fv && fv.TryGetValue<bool>(out var fb) && fb;
-                    return Results.Json(await _updateChecker.CheckAsync(ctx.RequestAborted, force), JsonWeb);
+                    var info = await _updateChecker.CheckAsync(ctx.RequestAborted, force);
+                    // 把清单里的废弃文件列表落到本地，前端据此显示「清理旧文件」按钮
+                    try { _cleanup.Merge(info.Obsolete, info.Latest); } catch { }
+                    return Results.Json(info, JsonWeb);
                 }
                 case "update/status":
                 {
@@ -1036,6 +1041,26 @@ public sealed class KestrelHost
                         Ui(() => App.QuitForReal());
                     }
                     return Results.Json(new { ok }, JsonWeb);
+                }
+                case "cleanup/status":
+                    return Results.Json(_cleanup.Status(), JsonWeb);
+                case "cleanup/run":
+                {
+                    // 只删「发布清单里列出的旧文件」，且必须在程序目录内、非保护名单；
+                    // 删除前备份到 update_backup\cleanup-<ts>，被占用的留到下次。
+                    var rep = _cleanup.Run();
+                    ServiceLog.Info("清理", rep.Summary);
+                    return Results.Json(new
+                    {
+                        ok = true,
+                        deleted = rep.Deleted,
+                        missing = rep.Missing,
+                        skipped = rep.Skipped,
+                        skippedPaths = rep.SkippedPaths,
+                        backupDir = rep.BackupDir,
+                        logPath = rep.LogPath,
+                        summary = rep.Summary,
+                    }, JsonWeb);
                 }
                 case "update/clear":
                     _updater.Clear();

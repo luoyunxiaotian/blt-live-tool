@@ -41,6 +41,7 @@ namespace BiLi_live_Tool
             builder.Services.AddSingleton(sp => new UpdateChecker(KestrelHost.VersionText));
             builder.Services.AddSingleton<VerifyService>();
             builder.Services.AddSingleton<DebouncedSaver>();
+            builder.Services.AddSingleton<CleanupService>();
             builder.Services.AddSingleton<KestrelHost>();
 
 #if DEBUG
@@ -69,6 +70,8 @@ namespace BiLi_live_Tool
                 {
                     var checker = app.Services.GetRequiredService<UpdateChecker>();
                     var info = await checker.CheckAsync(CancellationToken.None);
+                    // 清单里的废弃文件列表落到本地，设置页/更新卡就会出现「清理旧文件」按钮
+                    try { app.Services.GetRequiredService<CleanupService>().Merge(info.Obsolete, info.Latest); } catch { }
                     if (info.HasUpdate)
                     {
                         System.Diagnostics.Debug.WriteLine($"[update] 发现新版本 {info.Latest}");
@@ -123,7 +126,7 @@ namespace BiLi_live_Tool
                     {
                         try
                         {
-                            var dir = Path.Combine(AppContext.BaseDirectory, "data");
+                            var dir = AppConfig.DataDir;   // 安装版在安装根，便携版在 exe 旁
                             Directory.CreateDirectory(dir);
                             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", dir) { UseShellExecute = true });
                         }

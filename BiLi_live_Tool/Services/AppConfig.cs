@@ -27,7 +27,34 @@ public sealed class AppConfig
         _doc = LoadDocument();
     }
 
-    public static string DataDir => Path.Combine(AppContext.BaseDirectory, "data");
+    /// <summary>
+    /// Layout root of the installation (null when the flat/portable layout is in use).
+    /// The installer-based layout (v0.1.4+) ships <c>app\layout.json</c> next to the exe:
+    /// <c>{"layout":2,"dataDir":"..\data"}</c>. With it, user data lives at the layout root —
+    /// the exe folder's parent — so the install root stays tidy (launcher + app\ + data\ +
+    /// readme) while the exe keeps all its dependencies beside it (the .NET loader requires
+    /// that). Portable builds have no marker and keep data next to the exe exactly as before.
+    /// </summary>
+    private static readonly Lazy<string?> LayoutRoot = new(ReadLayoutRoot);
+
+    private static string? ReadLayoutRoot()
+    {
+        try
+        {
+            var marker = Path.Combine(AppContext.BaseDirectory, "layout.json");
+            if (!File.Exists(marker)) return null;
+            if (JsonNode.Parse(File.ReadAllText(marker)) is not JsonObject o) return null;
+            // 只有明确声明了 layout>=2 才认这个标记，避免误读别的 json
+            if (o["layout"]?.GetValue<int?>() is not int n || n < 2) return null;
+            return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Where the installation starts: the layout root when a marker exists, else the exe folder.</summary>
+    public static string InstallRoot => LayoutRoot.Value ?? AppContext.BaseDirectory;
+
+    public static string DataDir => Path.Combine(InstallRoot, "data");
     public static string ConfigPath => Path.Combine(DataDir, "config.json");
     public static string WwwRoot => Path.Combine(AppContext.BaseDirectory, "wwwroot");
     public static string LegacyRoot => Path.Combine(WwwRoot, "legacy");

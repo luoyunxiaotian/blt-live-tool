@@ -328,6 +328,27 @@
             {
                 <div class="blt-hint" style="margin-top:8px;color:var(--green)">@IncrementalHint()</div>
             }
+            @* 更新后残留的废弃文件：清单来自发布 manifest，只删清单内文件，用户数据不动 *@
+            @if (_cleanupPending > 0)
+            {
+                <div class="blt-hint" style="margin-top:10px;color:var(--amber-ink)">
+                    ⚠ 上次更新留下 <b>@_cleanupPending</b> 个旧文件@(_cleanupVersion.Length > 0 ? "（来自 " + _cleanupVersion + "）" : "")，
+                    可以清理掉：只删发布清单里列出的文件，配置/歌词/录屏等用户数据不会被动，删除前自动备份到 update_backup\cleanup-*。
+                </div>
+                <div style="margin-top:8px;display:flex;align-items:center;gap:10px">
+                    <button class="blt-btn amber" style="flex:none" @onclick="RunCleanup" disabled="@_cleanupBusy">
+                        <BltIcon Emoji="🧹" /> @(_cleanupBusy ? "清理中…" : "清理旧文件（" + _cleanupPending + "）")
+                    </button>
+                    @if (_cleanupMsg.Length > 0)
+                    {
+                        <span class="blt-hint">@_cleanupMsg</span>
+                    }
+                </div>
+            }
+            else if (_cleanupMsg.Length > 0)
+            {
+                <div class="blt-hint" style="margin-top:10px;color:var(--green)">@_cleanupMsg</div>
+            }
             @if (_updaterMsg.Length > 0 || _updaterPercent > 0)
             {
                 <div style="margin-top:10px">
@@ -568,6 +589,7 @@
         _ = PollLikeStatus();   // first paint gets the current counters without waiting 1 s
         _ = LoadFoldersAsync();
         _ = LoadUpdateStatusAsync();
+        _ = LoadCleanupStatusAsync();   // 更新残留的旧文件：有的话显示清理按钮
         _ = LoadAutoLaunchAsync();
         _ = PollServerLogAsync();   // 服务日志：首次立即拉取，之后走 3 s 定时器
     }
@@ -1269,6 +1291,51 @@
         => _updatePatchApplies && _updatePatchSize > 0
             ? $"增量包基线 {_updatePatchFrom} 与本机版本一致：点下载只取变化文件（{Mb(_updatePatchSize)}），不必下 {Mb(_updateAssetSize)} 整包。"
             : "";
+
+    // ---------- 旧文件清理（更新后残留的废弃文件，清单来自发布 manifest）----------
+
+    private int _cleanupPending;
+    private string _cleanupVersion = "";
+    private string _cleanupMsg = "";
+    private bool _cleanupBusy;
+
+    private async Task LoadCleanupStatusAsync()
+    {
+        try
+        {
+            var o = await PostJsonReadAsync("/api/maui/cleanup/status", new JsonObject());
+            if (o == null) return;
+            _cleanupPending = o["pending"] is JsonValue pv && pv.TryGetValue<int>(out var pi) ? pi : 0;
+            _cleanupVersion = o["pendingVersion"] is JsonValue vv && vv.TryGetValue<string>(out var vs) ? vs ?? "" : "";
+        }
+        catch { }
+    }
+
+    private async Task RunCleanup()
+    {
+        var go = true;
+        try
+        {
+            go = await JS.InvokeAsync<bool>("bltConfirm",
+                "将删除 " + _cleanupPending + " 个更新后不再需要的旧文件。\n\n只删除发布清单里列出的文件；配置、歌词、录屏等用户数据不会被动，并且删除前会备份到 update_backup\\cleanup-*。\n\n现在开始清理？",
+                "开始清理", "取消");
+        }
+        catch { go = true; }
+        if (!go) return;
+        _cleanupBusy = true;
+        _cleanupMsg = "正在清理…";
+        StateHasChanged();
+        try
+        {
+            var o = await PostJsonReadAsync("/api/maui/cleanup/run", new JsonObject());
+            var summary = o?["summary"]?.GetValue<string>() ?? "清理完成";
+            var backup = o?["backupDir"]?.GetValue<string>() ?? "";
+            _cleanupMsg = backup.Length > 0 ? summary + "（备份：" + backup + "）" : summary;
+            await LoadCleanupStatusAsync();
+        }
+        catch (Exception ex) { _cleanupMsg = "清理失败：" + ex.Message; }
+        finally { _cleanupBusy = false; StateHasChanged(); }
+    }
 
     private async Task LoadUpdateStatusAsync()
     {

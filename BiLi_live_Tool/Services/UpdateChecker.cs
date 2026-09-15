@@ -169,7 +169,7 @@ public sealed class UpdateChecker
         var (manName, manSize, manUrl) = PickManifest(best);
         // Patch metadata from the manifest, so the panel can state what will really be
         // downloaded ("增量 1.9 MB") instead of always quoting the full-package size.
-        var (patchName, patchSize, patchFrom) = await PickPatchAsync(manUrl, ct).ConfigureAwait(false);
+        var (patchName, patchSize, patchFrom, obsolete) = await PickManifestInfoAsync(manUrl, ct).ConfigureAwait(false);
         var patchApplies = patchName.Length > 0 && patchFrom.Length > 0 && IsSameVersion(patchFrom, _currentVersion);
         return new UpdateInfo(
             hasUpdate, _currentVersion, latestTag,
@@ -180,25 +180,35 @@ public sealed class UpdateChecker
         {
             AssetSha256 = assetSha, ManifestName = manName, ManifestSize = manSize, ManifestUrl = manUrl,
             PatchName = patchName, PatchSize = patchSize, PatchFrom = patchFrom, PatchApplies = patchApplies,
+            Obsolete = obsolete,
         };
     }
 
-    /// <summary>patch{name,size,from} from the release manifest; empty when absent or
-    /// unreachable — a manifest hiccup must never fail the check itself.</summary>
-    private static async Task<(string Name, long Size, string From)> PickPatchAsync(string manifestUrl, CancellationToken ct)
+    /// <summary>patch{name,size,from} plus the cumulative obsolete list from the release
+    /// manifest; empty when absent or unreachable — a manifest hiccup must never fail the check.</summary>
+    private static async Task<(string Name, long Size, string From, List<string> Obsolete)> PickManifestInfoAsync(
+        string manifestUrl, CancellationToken ct)
     {
-        if (manifestUrl.Length == 0) return ("", 0, "");
+        if (manifestUrl.Length == 0) return ("", 0, "", new List<string>());
         try
         {
             var json = await GetManifestJsonAsync(manifestUrl, ct).ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
+            var obsolete = new List<string>();
+            if (doc.RootElement.TryGetProperty("obsolete", out var ob) && ob.ValueKind == JsonValueKind.Array)
+                foreach (var el in ob.EnumerateArray())
+                    if (el.ValueKind == JsonValueKind.String)
+                    {
+                        var p = el.GetString() ?? "";
+                        if (p.Length > 0) obsolete.Add(p);
+                    }
             if (!doc.RootElement.TryGetProperty("patch", out var patch) || patch.ValueKind != JsonValueKind.Object)
-                return ("", 0, "");
+                return ("", 0, "", obsolete);
             var size = patch.TryGetProperty("size", out var sv) && sv.ValueKind == JsonValueKind.Number ? sv.GetInt64() : 0;
-            return (GetString(patch, "name"), size, GetString(patch, "from"));
+            return (GetString(patch, "name"), size, GetString(patch, "from"), obsolete);
         }
         catch (OperationCanceledException) { throw; }
-        catch { return ("", 0, ""); }
+        catch { return ("", 0, "", new List<string>()); }
     }
 
     /// <summary>True when two version strings denote the same release ("0.1.2" vs "v0.1.2-maui").</summary>
@@ -406,6 +416,10 @@ public sealed record UpdateInfo(
     public long ManifestSize { get; init; }
     public string ManifestUrl { get; init; } = "";
 
+    /// <summary>Files this release no longer ships (cumulative since the layout baseline).
+    /// The app offers a cleanup button for them; see CleanupService.</summary>
+    public List<string> Obsolete { get; init; } = new();
+
     /// <summary>Patch named by the manifest (empty when the release has no patch).</summary>
     public string PatchName { get; init; } = "";
     public long PatchSize { get; init; }
@@ -451,6 +465,7 @@ public sealed record UpdateInfo(
 {
     public string AssetSha256 { get; init; } = "";
     // Kept for signature parity with the Windows build (unused on other targets).
+    public List<string> Obsolete { get; init; } = new();
     public string PatchName { get; init; } = "";
     public long PatchSize { get; init; }
     public string PatchFrom { get; init; } = "";

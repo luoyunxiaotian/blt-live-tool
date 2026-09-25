@@ -170,7 +170,7 @@ public sealed class UpdateChecker
         // Patch metadata from the manifest, so the panel can state what will really be
         // downloaded ("增量 1.9 MB") instead of always quoting the full-package size.
         var (patchName, patchSize, patchFrom, obsolete) = await PickManifestInfoAsync(manUrl, ct).ConfigureAwait(false);
-        var patchApplies = patchName.Length > 0 && patchFrom.Length > 0 && IsSameVersion(patchFrom, _currentVersion);
+        var patchApplies = PatchCovers(patchName, patchFrom, _currentVersion);
         return new UpdateInfo(
             hasUpdate, _currentVersion, latestTag,
             GetString(best, "name"), GetString(best, "html_url"),
@@ -217,6 +217,26 @@ public sealed class UpdateChecker
         var va = ParseVersion(a);
         var vb = ParseVersion(b);
         return va[0] == vb[0] && va[1] == vb[1] && va[2] == vb[2];
+    }
+
+    /// <summary>
+    /// 增量包是「从 patch.from 到本版」的**全量差分**（变了哪些文件就带哪些），所以凡是版本
+    /// **不低于** patch.from 的客户端都能直接覆盖使用 —— 不必与 patch.from 完全相同。
+    /// 这正好救「中间版本被重复发布过、同版本号永远等不到更新」的情况：例如 0.1.4 被替换重传后，
+    /// 手里是旧 0.1.4 的人不会看到任何 0.1.4 更新，但可以用「0.1.3 → 0.1.5」这条更大的差分升上来。
+    /// 比 patch.from 还旧的客户端不行：它缺 patch.from 那一版新增的文件，而差分里没有这些文件。
+    /// </summary>
+    public static bool PatchCovers(string patchName, string patchFrom, string currentVersion)
+    {
+        if (patchName.Length == 0 || patchFrom.Length == 0) return false;
+        var from = ParseVersion(patchFrom);
+        var cur = ParseVersion(currentVersion);
+        for (var i = 0; i < 3; i++)
+        {
+            if (cur[i] > from[i]) return true;      // 比起点新 → 覆盖得到
+            if (cur[i] < from[i]) return false;     // 比起点旧 → 差分包里缺文件
+        }
+        return true;                                 // 与起点同版
     }
 
     /// <summary>Manifest JSON through the download-mirror list (same policy as AppUpdater).</summary>

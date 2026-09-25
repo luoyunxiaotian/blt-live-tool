@@ -213,7 +213,9 @@ public sealed class AppUpdater
                     }
                     var patch = manifest.Patch;
                     var patchUrl = patch != null && patch.Name.Length > 0 ? ResolveSiblingUrl(assetUrl, patch.Name) : "";
-                    if (patch != null && Norm(patch.From) == Norm(_currentVersion) && patchUrl.Length > 0
+                    // 版本不低于 patch.from 就能用（下面 diff.All(...) 会再确认差分覆盖了本机全部差异）；
+                    // 这样「同版本号被重复发布、永远等不到更新」的机器也能靠更大的差分升上来。
+                    if (patch != null && UpdateChecker.PatchCovers(patch.Name, patch.From, _currentVersion) && patchUrl.Length > 0
                         && diff.All(d => patch.Paths.Contains(d.Path)))
                     {
                         var skipped = manifest.Files.Count - diff.Count;

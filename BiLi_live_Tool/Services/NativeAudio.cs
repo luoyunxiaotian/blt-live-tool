@@ -143,8 +143,43 @@ public sealed class NativeAudio : IDisposable
         catch (TimeoutException) { return new PlayResult(false, "native:timeout"); }
     }
 
-    /// <summary>Speaks text with a system voice, rendering into this process.</summary>
-    public async Task<bool> SpeakSystemAsync(string text, double rate, double pitch, double volume)
+    /// <summary>
+    /// One voice installed in Windows, as offered under the &#34;系统音色&#34; group.
+    /// <c>Name</c> is the display name because that is what the config stores (the
+    /// registry-style token id is only kept for lookup).
+    /// </summary>
+    public readonly record struct SystemVoice(string Name, string Label, string Lang, string Id);
+
+    /// <summary>
+    /// Voices the sys engine can use. They come from the OS (not from an engine
+    /// process), which is why the picker cannot read them over the TTS proxy.
+    /// </summary>
+    public static IReadOnlyList<SystemVoice> SystemVoiceList()
+    {
+        var list = new List<SystemVoice>();
+        try
+        {
+            foreach (var v in SpeechSynthesizer.AllVoices)
+            {
+                var gender = v.Gender == VoiceGender.Female ? "女" : v.Gender == VoiceGender.Male ? "男" : "?";
+                var lang = string.IsNullOrEmpty(v.Language) ? "" : v.Language;
+                var name = string.IsNullOrEmpty(v.DisplayName) ? v.Id : v.DisplayName;
+                list.Add(new SystemVoice(name, name + "（" + gender + (lang.Length > 0 ? " · " + lang : "") + "）", lang, v.Id));
+            }
+        }
+        catch
+        {
+            // No speech platform on this machine → an empty list, not a crash.
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Speaks text with a system voice, rendering into this process. When
+    /// <paramref name="voice"/> names an installed voice it is used, otherwise a
+    /// Chinese voice is preferred and the system default is the last resort.
+    /// </summary>
+    public async Task<bool> SpeakSystemAsync(string text, double rate, double pitch, double volume, string voice = "")
     {
         if (!TryInit() || _tts == null) return false;
         StopTts();
@@ -153,9 +188,8 @@ public sealed class NativeAudio : IDisposable
             var synth = new SpeechSynthesizer();
             try
             {
-                var zh = SpeechSynthesizer.AllVoices.FirstOrDefault(
-                    v => v.Language.StartsWith("zh", StringComparison.OrdinalIgnoreCase));
-                if (zh != null) synth.Voice = zh;
+                var picked = PickSystemVoice(voice);
+                if (picked != null) synth.Voice = picked;
             }
             catch { /* keep the system default voice */ }
             try
@@ -305,6 +339,21 @@ public sealed class NativeAudio : IDisposable
 
     private static double Clamp01(double v) => double.IsNaN(v) ? 1 : Math.Max(0, Math.Min(1, v));
 
+    /// <summary>Matches a configured voice against the installed ones (id or display name).</summary>
+    private static VoiceInformation? PickSystemVoice(string voice)
+    {
+        var all = SpeechSynthesizer.AllVoices;
+        if (!string.IsNullOrWhiteSpace(voice))
+        {
+            foreach (var v in all)
+                if (string.Equals(v.Id, voice, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(v.DisplayName, voice, StringComparison.OrdinalIgnoreCase))
+                    return v;
+        }
+        return all.FirstOrDefault(v => v.Language.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
+               ?? (all.Count > 0 ? all[0] : null);
+    }
+
     private static void TrySetRate(MediaPlayer p, double rate)
     {
         if (!(Math.Abs(rate - 1) > 0.001)) return;
@@ -438,6 +487,10 @@ public sealed class NativeAudio : IDisposable
 
     public const string Unavailable = "native-unavailable";
 
+    public readonly record struct SystemVoice(string Name, string Label, string Lang, string Id);
+
+    public static IReadOnlyList<SystemVoice> SystemVoiceList() => Array.Empty<SystemVoice>();
+
     public event Action<string>? SongEventJson { add { } remove { } }
 
     public bool TryInit() => false;
@@ -445,7 +498,7 @@ public sealed class NativeAudio : IDisposable
     public Task<PlayResult> PlayBase64Async(byte[] data, string mime, double volume, double rate)
         => Task.FromResult(new PlayResult(false, Unavailable));
 
-    public Task<bool> SpeakSystemAsync(string text, double rate, double pitch, double volume)
+    public Task<bool> SpeakSystemAsync(string text, double rate, double pitch, double volume, string voice = "")
         => Task.FromResult(false);
 
     public void StopTts() { }

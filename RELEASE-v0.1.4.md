@@ -54,6 +54,12 @@
   音频会话的 PID 就等于程序 PID，OBS 里用原来的配置（选 直播小帮手 / `BiLi_live_Tool.exe`）
   即可收到声音，无需虚拟声卡。网页 `<audio>` 那条路保留为兜底（引擎不可用时自动回退）。
   详细原理与复现命令见 `开发文档/OBS音频捕获修复.md`。
+- **语音念弹幕：音色清单不跟着引擎走**：原先无论引擎切到 moss / edge / sys，下方「音色与试听」
+  下拉里永远只有 edge 的在线音色（选 moss 看不到本地音色与克隆音色，选 sys 没有「系统音色」可选），
+  且 `tts.mossVoice` 只读展示、从不写回配置。现按原版（Electron 版 `rebuildVoiceSelect`）实现：
+  moss → 本地音色（内置 + 克隆，写 `tts.mossVoice`）；edge/sys → 在线音色按语种分组 + 「系统音色」组
+  （写 `tts.voice`），sys 播报时按所选音色匹配系统语音、匹配不到退中文音色。系统音色由本进程的
+  语音合成器提供（新增 `GET /api/tts/sys/voices`），试听也按引擎分流。详见 `开发文档/TTS音色与引擎选择.md`。
 
 ## 四、兼容与升级说明
 
@@ -67,10 +73,13 @@
 
 | 产物 | 大小 | SHA256 |
 |---|---|---|
-| `blt-live-tool-v0.1.4-maui-setup.exe` | 125.9 MB | `312a9cf99476683736abe70d312d7db1c66f1f602b65e99a4725b31e227cfd9b` |
-| `blt-live-tool-v0.1.4-maui-win-x64.zip` | 156.5 MB | `caeb6682ee78dc36d3284743ab01fcfeae8e1381a0938e70476fd7d9f0efe29c` |
-| `patch-0.1.4-from-0.1.3.zip` | 1.5 MB | `3411aa80f3642ef61c81c83114c7be5ed8275d8030c5ff723e3f7ac5605b2106` |
-| `manifest-0.1.4.json` | 131 KB | `b37983df00ab4534c61c95f24c574e267a3b36df0d6937dd2572d747cee1eb3e` |
+| `blt-live-tool-v0.1.4-maui-setup.exe` | 126.0 MB | `92bedf97957b2537c090d874c9c1b2d68079bfbd3fc848dd58fa3ce1df342690` |
+| `blt-live-tool-v0.1.4-maui-win-x64.zip` | 156.6 MB | `441fbff21da6dc1975caa7504396075bcb78936cd48ee5b818888ad9d21db60e` |
+| `patch-0.1.4-from-0.1.3.zip` | 1.6 MB | `8b79114970c5bf6473d6effa2d433f92fdfe76c30433ab23caecbcdf8bc52fae` |
+| `manifest-0.1.4.json` | 131 KB | `3ab7367e454074542b10a252eeb250ba1b9d64e5d3420b081c0f495838073f1f` |
+
+> 上表是**含音频捕获修复与 TTS 音色修复**的那次构建（本版资产在修复后重建过两次，下载请以
+> 本表哈希为准；旧哈希已作废）。
 
 验收（`tools/verify-installer.py`，中文路径）：**36/36 通过** —— 根目录恰好 4 项、`app\`
 内容完整（含 tts 与 verify-key）、启动器能拉起应用且 HTTP 应答、数据写在安装根 `data\`、

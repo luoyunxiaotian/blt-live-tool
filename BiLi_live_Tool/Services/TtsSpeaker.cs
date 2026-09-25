@@ -334,8 +334,10 @@ public sealed class TtsSpeaker
             switch (engine)
             {
                 case "sys":
-                    // 系统语音：pitch 是倍数（1 ± Hz/50）
-                    return await _audio.SpeakSystemAsync(text, rate, Math.Clamp(1 + pitchHz / 50.0, 0.5, 2), Math.Min(1, volume));
+                    // 系统语音：pitch 是倍数（1 ± Hz/50）。音色沿用 tts.voice —— 选的是
+                    // 系统音色就按名字匹配，选的是 edge/moss 音色则匹配不上、自动退回中文音色。
+                    return await _audio.SpeakSystemAsync(text, rate, Math.Clamp(1 + pitchHz / 50.0, 0.5, 2), Math.Min(1, volume),
+                        voice.Length > 0 ? voice : cfg.Voice);
 
                 case "moss":
                 {

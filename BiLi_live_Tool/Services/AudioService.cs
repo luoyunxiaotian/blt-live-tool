@@ -65,17 +65,17 @@ public sealed class AudioService
         catch { }
     }
 
-    public async Task<bool> SpeakSystemAsync(string text, double rate, double pitch, double volume)
+    public async Task<bool> SpeakSystemAsync(string text, double rate, double pitch, double volume, string voice = "")
     {
         if (_native.TryInit())
         {
-            try { return await _native.SpeakSystemAsync(text, rate, pitch, volume); }
+            try { return await _native.SpeakSystemAsync(text, rate, pitch, volume, voice); }
             catch { return false; }
         }
 
         var js = _js;
         if (js == null) return false;
-        try { return await js.InvokeAsync<bool>("bltAudio.speakSys", text, rate, pitch, volume); }
+        try { return await js.InvokeAsync<bool>("bltAudio.speakSys", text, rate, pitch, volume, voice); }
         catch { return false; }
     }
 

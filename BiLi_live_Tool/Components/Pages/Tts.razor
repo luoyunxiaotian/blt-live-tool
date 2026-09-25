@@ -7,6 +7,7 @@
 @inject TtsHost TtsEngine
 @inject LivePipeline Pipeline
 @inject TtsSpeaker Speaker
+@inject BiLi_live_Tool.Services.AudioService Audio
 @inject BiLi_live_Tool.Services.DebouncedSaver Saver
 @inject BiLi_live_Tool.Services.UiKit UI
 @implements IDisposable
@@ -84,6 +85,7 @@
                     else
                     {
                         <div class="blt-kv"><span class="k">系统语音</span><span class="v amber">免服务 · 本机语音合成</span></div>
+                        <div class="blt-kv"><span class="k">系统音色</span><span class="v @OnOff(_sysVoices.Count > 0)">@SysVoiceStateText()</span></div>
                         <div class="blt-kv"><span class="k">回退顺序</span><span class="v">edge → moss → sys</span></div>
                     }
                 </div>
@@ -118,32 +120,22 @@
                 @* Voice picker stays inside the engine card (legacy 「🔈 语音引擎」 groups engine + voice). *@
                 <div class="blt-kv" style="margin-top:14px;border-top:1px solid var(--line)">
                     <span class="k">voice · 音色与试听</span>
-                    <span class="v amber">@_voice</span>
+                    <span class="v amber">@VoiceSel</span>
                 </div>
-                @if (_engine != "edge")
-                {
-                    <div class="blt-hint" style="color:var(--amber-ink);margin:0 0 8px">
-                        当前引擎为 @_engine：下方列表来自 edge 引擎，选中后写入 tts.voice（moss 另用 mossVoice）
-                    </div>
-                }
-                <label class="blt-label">搜索音色（ShortName / 名称）</label>
+                <label class="blt-label">搜索音色（音色名 / 中文名 / 语种）</label>
                 <input class="blt-input mono" placeholder="如 zh-CN / xiaoxiao / 女声" @bind="_voiceFilter" @bind:event="oninput" />
 
                 <div style="margin-top:10px">
-                    <label class="blt-label">edge 音色（前 50 条 / 共 @_voices.Count 条 · 常用 @_favorites.Count / 20）</label>
-                    <select class="blt-input mono" style="cursor:pointer" @bind="_voice" @bind:after="SaveVoiceSoon">
-                        @if (_favorites.Count > 0)
+                    <label class="blt-label">@VoiceListLabel()</label>
+                    <select class="blt-input mono" style="cursor:pointer" @bind="VoiceSel" @bind:after="SaveVoiceSoon">
+                        @foreach (var g in VoiceGroups())
                         {
-                            <optgroup label="⭐ 常用音色">
-                                @foreach (var f in _favorites)
+                            <optgroup label="@g.Label">
+                                @foreach (var v in g.Items)
                                 {
-                                    <option value="@f">@FavoriteLabel(f)</option>
+                                    <option value="@v.Name">@v.Label</option>
                                 }
                             </optgroup>
-                        }
-                        @foreach (var v in ShownVoices())
-                        {
-                            <option value="@v.Name">@v.Label</option>
                         }
                     </select>
                 </div>
@@ -158,7 +150,7 @@
                     <audio controls src="@_previewUrl" style="width:100%;margin-top:10px"></audio>
                 }
                 <div class="blt-hint">音色选中即时生效并自动保存 · @AutoSaveText()</div>
-                <div class="blt-hint">试听走 POST /api/tts/edge/（text + voice）· 返回 audio/mpeg 字节</div>
+                <div class="blt-hint">@PreviewHint()</div>
             </div>
         </div>
 
@@ -493,7 +485,11 @@
     private List<CatRow> _cats = new();
 
     // voices
+    //   在线音色（edge）/ 系统音色（sys，本进程 WinRT 合成器）/ 本地音色（moss 内置 + 克隆）。
+    //   下拉按当前引擎取清单，与原版 rebuildVoiceSelect / buildVoiceOptions / buildMossVoiceOptions 一致。
     private readonly List<VoiceItem> _voices = new();
+    private readonly List<VoiceItem> _sysVoices = new();
+    private readonly List<VoiceItem> _mossBuiltin = new();
     private readonly List<string> _favorites = new();   // tts.favoriteVoices (max 20, oldest dropped)
     private string _voice = "zh-CN-XiaoxiaoNeural";
     private string _voiceFilter = "";
@@ -515,7 +511,7 @@
         public string Volume = "1";
     }
 
-    private sealed record VoiceItem(string Name, string Label, bool Zh);
+    private sealed record VoiceItem(string Name, string Label, string Group);
 
     /// <summary>One MOSS custom (cloned) voice from GET /api/tts/moss/voices → custom[].</summary>
     private sealed class CloneVoice
@@ -577,6 +573,7 @@
         await FetchMossStatusAsync();
         await FetchMossVoicesAsync();
         await FetchEdgeVoicesAsync();
+        await FetchSysVoicesAsync();
     }
 
     /// <summary>Queue changes come from the pipeline thread → marshal to the renderer.</summary>
@@ -717,6 +714,7 @@
         tts["enabled"] = _enabled;
         tts["engine"] = _engine;
         tts["voice"] = _voice;
+        tts["mossVoice"] = _mossVoice;   // 本地引擎音色：下拉选它时必须写回，否则一直是默认值
         tts["rate"] = ParseD(_rateText, 1);
         tts["volume"] = ParseD(_volumeText, 1);
         tts["blacklistUids"] = _blacklistUids;
@@ -764,8 +762,20 @@
     {
         ApplyToDoc();
         await SaveAsync("引擎已保存（" + _engine + "）");
-        if (_engine == "moss" && !_mossRunning) await MossActionAsync("ensure");
-        await FetchMossVoicesAsync();   // refresh the clone list together with the engine switch
+        // 下拉清单跟着引擎走：切到谁就把谁的清单拉一遍（原版 rebuildVoiceSelect 的语义）。
+        if (_engine == "moss")
+        {
+            if (!_mossRunning) await MossActionAsync("ensure");
+            await FetchMossVoicesAsync();
+        }
+        else if (_engine == "sys")
+        {
+            await FetchSysVoicesAsync();
+        }
+        else
+        {
+            await FetchEdgeVoicesAsync();
+        }
     }
 
     private async Task SaveVoice()
@@ -831,7 +841,7 @@
 
     private async Task ToggleFavorite()
     {
-        var name = _voice;
+        var name = VoiceSel;
         if (name.Length == 0) return;   // SaveAsync serializes with any in-flight auto-save
         if (_favorites.Contains(name))
         {
@@ -847,13 +857,14 @@
         await SaveAsync("常用音色已更新（" + _favorites.Count + " / 20）");
     }
 
-    private string FavoriteBtnText() => _favorites.Contains(_voice) ? "★ 已收藏" : "☆ 收藏";
+    private string FavoriteBtnText() => _favorites.Contains(VoiceSel) ? "★ 已收藏" : "☆ 收藏";
 
+    /// <summary>收藏项可能来自任一引擎的清单（edge ShortName / moss 音色 id / 系统音色名）。</summary>
     private string FavoriteLabel(string name)
     {
-        var hit = _voices.FirstOrDefault(v => v.Name == name);
+        var hit = _voices.Concat(_sysVoices).Concat(_mossBuiltin).FirstOrDefault(v => v.Name == name);
         var label = hit != null && hit.Label.Length > 0 ? hit.Label : name;
-        return name == _voice ? label + "（当前）" : label;
+        return name == VoiceSel ? label + "（当前）" : label;
     }
 
     // ---- speak queue ----
@@ -1021,13 +1032,11 @@
                 if (name.Length == 0) continue;
                 var friendly = Str(o, "FriendlyName");
                 var gender = Str(o, "Gender");
-                var zh = name.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
-                _voices.Add(new VoiceItem(name, VoiceLabel(name, friendly, gender), zh));
+                var locale = Str(o, "Locale");
+                if (locale.Length == 0) locale = Str(o, "locale");
+                _voices.Add(new VoiceItem(name, VoiceLabel(name, friendly, gender), EdgeGroup(locale)));
             }
-            // Chinese voices first so the 50-entry window is actually useful; order stays stable otherwise.
-            var sorted = _voices.OrderByDescending(v => v.Zh).ToList();
-            _voices.Clear();
-            _voices.AddRange(sorted);
+            // 语种分组由 GroupOrder 决定顺序（原版 order 数组），这里不再重排。
             if (_engine == "edge") _edgeRunning = true;
         }
         catch (Exception ex)
@@ -1106,6 +1115,7 @@
         if (!_mossInstalled || !_mossRunning)
         {
             _cloneVoices.Clear();
+            _mossBuiltin.Clear();
             _cloneMsg = "";
             return;
         }
@@ -1125,6 +1135,23 @@
                 return;
             }
             _cloneVoices.Clear();
+            _mossBuiltin.Clear();
+            // builtin[] 是本地引擎自带音色（原版 legacy/tts.js 也是这个字段），
+            // custom[] 是用户克隆出来的音色 —— 两者共同构成 moss 引擎的下拉清单。
+            if (o["builtin"] is JsonArray bArr)
+            {
+                foreach (var n in bArr)
+                {
+                    if (n is not JsonObject v) continue;
+                    var id = Str(v, "id");
+                    if (id.Length == 0) continue;
+                    var name = Str(v, "name");
+                    var desc = Str(v, "desc");
+                    _mossBuiltin.Add(new VoiceItem(id,
+                        (name.Length > 0 ? name : id) + (desc.Length > 0 ? " · " + desc : ""),
+                        "内置音色（本地）"));
+                }
+            }
             if (o["custom"] is JsonArray arr)
             {
                 foreach (var n in arr)
@@ -1323,14 +1350,42 @@
 
     private async Task Preview()
     {
+        var voice = VoiceSel;
+
+        // 系统语音没有 bytes 端点：直接让本进程的系统语音读一句（走 NativeAudio）。
+        if (_engine == "sys")
+        {
+            await _saveGate.WaitAsync();
+            _busy = true;
+            _previewMsg = "朗读中…";
+            _previewUrl = "";
+            try
+            {
+                var ok = await Audio.SpeakSystemAsync("这是一条试听", 1, 1, 1, voice);
+                _previewMsg = ok
+                    ? "已用系统语音朗读（音色：" + (voice.Length > 0 ? voice : "默认中文音色") + "）"
+                    : "系统语音朗读失败：本机可能没有可用的语音包";
+            }
+            catch (Exception ex) { _previewMsg = "朗读失败：" + Short(ex.Message); }
+            finally
+            {
+                _busy = false;
+                _saveGate.Release();
+            }
+            return;
+        }
+
         await _saveGate.WaitAsync();
         _busy = true;
         _previewMsg = "合成中…";
         _previewUrl = "";
         try
         {
-            var body = new JsonObject { ["text"] = "这是一条试听", ["voice"] = _voice };
-            using var resp = await Http.PostAsync(Base + "/api/tts/edge/",
+            var engine = _engine == "moss" ? "moss" : "edge";
+            var body = engine == "moss"
+                ? new JsonObject { ["text"] = "这是一条试听", ["speed"] = 1, ["voice"] = voice }
+                : new JsonObject { ["text"] = "这是一条试听", ["voice"] = voice };
+            using var resp = await Http.PostAsync(Base + "/api/tts/" + engine + "/",
                 new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"));
             if (!resp.IsSuccessStatusCode)
             {
@@ -1339,7 +1394,7 @@
                 return;
             }
             var bytes = await resp.Content.ReadAsByteArrayAsync();
-            var mime = resp.Content.Headers.ContentType?.MediaType ?? "audio/mpeg";
+            var mime = resp.Content.Headers.ContentType?.MediaType ?? (engine == "moss" ? "audio/wav" : "audio/mpeg");
             if (bytes.Length < 100)
             {
                 _previewMsg = "合成失败 · 仅返回 " + bytes.Length + " 字节";
@@ -1389,19 +1444,116 @@
 
     private static string BigSwitchClass(bool on) => on ? "blt-switch lg on" : "blt-switch lg";
 
-    private List<VoiceItem> ShownVoices()
+    /// <summary>
+    /// 下拉里当前音色。引擎决定它落哪个配置键：moss → tts.mossVoice，edge/sys → tts.voice
+    /// （与原版一致：sys 与 edge 共用「在线音色 + 系统音色」这一份清单）。
+    /// </summary>
+    private string VoiceSel
+    {
+        get => _engine == "moss" ? _mossVoice : _voice;
+        set { if (_engine == "moss") _mossVoice = value; else _voice = value; }
+    }
+
+    /// <summary>原版 voiceGroup()：在线音色按 locale 分组，作为下拉的 optgroup 标题。</summary>
+    private static string EdgeGroup(string locale)
+    {
+        var lc = locale ?? "";
+        if (lc.StartsWith("zh-CN", StringComparison.OrdinalIgnoreCase)) return "普通话(Edge)";
+        if (lc.StartsWith("zh-HK", StringComparison.OrdinalIgnoreCase)
+            || lc.StartsWith("zh-Hant-HK", StringComparison.OrdinalIgnoreCase)) return "粤语(Edge)";
+        if (lc.StartsWith("zh-TW", StringComparison.OrdinalIgnoreCase)) return "台湾国语(Edge)";
+        if (lc.StartsWith("en-", StringComparison.OrdinalIgnoreCase)) return "英语(Edge)";
+        if (lc.StartsWith("ja-", StringComparison.OrdinalIgnoreCase)) return "日语(Edge)";
+        if (lc.StartsWith("ko-", StringComparison.OrdinalIgnoreCase)) return "韩语(Edge)";
+        return lc.Length > 0 ? "其它语言(Edge)" : "在线音色(Edge)";
+    }
+
+    /// <summary>分组显示顺序（原版 order 数组 + 系统音色 + 本地音色）。</summary>
+    private static readonly string[] GroupOrder =
+    {
+        "普通话(Edge)", "粤语(Edge)", "台湾国语(Edge)", "英语(Edge)", "日语(Edge)", "韩语(Edge)",
+        "其它语言(Edge)", "在线音色(Edge)", "系统音色", "内置音色（本地）", "自定义音色（克隆）",
+    };
+
+    /// <summary>
+    /// 下拉分组：收藏置顶 → 按当前引擎给清单（原版 buildVoiceOptions / buildMossVoiceOptions）。
+    /// </summary>
+    private List<(string Label, List<VoiceItem> Items)> VoiceGroups()
     {
         var filter = _voiceFilter.Trim();
-        IEnumerable<VoiceItem> src = _voices;
-        if (filter.Length > 0)
-            src = src.Where(v => v.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
-                              || v.Label.Contains(filter, StringComparison.OrdinalIgnoreCase));
-        // Favorites are rendered in their own optgroup → keep them out of the main list.
-        var list = src.Where(v => !_favorites.Contains(v.Name)).Take(50).ToList();
-        if (_voice.Length > 0 && !_favorites.Contains(_voice) && !list.Any(v => v.Name == _voice))
-            list.Insert(0, new VoiceItem(_voice, _voice + "（当前配置）", false));
-        return list;
+        bool Match(VoiceItem v) => filter.Length == 0
+            || v.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+            || v.Label.Contains(filter, StringComparison.OrdinalIgnoreCase);
+
+        IEnumerable<VoiceItem> src = _engine == "moss"
+            ? _mossBuiltin.Concat(_cloneVoices.Select(c => new VoiceItem(c.Id, c.Name + "（克隆）", "自定义音色（克隆）")))
+            : _voices.Concat(_sysVoices);
+
+        var hit = src.Where(Match).ToList();
+        var groups = new List<(string Label, List<VoiceItem> Items)>();
+
+        var fav = hit.Where(v => _favorites.Contains(v.Name)).ToList();
+        if (fav.Count > 0) groups.Add(("⭐ 常用音色", fav));
+
+        foreach (var g in GroupOrder)
+        {
+            var items = hit.Where(v => v.Group == g).ToList();
+            if (items.Count > 0) groups.Add((g, items));
+        }
+
+        // 当前值不在清单里（引擎刚切换、本地服务还没起来）→ 补一条，别让下拉空白。
+        var cur = VoiceSel;
+        if (cur.Length > 0 && !groups.Any(g => g.Items.Any(v => v.Name == cur)))
+        {
+            var label = _engine == "moss" ? "当前配置（本地引擎未列出）" : "当前配置";
+            groups.Insert(0, (label, new List<VoiceItem> { new(cur, cur + "（当前）", label) }));
+        }
+        return groups;
     }
+
+    /// <summary>清单标题：写清这份清单来自哪个引擎、共多少条、落到哪个配置键。</summary>
+    private string VoiceListLabel() => _engine switch
+    {
+        "moss" => "本地音色 MOSS（内置 " + _mossBuiltin.Count + " + 克隆 " + _cloneVoices.Count
+                  + " · 写入 tts.mossVoice · 常用 " + _favorites.Count + "/20）",
+        "sys" => "在线音色 Edge（按语种分组）+ 系统音色（" + _sysVoices.Count
+                 + " · 写入 tts.voice · 常用 " + _favorites.Count + "/20）",
+        _ => "在线音色 Edge（按语种分组 · 共 " + _voices.Count + " 条 · 写入 tts.voice · 常用 "
+             + _favorites.Count + "/20）",
+    };
+
+    private string PreviewHint() => _engine switch
+    {
+        "moss" => "试听走 POST /api/tts/moss/（text + speed + voice）· 需本地引擎已启动",
+        "sys" => "试听由本进程的系统语音直接朗读（WinRT SpeechSynthesizer），不经过任何服务",
+        _ => "试听走 POST /api/tts/edge/（text + voice）· 返回 audio/mpeg 字节",
+    };
+
+    /// <summary>系统音色（sys 引擎用）：由本进程的 WinRT 语音合成器提供，不是引擎进程。</summary>
+    private async Task FetchSysVoicesAsync()
+    {
+        try
+        {
+            using var resp = await Http.GetAsync(Base + "/api/tts/sys/voices");
+            var text = await resp.Content.ReadAsStringAsync();
+            if (JsonNode.Parse(text) is not JsonArray arr) return;
+            _sysVoices.Clear();
+            foreach (var node in arr)
+            {
+                if (node is not JsonObject o) continue;
+                var name = Str(o, "ShortName");
+                if (name.Length == 0) name = Str(o, "Name");
+                if (name.Length == 0) continue;
+                var label = Str(o, "FriendlyName");
+                _sysVoices.Add(new VoiceItem(name, label.Length > 0 ? label : name, "系统音色"));
+            }
+        }
+        catch { /* 本机没有语音平台时留空，下拉仍有当前值一条 */ }
+    }
+
+    private string SysVoiceStateText() => _sysVoices.Count > 0
+        ? _sysVoices.Count + " 个可用"
+        : "未获取（系统无语音包？）";
 
     private static string VoiceLabel(string name, string friendly, string gender)
     {

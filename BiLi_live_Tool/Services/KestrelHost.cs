@@ -1343,6 +1343,27 @@ public sealed class KestrelHost
         });
 
         // ---- TTS reverse proxy to the standalone engines (8020/8021) ----
+        // System voices are not served by an engine process: the sys engine renders
+        // in-process (WinRT SpeechSynthesizer, see NativeAudio), so the picker reads
+        // them here. Field names mirror the edge list so the page parses both alike.
+        app.MapGet("/api/tts/sys/voices", () =>
+        {
+            var arr = new JsonArray();
+            foreach (var v in NativeAudio.SystemVoiceList())
+            {
+                arr.Add(new JsonObject
+                {
+                    ["ShortName"] = v.Name,
+                    ["Name"] = v.Name,
+                    ["FriendlyName"] = v.Label,
+                    ["Locale"] = v.Lang,
+                    ["Id"] = v.Id,
+                    ["sys"] = true,
+                });
+            }
+            return Results.Json(arr, JsonWeb);
+        });
+
         app.Map("/api/tts/{engine}/{**rest}", async (HttpContext ctx, string engine, string? rest) =>
         {
             var port = engine == "moss" ? TtsHost.MossPort : engine == "edge" ? TtsHost.EdgePort : 0;

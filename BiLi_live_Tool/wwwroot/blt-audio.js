@@ -55,7 +55,7 @@
   }
 
   // ---- 系统语音兜底 ----
-  function speakSys(text, rate, pitch, volume) {
+  function speakSys(text, rate, pitch, volume, voice) {
     return new Promise(function (resolve) {
       try {
         if (!window.speechSynthesis) { resolve(false); return; }
@@ -64,6 +64,20 @@
         u.rate = Math.max(0.5, Math.min(2, Number(rate) || 1));
         u.pitch = Math.max(0.5, Math.min(2, Number(pitch) || 1));
         u.volume = clamp01(volume);
+        // voice 是配置里的音色名（edge 的 ShortName 或系统音色名）；匹配不上则退回中文音色。
+        var list = [];
+        try { list = window.speechSynthesis.getVoices() || []; } catch (e) { }
+        var want = String(voice || '');
+        if (want.length > 0) {
+          for (var i = 0; i < list.length; i++) {
+            if (list[i].name === want) { u.voice = list[i]; break; }
+          }
+        }
+        if (!u.voice) {
+          for (var j = 0; j < list.length; j++) {
+            if (/^zh/i.test(list[j].lang || '')) { u.voice = list[j]; break; }
+          }
+        }
         u.onend = function () { resolve(true); };
         u.onerror = function () { resolve(false); };
         window.speechSynthesis.speak(u);

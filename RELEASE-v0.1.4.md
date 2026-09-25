@@ -60,6 +60,12 @@
   moss → 本地音色（内置 + 克隆，写 `tts.mossVoice`）；edge/sys → 在线音色按语种分组 + 「系统音色」组
   （写 `tts.voice`），sys 播报时按所选音色匹配系统语音、匹配不到退中文音色。系统音色由本进程的
   语音合成器提供（新增 `GET /api/tts/sys/voices`），试听也按引擎分流。详见 `开发文档/TTS音色与引擎选择.md`。
+- **公告通知点「我知道了 / 稍后」关不掉**：卡片过滤写成了 `showCard = RepeatUntilExpire || !read`，
+  而 `read` 只由「我知道了」写入 —— 带「到期前重复显示」的公告永远关不掉（按钮等于摆设），
+  强通知的「稍后」同样只是写状态、模态不消失。已按控制台文案的语义重做寿命：普通公告关掉即长期生效、
+  「到期前重复显示」只关掉本次运行（重启继续提醒，这正是「维护中」的用法）、soft 强通知的「稍后」同理、
+  常驻横幅「收起」持久生效；已读/收起状态改为按「id + 内容指纹」记，作者编辑公告后先前关掉过的用户会重新看到。
+  验收 `tools/test-announcement-dismiss.py` 13 项全过。详见 `开发文档/公告推送系统方案.md` 第八节。
 
 ## 四、兼容与升级说明
 
@@ -73,13 +79,14 @@
 
 | 产物 | 大小 | SHA256 |
 |---|---|---|
-| `blt-live-tool-v0.1.4-maui-setup.exe` | 126.0 MB | `488948c44d7268788025d01a9bcddd37acb42f93f0003316cf6ee9e37dacfec5` |
-| `blt-live-tool-v0.1.4-maui-win-x64.zip` | 156.6 MB | `441fbff21da6dc1975caa7504396075bcb78936cd48ee5b818888ad9d21db60e` |
-| `patch-0.1.4-from-0.1.3.zip` | 1.6 MB | `8b79114970c5bf6473d6effa2d433f92fdfe76c30433ab23caecbcdf8bc52fae` |
-| `manifest-0.1.4.json` | 131 KB | `3ab7367e454074542b10a252eeb250ba1b9d64e5d3420b081c0f495838073f1f` |
+| `blt-live-tool-v0.1.4-maui-setup.exe` | 126.0 MB | `f2de3089fabab5e29d7b51387b5d20bcccb1363417bfc0dd9a186438e5d8f34b` |
+| `blt-live-tool-v0.1.4-maui-win-x64.zip` | 156.6 MB | `dc5835b6f43c92b67b6e799926c73df05b31b4381a3de8a0b8766ac5c0b4d32a` |
+| `patch-0.1.4-from-0.1.3.zip` | 1.6 MB | `810a7e6d11a6942ec1d11d75d42b1c8502183a9d04911840e21d54d8706f9f42` |
+| `manifest-0.1.4.json` | 132 KB | `380d93fe6d5ea0028038d95f72b75ffd20d72c08390a6fa769088d7c845b7345` |
 
-> 上表是**含音频捕获修复与 TTS 音色修复**的那次构建（本版资产在修复后重建过两次，下载请以
-> 本表哈希为准；旧哈希已作废）。
+> 上表是**含音频捕获修复、TTS 音色修复、公告关闭修复**的那次构建（本版资产在修复后重建过三次，
+> 下载请以本表哈希为准；旧哈希已作废）。脱敏：源码仓 181 / 整包 790 / 安装后 `app\` 793 个文件，
+> 以真实运行配置里的 Cookie+uid 做字面量反查，**0 命中**（仅作者联系 uid/昵称属有意随包）。
 
 验收（`tools/verify-installer.py`，中文路径）：**36/36 通过** —— 根目录恰好 4 项、`app\`
 内容完整（含 tts 与 verify-key）、启动器能拉起应用且 HTTP 应答、数据写在安装根 `data\`、

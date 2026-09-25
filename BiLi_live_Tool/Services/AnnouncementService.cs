@@ -8,9 +8,14 @@ namespace BiLi_live_Tool.Services;
 ///
 /// 工作方式：后台按服务端给的节奏轮询 <c>announceUrl</c>（默认 5 分钟，紧急模式 60 秒），
 /// 带上本机 uid / 版本 / 通道（maui）让服务端做定向过滤，再在本地做时间去重：
-///   • normal 普通通知 —— 右下角卡片，点「知道了」后按 id 记已读，不再打扰
+///   • normal 普通通知 —— 右下角卡片，点「知道了」后不再打扰
 ///   • sticky 持续通知 —— 顶部常驻横幅，直到过期或作者下架
 ///   • ack    强通知   —— 全屏模态，必须点「我已阅读并确认」（soft 可稍后，下次启动再弹）
+///
+/// 「关掉」有两种寿命，对应控制台里那个开关的文案：
+///   • 普通公告（repeatUntilExpire=false）—— 关掉后长期生效；作者改动内容后会重新出现（状态按 id+内容指纹记）
+///   • 「到期前重复显示」（repeatUntilExpire=true）—— 只关掉**本次运行**，重启后继续提醒（适合「维护中」）
+///   • 强通知的「稍后」（soft）—— 同样是本次运行内不再挡，下次启动再弹
 ///
 /// 断网/被墙时静默降级：用本地缓存的最后一份内容；连续失败指数退避（最长 30 分钟）。
 /// 这个通道只在 0.1.3 植入一次，之后作者在控制台发公告即可，无需更新应用。
@@ -28,9 +33,10 @@ public sealed class AnnouncementService : IDisposable
 
     private readonly AppConfig _config;
     private readonly object _lock = new();
-    private readonly Dictionary<string, string> _read = new();      // id → 已读时间
+    private readonly Dictionary<string, string> _read = new();      // id#内容指纹 → 已读时间（长期）
     private readonly Dictionary<string, string> _acked = new();     // id → 确认时间
-    private readonly HashSet<string> _hiddenSticky = new();         // 已「收起」的常驻公告 id
+    private readonly HashSet<string> _hiddenSticky = new();         // 已「收起」的常驻公告 id#内容指纹
+    private readonly HashSet<string> _closedThisRun = new();        // 本次运行内被关掉的 id#内容指纹（不落盘）
     private List<Item> _items = new();
     private Visible? _pendingAck;
     private int _pollSeconds = 300;
@@ -55,7 +61,7 @@ public sealed class AnnouncementService : IDisposable
             var cards = new List<Visible>();
             foreach (var it in _items)
             {
-                if (_hiddenSticky.Contains(it.Id)) continue;      // 用户点过「收起」
+                if (_hiddenSticky.Contains(StateKey(it))) continue;   // 用户点过「收起」
                 var v = Kind(it);
                 if (v.Sticky) sticky.Add(v);
                 else if (v.Card) cards.Add(v);
@@ -226,50 +232,100 @@ public sealed class AnnouncementService : IDisposable
 
     private long _clockSkew;
 
+    /// <summary>
+    /// 已读/收起状态的键：<c>id#内容指纹</c>。作者在控制台改动标题/正文/按钮后会重新出现
+    /// （否则「编辑一条已发公告」对已被关掉它的用户永远不可见）。
+    /// </summary>
+    private static string StateKey(Item it)
+    {
+        var raw = string.Join("|", it.Id, it.Title, it.Body,
+            string.Join(">", it.Actions.Select(a => a.Label + "\u0001" + a.Kind + "\u0001" + a.Url)));
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(raw));
+        return it.Id + "#" + Convert.ToHexString(hash)[..8];
+    }
+
+    /// <summary>用户是否已把这条关掉（长期已读，或本次运行内关掉）。调用方需持有 _lock。</summary>
+    private bool ClosedLocked(Item it)
+    {
+        var key = StateKey(it);
+        return _read.ContainsKey(key) || _closedThisRun.Contains(key);
+    }
+
     private Visible Kind(Item it)
     {
         var ack = string.Equals(it.Type, "ack", StringComparison.OrdinalIgnoreCase);
         var sticky = string.Equals(it.Type, "sticky", StringComparison.OrdinalIgnoreCase);
-        bool read, acked;
-        lock (_lock) { read = _read.ContainsKey(it.Id); acked = _acked.ContainsKey(it.Id); }
+        bool acked, closed;
+        lock (_lock)
+        {
+            acked = _acked.ContainsKey(it.Id);
+            closed = ClosedLocked(it);
+        }
 
-        if (ack) return new Visible(it, false, !acked, false);
+        if (ack) return new Visible(it, false, !acked && !closed, false);
         if (sticky) return new Visible(it, true, false, false);
-        var showCard = it.RepeatUntilExpire || !read;
-        return new Visible(it, false, false, showCard);
+        // 普通卡片：关掉就不再打扰。带 repeatUntilExpire（控制台「到期前重复显示」）的同一套逻辑，
+        // 区别只在 Dismiss 落不落盘 —— 不落盘的会在下次启动继续提醒。
+        return new Visible(it, false, false, !closed);
     }
 
     /// <summary>选出一条待强确认的公告（critical 优先，然后按 id 稳定排序）。</summary>
     private void PickPendingAck()
     {
         var pending = _items
-            .Where(i => string.Equals(i.Type, "ack", StringComparison.OrdinalIgnoreCase) && !_acked.ContainsKey(i.Id))
+            .Where(i => string.Equals(i.Type, "ack", StringComparison.OrdinalIgnoreCase)
+                        && !_acked.ContainsKey(i.Id)
+                        && !_closedThisRun.Contains(StateKey(i)))   // 点过「稍后」：本次运行内不再挡
             .OrderByDescending(i => string.Equals(i.Level, "critical", StringComparison.OrdinalIgnoreCase))
             .ThenBy(i => i.Id, StringComparer.Ordinal)
             .ToList();
         _pendingAck = pending.Count > 0 ? new Visible(pending[0], false, true, false) : null;
     }
 
-    /// <summary>收起一条常驻提示（持久化，重启后依然收起；作者换 id 或删掉该条后自然恢复）。</summary>
+    /// <summary>收起一条常驻提示（持久化，重启后依然收起；作者改动内容或换 id 后自然恢复）。</summary>
     public void HideSticky(string id)
     {
         lock (_lock)
         {
-            if (!_hiddenSticky.Add(id)) return;
-            SaveStateLocked();
+            var key = ItemKey(id);
+            _closedThisRun.Add(key);                                 // 立刻从横幅上消失
+            if (_hiddenSticky.Add(key)) SaveStateLocked();            // 并落盘，重启后依然收起
         }
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// 「我知道了 / 稍后」：立刻关掉这条。
+    /// 普通公告记长期已读（作者改动内容后会重新出现）；<c>repeatUntilExpire</c> 的（控制台「到期前重复显示」，
+    /// 例如「维护中」）与 soft 强通知的「稍后」只关掉本次运行，下次启动继续提醒 —— 与控制台文案一致。
+    /// </summary>
     public void Dismiss(string id)
     {
         lock (_lock)
         {
-            _read[id] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            var it = _items.FirstOrDefault(x => x.Id == id);
+            if (it == null)
+            {
+                _read[id] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");   // 公告已下架：按 id 兜底记掉
+            }
+            else
+            {
+                var key = StateKey(it);
+                _closedThisRun.Add(key);
+                if (!it.RepeatUntilExpire) _read[key] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            }
             SaveStateLocked();
+            PickPendingAck();
         }
         _ = ReceiptAsync(id, "seen");
         Changed?.Invoke();
+    }
+
+    /// <summary>列表里某条公告的关掉状态键；公告不在当前列表时退回裸 id。</summary>
+    private string ItemKey(string id)
+    {
+        var it = _items.FirstOrDefault(x => x.Id == id);
+        return it != null ? StateKey(it) : id;
     }
 
     public void Ack(string id)

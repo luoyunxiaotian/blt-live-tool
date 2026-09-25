@@ -6,10 +6,11 @@ using Microsoft.JSInterop;
 namespace BiLi_live_Tool.Services;
 
 /// <summary>
-/// Port of Bin/public/song-player.js: drives the hidden &lt;audio&gt; element
-/// (blt-audio.js), resolves play URLs through /api/song-request/song-url,
-/// auto-advances (max 3 consecutive failures), and reports progress to the
-/// server so the OBS lyrics overlay follows (song_progress WS frame).
+/// Port of Bin/public/song-player.js: drives the audio layer (NativeAudio in this
+/// process, falling back to the hidden &lt;audio&gt; element in blt-audio.js),
+/// resolves play URLs through /api/song-request/song-url, auto-advances (max 3
+/// consecutive failures), and reports progress to the server so the OBS lyrics
+/// overlay follows (song_progress WS frame).
 /// </summary>
 public sealed class SongPlayer
 {
@@ -17,9 +18,11 @@ public sealed class SongPlayer
 
     private readonly AppConfig _config;
     private readonly EventHub _hub;
+    private readonly NativeAudio _native;
 
     private DotNetObjectReference<SongPlayer>? _self;
     private IJSRuntime? _js;
+    private bool _nativeWired;
     private long _lastReportTicks;
     private int _failCount;
     private volatile bool _stoppedByUser;
@@ -49,18 +52,73 @@ public sealed class SongPlayer
         return "";
     }
 
-    public SongPlayer(AppConfig config, EventHub hub)
+    public SongPlayer(AppConfig config, EventHub hub, NativeAudio native)
     {
         _config = config;
         _hub = hub;
+        _native = native;
     }
 
-    /// <summary>Attaches the Blazor JS runtime + DotNet callback ref (called by MainLayout).</summary>
+    /// <summary>Attaches the audio layer (called by MainLayout on first render).</summary>
     public async Task InitAsync(IJSRuntime js)
     {
         _js = js;
         _self ??= DotNetObjectReference.Create(this);
+
+        // Subscribe unconditionally: the native engine reports the same event JSON
+        // the JS layer used to invoke, and one of the two is a no-op at runtime.
+        if (!_nativeWired)
+        {
+            _nativeWired = true;
+            _native.SongEventJson += OnSongEvent;
+        }
+
         try { await js.InvokeVoidAsync("bltAudio.setDotNetRef", _self); } catch { }
+    }
+
+    // The engine is decided once (NativeAudio caches its init result), so every
+    // control below reads "native when available, else the JS element".
+    private bool UseNative => _native.TryInit();
+
+    private void PauseCall()
+    {
+        if (UseNative) _native.SongPause();
+        else _ = _js?.InvokeVoidAsync("bltAudio.songPause");
+    }
+
+    private void PlayCall()
+    {
+        if (UseNative) _native.SongPlay();
+        else _ = _js?.InvokeVoidAsync("bltAudio.songPlay");
+    }
+
+    private void StopCall()
+    {
+        if (UseNative) _native.SongStop();
+        else _ = _js?.InvokeVoidAsync("bltAudio.songStop");
+    }
+
+    private void SeekCall(double t)
+    {
+        if (UseNative) _native.SongSeek(t);
+        else _ = _js?.InvokeVoidAsync("bltAudio.songSeek", t);
+    }
+
+    /// <summary>
+    /// Hands the resolved URL to the audio layer. SongLoad reports false when the
+    /// source cannot be created at all, in which case the JS element is the only
+    /// way left to keep the song audible.
+    /// </summary>
+    private async Task StartPlaybackAsync(string url, double volume)
+    {
+        if (UseNative && _native.SongLoad(url, volume)) { _native.SongPlay(); return; }
+        if (_js == null) return;
+        try
+        {
+            await _js.InvokeVoidAsync("bltAudio.songLoad", url, volume);
+            await _js.InvokeVoidAsync("bltAudio.songPlay");
+        }
+        catch { }
     }
 
     // ---------------- controls ----------------
@@ -94,15 +152,7 @@ public sealed class SongPlayer
             _failCount = 0;
             _stoppedByUser = false;
             var volume = SongVolume();
-            if (_js != null)
-            {
-                try
-                {
-                    await _js.InvokeVoidAsync("bltAudio.songLoad", url, volume);
-                    await _js.InvokeVoidAsync("bltAudio.songPlay");
-                }
-                catch { }
-            }
+            await StartPlaybackAsync(url, volume);
             IsPlaying = true;
             Note($"正在播放：{CurrentName}");
             Changed?.Invoke();
@@ -128,7 +178,7 @@ public sealed class SongPlayer
 
     public void Pause()
     {
-        _ = _js?.InvokeVoidAsync("bltAudio.songPause");
+        PauseCall();
         IsPlaying = false;
         Changed?.Invoke();
         _ = ReportProgressAsync(force: true);
@@ -137,14 +187,14 @@ public sealed class SongPlayer
     public void Resume()
     {
         _stoppedByUser = false;
-        _ = _js?.InvokeVoidAsync("bltAudio.songPlay");
+        PlayCall();
         IsPlaying = true;
         Changed?.Invoke();
     }
 
     public void Seek(double t)
     {
-        _ = _js?.InvokeVoidAsync("bltAudio.songSeek", t);
+        SeekCall(t);
         Current = t;
         Changed?.Invoke();
         _ = ReportProgressAsync(force: true);
@@ -157,7 +207,7 @@ public sealed class SongPlayer
         // failure streak so a later bad track starts from a clean count.
         _stoppedByUser = true;
         _failCount = 0;
-        _ = _js?.InvokeVoidAsync("bltAudio.songStop");
+        StopCall();
         IsPlaying = false;
         PlayingIndex = -1;
         CurrentName = "";

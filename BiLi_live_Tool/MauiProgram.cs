@@ -29,6 +29,9 @@ namespace BiLi_live_Tool
             builder.Services.AddSingleton<MusicLoginService>();
             builder.Services.AddSingleton<KeyViewService>();
             builder.Services.AddSingleton<AudioService>();
+            // In-process audio host: keeps the WASAPI session on this exe so OBS's
+            // "Application Audio Capture" can pick it up (see NativeAudio.cs).
+            builder.Services.AddSingleton<NativeAudio>();
             builder.Services.AddSingleton<TtsSpeaker>();
             builder.Services.AddSingleton<PanelSoundPlayer>();
             builder.Services.AddSingleton<SongPlayer>();

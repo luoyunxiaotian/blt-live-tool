@@ -49,9 +49,11 @@
                     <button class="blt-btn" @onclick="OpenOverlay">打开浮层</button>
                     <button class="blt-btn" @onclick="RefreshStatus">刷新状态</button>
                 </div>
+                <div class="blt-kv"><span class="k">采集计数（钩子 / Raw / 轮询）</span><span class="v mono">@_hitsText</span></div>
                 <div class="blt-hint">
                     总开关会被记住：点「启动」后只要授权校验通过，下次开程序自动恢复，不必每次手点；点「停止」则保持关闭。
-                    未检测到授权时，所有功能保持关闭。
+                    未检测到授权时，所有功能保持关闭。若某游戏里不显示，看上面的计数：哪一路在涨就说明那条路通着
+                    （钩子/Raw 都被挡时，轮询那一路仍会涨）。
                 </div>
 
                 <label class="blt-label" style="margin-top:12px">keyview overlay url</label>
@@ -262,6 +264,8 @@
     private System.Threading.Timer? _timer;
     private bool _disposed;
     private bool _running;
+    private long _hookKbHits, _rawKbHits, _pollKbHits;
+    private string _hitsText => _hookKbHits + " / " + _rawKbHits + " / " + _pollKbHits;
     private int _clients;
     private string _overlayUrl = "";
     private string _lastError = "";
@@ -314,6 +318,9 @@
             }
             _running = Flag(o, "running", _running);
             _clients = (int)Num(o, "clients", _clients);
+            _hookKbHits = (long)Num(o, "hookKbHits", _hookKbHits);
+            _rawKbHits = (long)Num(o, "rawKbHits", _rawKbHits);
+            _pollKbHits = (long)Num(o, "pollKbHits", _pollKbHits);
             var url = o["overlayUrl"] is JsonValue uv && uv.TryGetValue<string>(out var s) ? s ?? "" : "";
             if (url.Length > 0) _overlayUrl = url;
         }

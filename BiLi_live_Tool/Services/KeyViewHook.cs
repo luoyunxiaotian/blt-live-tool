@@ -13,6 +13,15 @@ public sealed class KeyViewHook
     public long Events => 0;
     public long LastEventAgoMs => -1;
     public int Reinstalls => 0;
+    public long HookHits => 0;
+    public long RawHits => 0;
+    public long HookKbHits => 0;
+    public long RawKbHits => 0;
+    public long PollHits => 0;
+    public long PollKbHits => 0;
+    public long HookCalls => 0;
+    public bool HooksInstalled => false;
+    public string HooksDetail => "n/a";
     public void Reinstall() { }
 }
 #else
@@ -41,6 +50,13 @@ public sealed class KeyViewHook
     private const int WhMouseLl = 14;
     private const uint WmQuit = 0x0012;
     private const uint WmReinstall = 0x8000 + 0x51;   // WM_APP+81：请钩子线程重挂（自定义消息）
+    private const uint WmInput = 0x00FF;
+    private const uint RidInput = 0x10000003;
+    private const uint RidevInputSink = 0x00000100;
+    private const uint RidevRemove = 0x00000001;
+    private const int RimTypeMouse = 0;
+    private const int RimTypeKeyboard = 1;
+    private static readonly IntPtr HwndMessage = new(-3);
 
     // 存活看护参数：系统说"刚刚有人动过键鼠"，而我们这段时间一个事件都没收到 → 钩子被摘了
     private const int WatchIntervalMs = 5000;
@@ -101,6 +117,61 @@ public sealed class KeyViewHook
     private long _events;
     private int _reinstalls;
 
+    // ---- Raw Input（第二路采集）----
+    // 低级钩子会被挡在门外（前台窗口完整性更高、游戏/反外挂的输入链），而 Raw Input 的
+    // RIDEV_INPUTSINK 正是为这种场景准备的：系统把 WM_INPUT 投给**我们自己的**消息窗口，
+    // 不做任何跨进程注入，所以前台是游戏（乃至更高完整性）时依然收得到。
+    private IntPtr _rawWnd;
+    private IntPtr _oldWndProc;
+    private WndProc? _wndProcKeepAlive;
+    private Thread? _rawThread;
+    private uint _rawThreadId;
+    private long _hookHits;
+    private long _rawHits;
+    private long _hookKbHits;
+    private long _rawKbHits;
+    private long _hookCalls;             // 钩子回调被调用的次数（0 = 系统根本没回调我们）
+    private long _lastHookHitTicks;      // 钩子这一路最后一次收到事件的时间（按路看护用）
+    private long _lastOtherHitTicks;     // 其它两路最后一次收到事件的时间
+
+    // ---- 轮询兜底（第三路）----
+    // GetAsyncKeyState 读的是内核维护的"物理按键状态"（钩子链之前就已确定），所以哪怕某游戏
+    // 把低级钩子和 Raw Input 都挡了，这一路照样能看出按键的按下/抬起；鼠标位置用 GetCursorPos。
+    private Timer? _poll;
+    private long _pollHits;
+    private long _pollKbHits;
+    private readonly bool[] _vkDown = new bool[256];
+    private readonly bool[] _mouseDown = new bool[5];
+    private int _lastPollX = int.MinValue;
+    private int _lastPollY = int.MinValue;
+    private const int PollIntervalMs = 20;
+    private readonly Dictionary<string, long> _recentFrames = new();
+    private const int DedupMs = 35;          // 同一事件两路都会到，指纹相同则在窗口内只发一次
+
+    /// <summary>低级钩子收到的事件数（诊断：游戏里这个数不涨、raw 涨 → 钩子被挡了）。</summary>
+    public long HookHits => Interlocked.Read(ref _hookHits);
+
+    /// <summary>Raw Input 收到的事件数。</summary>
+    public long RawHits => Interlocked.Read(ref _rawHits);
+
+    /// <summary>键盘事件分别来自哪条路（鼠标移动噪声大，键盘计数才看得准）。</summary>
+    public long HookKbHits => Interlocked.Read(ref _hookKbHits);
+
+    /// <summary>钩子回调次数（0 说明这个环境里系统没有回调我们，钩子被挡在门外）。</summary>
+    public long HookCalls => Interlocked.Read(ref _hookCalls);
+
+    /// <summary>两个钩子是否安装成功（null 句柄 = SetWindowsHookEx 失败）。</summary>
+    public bool HooksInstalled => _kbHook != IntPtr.Zero || _msHook != IntPtr.Zero;
+
+    public string HooksDetail => "kb=" + (_kbHook != IntPtr.Zero ? "ok" : "null") + " ms=" + (_msHook != IntPtr.Zero ? "ok" : "null");
+
+    public long RawKbHits => Interlocked.Read(ref _rawKbHits);
+
+    /// <summary>轮询路收到的事件数（键盘 + 鼠标）。</summary>
+    public long PollHits => Interlocked.Read(ref _pollHits);
+
+    public long PollKbHits => Interlocked.Read(ref _pollKbHits);
+
     /// <summary>累计派发的事件帧数（诊断用：按键时这个数在涨说明钩子活着）。</summary>
     public long Events => Interlocked.Read(ref _events);
 
@@ -133,12 +204,15 @@ public sealed class KeyViewHook
         _thread.Start();
         _ = Task.Run(DrainAsync);
         _watch ??= new Timer(_ => Watch(), null, WatchIntervalMs, WatchIntervalMs);
+        _poll ??= new Timer(_ => PollInput(), null, PollIntervalMs, PollIntervalMs);
     }
 
     public void Stop()
     {
         try { _watch?.Dispose(); } catch { }
         _watch = null;
+        try { _poll?.Dispose(); } catch { }
+        _poll = null;
         if (_threadId != 0) PostThreadMessage(_threadId, WmQuit, IntPtr.Zero, IntPtr.Zero);
         _thread?.Join(2000);
         _thread = null;
@@ -149,6 +223,7 @@ public sealed class KeyViewHook
     {
         _threadId = GetCurrentThreadId();
         InstallHooks();
+        EnableRawInput();     // 第二路：钩子被挡时靠它
         // Message pump keeps the LL hooks alive on this thread.
         while (GetMessage(out var msg, IntPtr.Zero, 0, 0) > 0)
         {
@@ -159,6 +234,7 @@ public sealed class KeyViewHook
                 InstallHooks();
                 Interlocked.Increment(ref _reinstalls);
                 Interlocked.Exchange(ref _lastEventTicks, Environment.TickCount64);   // 重新计时，避免连环重挂
+                Interlocked.Exchange(ref _lastHookHitTicks, Environment.TickCount64);
                 ServiceLog.Info("键鼠", "输入钩子被系统摘掉，已重挂（第 " + _reinstalls + " 次）");
                 continue;
             }
@@ -166,6 +242,7 @@ public sealed class KeyViewHook
             _ = DispatchMessage(ref msg);
         }
         UninstallHooks();
+        DisableRawInput();
     }
 
     /// <summary>手动重挂（诊断/兜底）：走与看护同一条路，保证在钩子线程上执行。</summary>
@@ -173,6 +250,67 @@ public sealed class KeyViewHook
     {
         var t = _threadId;
         if (t != 0) PostThreadMessage(t, WmReinstall, IntPtr.Zero, IntPtr.Zero);
+    }
+
+    /// <summary>
+    /// 起一个**独立线程**承载 Raw Input 的消息窗口与消息泵。
+    /// 关键：不能放在钩子线程上 —— 鼠标移动的 WM_INPUT 是 500~1000Hz 的洪流，
+    /// 会把钩子线程占住，导致低级钩子回调赶不上系统的 LowLevelHooksTimeout 而被静默摘掉
+    /// （实测：钩子计数恒为 0、重挂也救不回来，而 Raw/轮询照常在涨）。
+    /// </summary>
+    private void EnableRawInput()
+    {
+        if (_rawThread != null) return;
+        _rawThread = new Thread(RawRun) { IsBackground = true, Name = "KeyViewRaw" };
+        _rawThread.SetApartmentState(ApartmentState.STA);
+        _rawThread.Start();
+    }
+
+    private void DisableRawInput()
+    {
+        if (_rawThreadId != 0) PostThreadMessage(_rawThreadId, WmQuit, IntPtr.Zero, IntPtr.Zero);
+        try { _rawThread?.Join(1500); } catch { }
+        _rawThread = null;
+        _rawThreadId = 0;
+        _rawWnd = IntPtr.Zero;
+    }
+
+    private void RawRun()
+    {
+        try
+        {
+            _rawThreadId = GetCurrentThreadId();
+            _wndProcKeepAlive = RawWndProc;
+            // 用内建 STATIC 类建一个消息窗口（HWND_MESSAGE），再把窗口过程换掉：
+            // 比注册自定义窗口类少一半代码，也不依赖 RegisterClassEx 的样式细节。
+            _rawWnd = CreateWindowExW(0, "STATIC", "blt-keyview-rawinput", 0, 0, 0, 0, 0,
+                                      HwndMessage, IntPtr.Zero, GetModuleHandleW(null), IntPtr.Zero);
+            if (_rawWnd == IntPtr.Zero) return;
+            _oldWndProc = SetWindowLongPtrW(_rawWnd, GwlWndProc, Marshal.GetFunctionPointerForDelegate(_wndProcKeepAlive));
+
+            var devs = new RAWINPUTDEVICE[2];
+            devs[0].usUsagePage = 0x01; devs[0].usUsage = 0x06;   // generic desktop / keyboard
+            devs[1].usUsagePage = 0x01; devs[1].usUsage = 0x02;   // generic desktop / mouse
+            for (var i = 0; i < devs.Length; i++)
+            {
+                devs[i].dwFlags = RidevInputSink;
+                devs[i].hwndTarget = _rawWnd;
+            }
+            RegisterRawInputDevices(devs, (uint)devs.Length, (uint)Marshal.SizeOf<RAWINPUTDEVICE>());
+
+            while (GetMessage(out var msg, IntPtr.Zero, 0, 0) > 0)
+            {
+                _ = TranslateMessage(ref msg);
+                _ = DispatchMessage(ref msg);
+            }
+
+            var off = new RAWINPUTDEVICE[2];
+            off[0].usUsagePage = 0x01; off[0].usUsage = 0x06;
+            off[1].usUsagePage = 0x01; off[1].usUsage = 0x02;
+            for (var i = 0; i < off.Length; i++) off[i].dwFlags = RidevRemove;
+            RegisterRawInputDevices(off, (uint)off.Length, (uint)Marshal.SizeOf<RAWINPUTDEVICE>());
+        }
+        catch { /* 采集线程异常不影响主流程 */ }
     }
 
     private void InstallHooks()
@@ -206,6 +344,19 @@ public sealed class KeyViewHook
     {
         var threadId = _threadId;
         if (threadId == 0) return;
+
+        // 按路看护：别的路在收、而**钩子这一路**已经 3 秒没动静 → 钩子被摘了 → 重挂。
+        // （只看"整体有没有事件"是不够的：Raw/轮询会一直喂事件，钩子死了也发现不了。）
+        var now = Environment.TickCount64;
+        var hookLast = Interlocked.Read(ref _lastHookHitTicks);
+        var otherLast = Interlocked.Read(ref _lastOtherHitTicks);
+        if (otherLast != 0 && now - otherLast <= MissGraceMs
+            && (hookLast == 0 || otherLast > hookLast + MissGraceMs))
+        {
+            PostThreadMessage(threadId, WmReinstall, IntPtr.Zero, IntPtr.Zero);
+            return;
+        }
+
         var last = Interlocked.Read(ref _lastEventTicks);
         if (last == 0) return;                       // 还没有任何事件，无从判断
         if (Environment.TickCount64 - last <= MissGraceMs) return;   // 我们也在收，正常
@@ -224,6 +375,7 @@ public sealed class KeyViewHook
         var inst = _active;
         if (nCode >= 0 && inst != null)
         {
+            Interlocked.Increment(ref inst._hookCalls);
             try { inst.Handle((uint)wParam, lParam); }
             catch { /* never let the hook throw */ }
         }
@@ -240,31 +392,31 @@ public sealed class KeyViewHook
             case WmKeyDown or WmSysKeyDown:
             {
                 var s = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-                EmitKb("down", (int)s.vkCode, now);
+                EmitKb("down", (int)s.vkCode, now, "hook");
                 break;
             }
             case WmKeyUp or WmSysKeyUp:
             {
                 var s = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-                EmitKb("up", (int)s.vkCode, now);
+                EmitKb("up", (int)s.vkCode, now, "hook");
                 break;
             }
             case WmLbuttonDown or WmLbuttonUp:
             {
                 var s = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-                EmitMs(msg == WmLbuttonDown ? "down" : "up", "left", s.pt.x, s.pt.y, now);
+                EmitMs(msg == WmLbuttonDown ? "down" : "up", "left", s.pt.x, s.pt.y, now, "hook");
                 break;
             }
             case WmRbuttonDown or WmRbuttonUp:
             {
                 var s = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-                EmitMs(msg == WmRbuttonDown ? "down" : "up", "right", s.pt.x, s.pt.y, now);
+                EmitMs(msg == WmRbuttonDown ? "down" : "up", "right", s.pt.x, s.pt.y, now, "hook");
                 break;
             }
             case WmMbuttonDown or WmMbuttonUp:
             {
                 var s = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-                EmitMs(msg == WmMbuttonDown ? "down" : "up", "middle", s.pt.x, s.pt.y, now);
+                EmitMs(msg == WmMbuttonDown ? "down" : "up", "middle", s.pt.x, s.pt.y, now, "hook");
                 break;
             }
             case WmXbuttonDown or WmXbuttonUp:
@@ -272,7 +424,7 @@ public sealed class KeyViewHook
                 var s = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
                 // X1/X2 live in the high word of mouseData.
                 var xb = (short)((s.mouseData >> 16) & 0xFFFF);
-                EmitMs(msg == WmXbuttonDown ? "down" : "up", xb == 2 ? "x2" : "x1", s.pt.x, s.pt.y, now);
+                EmitMs(msg == WmXbuttonDown ? "down" : "up", xb == 2 ? "x2" : "x1", s.pt.x, s.pt.y, now, "hook");
                 break;
             }
             case WmMouseWheel or WmMouseHWheel:
@@ -282,7 +434,7 @@ public sealed class KeyViewHook
                 int dx = 0, dy = 0;
                 if (msg == WmMouseHWheel) dx = delta / 120;
                 else dy = delta / 120;
-                Emit($"{{\"t\":\"ms\",\"e\":\"wheel\",\"dx\":{dx},\"dy\":{dy},\"x\":{s.pt.x},\"y\":{s.pt.y},\"ts\":{now}}}");
+                EmitWheel(dx, dy, s.pt.x, s.pt.y, now, "hook");
                 break;
             }
             case WmMouseMove:
@@ -291,17 +443,163 @@ public sealed class KeyViewHook
                 if (t - _lastMoveTicks < 16) return;
                 _lastMoveTicks = t;
                 var s = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-                Emit($"{{\"t\":\"ms\",\"e\":\"move\",\"x\":{s.pt.x},\"y\":{s.pt.y},\"ts\":{now}}}");
+                EmitMove(s.pt.x, s.pt.y, now, "hook");
                 break;
             }
         }
     }
 
-    private void EmitKb(string e, int vk, long ts)
-        => Emit($"{{\"t\":\"kb\",\"e\":\"{e}\",\"k\":\"{KeyName(vk)}\",\"code\":{vk},\"ts\":{ts}}}");
+    private void EmitKb(string e, int vk, long ts, string src)
+    {
+        if (src == "raw") Interlocked.Increment(ref _rawKbHits);
+        else if (src == "poll") Interlocked.Increment(ref _pollKbHits);
+        else Interlocked.Increment(ref _hookKbHits);
+        EmitDedup($"kb|{vk}|{e}", $"{{\"t\":\"kb\",\"e\":\"{e}\",\"k\":\"{KeyName(vk)}\",\"code\":{vk},\"ts\":{ts}}}", src);
+    }
 
-    private void EmitMs(string e, string button, int x, int y, long ts)
-        => Emit($"{{\"t\":\"ms\",\"e\":\"{e}\",\"b\":\"{button}\",\"x\":{x},\"y\":{y},\"ts\":{ts}}}");
+    private void EmitMs(string e, string button, int x, int y, long ts, string src)
+        => EmitDedup($"ms|{button}|{e}|{x}|{y}", $"{{\"t\":\"ms\",\"e\":\"{e}\",\"b\":\"{button}\",\"x\":{x},\"y\":{y},\"ts\":{ts}}}", src);
+
+    private void EmitWheel(int dx, int dy, int x, int y, long ts, string src)
+        => EmitDedup($"ms|wheel|{dx}|{dy}", $"{{\"t\":\"ms\",\"e\":\"wheel\",\"dx\":{dx},\"dy\":{dy},\"x\":{x},\"y\":{y},\"ts\":{ts}}}", src);
+
+    // 移动帧两路的坐标可能差一像素（一条取钩子结构、一条取 GetCursorPos），按坐标去重去不干净，
+    // 于是只用固定指纹：16ms 节流内谁先到算谁的，另一路被丢掉。
+    private void EmitMove(int x, int y, long ts, string src)
+        => EmitDedup("ms|move", $"{{\"t\":\"ms\",\"e\":\"move\",\"x\":{x},\"y\":{y},\"ts\":{ts}}}", src);
+
+    /// <summary>
+    /// 两路（低级钩子 / Raw Input）在正常情况下都会收到同一个事件：按指纹在短窗口内去重，
+    /// 保证浮层不会把一次按键画成两次；同时分别计数，便于判断哪条路在当前环境下有效。
+    /// </summary>
+    /// <summary>
+    /// 轮询采集：每 20ms 读一次全键盘的异步状态与光标位置，状态变化才发帧（与另两路同指纹去重）。
+    /// 它不依赖钩子、也不依赖消息投递，只读内核的按键状态，是"游戏里两条消息路都被挡"的兜底。
+    /// </summary>
+    private void PollInput()
+    {
+        try
+        {
+            var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            for (var vk = 1; vk < 256; vk++)
+            {
+                var down = (GetAsyncKeyState(vk) & 0x8000) != 0;
+                if (down == _vkDown[vk]) continue;
+                _vkDown[vk] = down;
+                EmitKb(down ? "down" : "up", vk, now, "poll");
+            }
+
+            var buttons = new[] { (0x01, "left"), (0x02, "right"), (0x04, "middle"), (0x05, "x1"), (0x06, "x2") };
+            for (var i = 0; i < buttons.Length; i++)
+            {
+                var down = (GetAsyncKeyState(buttons[i].Item1) & 0x8000) != 0;
+                if (down == _mouseDown[i]) continue;
+                _mouseDown[i] = down;
+                var p = CursorPos();
+                EmitMs(down ? "down" : "up", buttons[i].Item2, p.x, p.y, now, "poll");
+            }
+
+            var cur = CursorPos();
+            if (cur.x != _lastPollX || cur.y != _lastPollY)
+            {
+                _lastPollX = cur.x;
+                _lastPollY = cur.y;
+                var t = Environment.TickCount64;
+                if (t - _lastMoveTicks >= 16)
+                {
+                    _lastMoveTicks = t;
+                    EmitMove(cur.x, cur.y, now, "poll");
+                }
+            }
+        }
+        catch { /* 轮询异常绝不能让进程挂掉 */ }
+    }
+
+    private IntPtr RawWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        if (msg == WmInput)
+        {
+            try { HandleRawInput(lParam); } catch { /* 采集出错绝不能影响系统 */ }
+        }
+        return _oldWndProc != IntPtr.Zero
+            ? CallWindowProcW(_oldWndProc, hWnd, msg, wParam, lParam)
+            : DefWindowProcW(hWnd, msg, wParam, lParam);
+    }
+
+    private void HandleRawInput(IntPtr hRaw)
+    {
+        var headerSize = (uint)Marshal.SizeOf<RAWINPUTHEADER>();
+        uint size = 0;
+        if (GetRawInputData(hRaw, RidInput, IntPtr.Zero, ref size, headerSize) != 0 || size == 0 || size > 256) return;
+        var buf = Marshal.AllocHGlobal((int)size);
+        try
+        {
+            if (GetRawInputData(hRaw, RidInput, buf, ref size, headerSize) != size) return;
+            var head = Marshal.PtrToStructure<RAWINPUTHEADER>(buf);
+            var payload = buf + Marshal.SizeOf<RAWINPUTHEADER>();
+            var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+            if (head.dwType == RimTypeKeyboard)
+            {
+                var kb = Marshal.PtrToStructure<RAWKEYBOARD>(payload);
+                if (kb.VKey == 0xFF || kb.VKey == 0) return;      // 占位按键（Pause/PrintScreen 等）
+                EmitKb((kb.Flags & 1) != 0 ? "up" : "down", kb.VKey, now, "raw");
+            }
+            else if (head.dwType == RimTypeMouse)
+            {
+                var ms = Marshal.PtrToStructure<RAWMOUSE>(payload);
+                var x = ms.lLastX;   // 相对坐标只用于"有没有动"的判断
+                var y = ms.lLastY;
+                var flags = ms.usButtonFlags;
+                if (flags != 0)
+                {
+                    var pos = CursorPos();
+                    if ((flags & 0x0001) != 0) EmitMs("down", "left", pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0002) != 0) EmitMs("up", "left", pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0004) != 0) EmitMs("down", "right", pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0008) != 0) EmitMs("up", "right", pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0010) != 0) EmitMs("down", "middle", pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0020) != 0) EmitMs("up", "middle", pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0040) != 0) EmitMs("down", "x1", pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0080) != 0) EmitMs("up", "x1", pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0100) != 0) EmitMs("down", "x2", pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0200) != 0) EmitMs("up", "x2", pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0400) != 0) EmitWheel(0, (short)ms.usButtonData / 120, pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0800) != 0) EmitWheel((short)ms.usButtonData / 120, 0, pos.x, pos.y, now, "raw");
+                }
+                // 鼠标**移动**故意不在这里处理：WM_INPUT 的移动是 500~1000Hz 的洪流，
+                // 解析它会拖垮采集线程；位置变化交给 20ms 的轮询那一路（够用且便宜）。
+                _ = x + y;
+            }
+        }
+        finally { Marshal.FreeHGlobal(buf); }
+    }
+
+    private static POINT CursorPos()
+    {
+        return GetCursorPos(out var p) ? p : default;
+    }
+
+    private void EmitDedup(string fingerprint, string json, string src)
+    {
+        switch (src)
+        {
+            case "raw": Interlocked.Increment(ref _rawHits); break;
+            case "poll": Interlocked.Increment(ref _pollHits); break;
+            default: Interlocked.Increment(ref _hookHits); break;
+        }
+
+        var now = Environment.TickCount64;
+        if (src == "hook") Interlocked.Exchange(ref _lastHookHitTicks, now);
+        else Interlocked.Exchange(ref _lastOtherHitTicks, now);
+        lock (_recentFrames)
+        {
+            if (_recentFrames.TryGetValue(fingerprint, out var last) && now - last < DedupMs) return;
+            if (_recentFrames.Count > 128) _recentFrames.Clear();
+            _recentFrames[fingerprint] = now;
+        }
+        Emit(json);
+    }
 
     private void Emit(string json)
     {
@@ -398,5 +696,80 @@ public sealed class KeyViewHook
 
     [DllImport("user32.dll")]
     private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+
+    // ---------------- Raw Input ----------------
+    private delegate IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RAWINPUTDEVICE
+    {
+        public ushort usUsagePage;
+        public ushort usUsage;
+        public uint dwFlags;
+        public IntPtr hwndTarget;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RAWINPUTHEADER
+    {
+        public uint dwType;
+        public uint dwSize;
+        public IntPtr hDevice;
+        public IntPtr wParam;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RAWKEYBOARD
+    {
+        public ushort MakeCode;
+        public ushort Flags;
+        public ushort Reserved;
+        public ushort VKey;
+        public uint Message;
+        public uint ExtraInformation;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RAWMOUSE
+    {
+        public ushort usFlags;
+        public ushort usButtonFlags;
+        public ushort usButtonData;
+        public uint ulRawButtons;
+        public int lLastX;
+        public int lLastY;
+        public uint ulExtraInformation;
+    }
+
+    private const int GwlWndProc = -4;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] pRawInputDevices, uint uiNumDevices, uint cbSize);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetRawInputData(IntPtr hRawInput, uint uiCommand, IntPtr pData, ref uint pcbSize, uint cbSizeHeader);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateWindowExW(int dwExStyle, string lpClassName, string lpWindowName, int dwStyle,
+                                                 int x, int y, int nWidth, int nHeight, IntPtr hWndParent,
+                                                 IntPtr hMenu, IntPtr hInstance, IntPtr lpParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool DestroyWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtrW(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallWindowProcW(IntPtr lpPrevWndFunc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr DefWindowProcW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT p);
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
 }
 #endif

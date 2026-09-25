@@ -95,6 +95,16 @@ public sealed class KeyViewService
                 events = _hook.Events,
                 lastEventAgoMs = _hook.LastEventAgoMs,
                 reinstalls = _hook.Reinstalls,
+                // 分别统计两条采集路径：游戏里 hook 不涨而 raw 涨 → 钩子被挡、Raw Input 顶上
+                hookHits = _hook.HookHits,
+                rawHits = _hook.RawHits,
+                hookKbHits = _hook.HookKbHits,
+                rawKbHits = _hook.RawKbHits,
+                pollKbHits = _hook.PollKbHits,
+                hookCalls = _hook.HookCalls,
+                hooksInstalled = _hook.HooksInstalled,
+                hooksDetail = _hook.HooksDetail,
+                pollHits = _hook.PollHits,
                 overlayUrl = $"http://127.0.0.1:{(MauiProgram.Services?.GetService<AppConfig>()?.Port ?? 7460)}/keyview/overlay.html",
             };
     }

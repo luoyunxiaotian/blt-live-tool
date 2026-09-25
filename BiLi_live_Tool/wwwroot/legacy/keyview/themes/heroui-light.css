@@ -1,0 +1,184 @@
+/* Theme: heroui-light (HeroUI 清爽白晶) — Ceramic white acrylic, HeroUI electric blue, crisp drop shadow. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --kv-blue: #006fee;
+  --kv-blue-glow: rgba(0, 111, 238, 0.65);
+  --kv-blue-light: #338ef7;
+  --kv-line: rgba(0, 0, 0, 0.12);
+  --kv-line-strong: rgba(0, 0, 0, 0.35);
+  --kv-fg: #18181b;
+  --kv-fg-shadow: none;
+  --kv-tint: rgba(255, 255, 255, 0.88);
+  --kv-anim-t: calc(65ms / var(--kv-anim-speed, 1));
+}
+
+#kv {
+  bottom: 18px;
+  gap: 12px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 14px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- Realistic Keyboard (HeroUI Light - Pure Floating Keys, No Chassis Box) ---- */
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  border-radius: 9px;
+  background: var(--kv-tint);
+  border: 1px solid var(--kv-line);
+  color: var(--kv-fg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  letter-spacing: 0.3px;
+  user-select: none;
+  box-sizing: border-box;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 #ffffff;
+  transition: transform var(--kv-anim-t) cubic-bezier(0.4, 0, 0.2, 1),
+              background var(--kv-anim-t) ease,
+              border-color var(--kv-anim-t) ease,
+              box-shadow var(--kv-anim-t) ease,
+              color var(--kv-anim-t) ease;
+}
+.kv-real-key.active {
+  background: linear-gradient(180deg, #006fee, #005bc4);
+  border-color: #006fee;
+  color: #ffffff;
+  transform: translateY(2px) scale(0.97);
+  box-shadow: 0 0 18px var(--kv-blue-glow), 0 4px 12px rgba(0, 111, 238, 0.35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- Realistic Mouse (HeroUI Light - Pure Floating Mouse, No Chassis Box) ---- */
+.kv-real-mouse-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.kv-real-mouse {
+  width: 93px;
+  height: 112px;
+  transition: transform var(--kv-anim-t) ease;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.15));
+}
+.kv-mouse-part { transition: fill var(--kv-anim-t) ease; fill: var(--kv-tint); }
+.kv-mouse-wheel { transition: fill var(--kv-anim-t) ease; fill: rgba(0, 0, 0, 0.2); }
+.kv-mouse-outline { fill: none; stroke: var(--kv-line-strong); stroke-width: 1.5; }
+.kv-mouse-sep { stroke: var(--kv-line); stroke-width: 1; }
+
+.kv-mouse-l.active { fill: var(--kv-blue); filter: drop-shadow(0 0 8px var(--kv-blue-glow)); }
+.kv-mouse-r.active { fill: var(--kv-blue); filter: drop-shadow(0 0 8px var(--kv-blue-glow)); }
+.kv-mouse-wheel.active { fill: var(--kv-blue); filter: drop-shadow(0 0 6px var(--kv-blue-glow)); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--kv-anim-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--kv-blue); filter: drop-shadow(0 0 5px var(--kv-blue-glow)); }
+.kv-mouse-wheel-down.active { fill: var(--kv-blue); filter: drop-shadow(0 0 5px var(--kv-blue-glow)); }
+
+.kv-mouse-side { fill: var(--kv-tint); stroke: var(--kv-line); stroke-width: 1; transition: fill var(--kv-anim-t) ease, stroke var(--kv-anim-t) ease; }
+.kv-mouse-side.active { fill: var(--kv-blue); stroke: var(--kv-blue-light); filter: drop-shadow(0 0 6px var(--kv-blue-glow)); }
+
+.kv-mouse-dir { opacity: 0; transition: opacity calc(100ms / var(--kv-anim-speed, 1)) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--kv-blue); filter: drop-shadow(0 0 6px var(--kv-blue-glow)); }
+
+.kv-mouse-label {
+  font-size: 11px;
+  color: var(--kv-fg);
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-weight: 600;
+  min-height: 14px;
+  letter-spacing: 0.5px;
+}
+
+/* ---- Gamepad (HeroUI Light - Pure Floating Pad, No Chassis Box) ---- */
+.kv-gp {
+  display: inline-block;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.15)); }
+.kv-gp-body { fill: rgba(255, 255, 255, 0.95); stroke: rgba(0, 0, 0, 0.12); stroke-width: 2.5; }
+.kv-gp-trig { fill: rgba(228, 228, 231, 0.9); stroke: rgba(0, 0, 0, 0.1); stroke-width: 2; opacity: calc(0.5 + var(--tv, 0) * 0.5); transition: opacity var(--kv-anim-t) ease; }
+.kv-gp-trig.active { fill: var(--kv-blue); stroke: var(--kv-blue-light); opacity: 1; filter: drop-shadow(0 0 8px var(--kv-blue-glow)); }
+.kv-gp-trig-fill { fill: var(--kv-blue); opacity: 0.85; }
+.kv-gp-trig-text { fill: #18181b; font-size: 10px; font-weight: 700; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; }
+.kv-gp-shoulder { fill: rgba(228, 228, 231, 0.9); stroke: rgba(0, 0, 0, 0.1); stroke-width: 2; transition: all var(--kv-anim-t) ease; }
+.kv-gp-shoulder.active { fill: var(--kv-blue); filter: drop-shadow(0 0 8px var(--kv-blue-glow)); }
+.kv-gp-shoulder-text { fill: #18181b; font-size: 10px; font-weight: 700; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; }
+.kv-gp-stick-outer { fill: rgba(244, 244, 245, 0.95); stroke: rgba(0, 0, 0, 0.1); stroke-width: 2; }
+.kv-gp-stick-inner { fill: rgba(228, 228, 231, 0.95); stroke: rgba(0, 0, 0, 0.08); stroke-width: 2; transition: all var(--kv-anim-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(0, 111, 238, 0.35); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--kv-blue); stroke: none; filter: drop-shadow(0 0 5px var(--kv-blue-glow)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--kv-blue); filter: drop-shadow(0 0 8px var(--kv-blue-glow)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: rgba(228, 228, 231, 0.95); stroke: rgba(0, 0, 0, 0.1); stroke-width: 1.5; transition: all var(--kv-anim-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--kv-blue); filter: drop-shadow(0 0 8px var(--kv-blue-glow)); }
+.kv-gp-face { fill: rgba(255, 255, 255, 0.95); stroke: var(--face-c, var(--kv-blue)); stroke-width: 2.5; transition: all var(--kv-anim-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--kv-blue)); filter: drop-shadow(0 0 10px var(--face-c, var(--kv-blue))); }
+.kv-gp-face-text { fill: #18181b; font-size: 12px; font-weight: 800; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; transition: fill var(--kv-anim-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #ffffff; }
+.kv-gp-menu-btn { fill: rgba(228, 228, 231, 0.95); stroke: rgba(0, 0, 0, 0.1); stroke-width: 1.5; transition: all var(--kv-anim-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--kv-blue); filter: drop-shadow(0 0 6px var(--kv-blue-glow)); }
+.kv-gp-menu-text { fill: #18181b; font-size: 7px; font-weight: 700; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; }
+
+/* ---- Standard Flow Keys (HeroUI Light fallback) ---- */
+.kv-key {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.1);
+  color: var(--kv-fg);
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-weight: 700;
+}
+.kv-key-down {
+  background: linear-gradient(180deg, #006fee, #005bc4);
+  border-color: #006fee;
+  color: #ffffff;
+  box-shadow: 0 0 18px var(--kv-blue-glow), 0 4px 12px rgba(0, 111, 238, 0.35);
+}
+.kv-ripple {
+  border-color: var(--kv-blue);
+  box-shadow: 0 0 10px var(--kv-blue-glow);
+}

@@ -17,7 +17,7 @@
     <AssemblyTitle>直播小帮手</AssemblyTitle>
     <Product>直播小帮手</Product>
     <Company>罗运小天</Company>
-    <Version>0.1.7</Version>
+    <Version>0.1.8</Version>
     <InvariantGlobalization>true</InvariantGlobalization>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

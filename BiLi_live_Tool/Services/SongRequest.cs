@@ -17,9 +17,10 @@ public static partial class MusicApi
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Mid = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Hash = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Bvid = null,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Duration = null);
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Duration = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Cover = null);
 
-    public sealed record PlayUrl(string Url, bool Vip);
+    public sealed record PlayUrl(string Url, bool Vip, string? Cover = null);
 
     private const string Ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
@@ -93,9 +94,17 @@ public static partial class MusicApi
                 var artists = string.Join("/", ((s?["singer"] as JsonArray) ?? new JsonArray()).Select(x => Safe(x?["name"])));
                 // QQ 的 pay.payplay / paydownload 是数字（0/1），旧代码按 bool 解析永远失败 → VIP 歌被标成免费
                 bool vip = ToFlag(s?["pay"]?["payplay"]) > 0 || ToFlag(s?["pay"]?["paydownload"]) > 0 || ToFlag(s?["pay"]?["price_track"]) > 1;
+                var albumMid = Safe(s?["albummid"]);
+                if (string.IsNullOrEmpty(albumMid)) albumMid = Safe(s?["album"]?["mid"]);
+                var singerMid = (s?["singer"] as JsonArray)?[0] is JsonObject so ? Safe(so["mid"]) : "";
+                string cover = albumMid.Length > 0
+                    ? $"https://y.gtimg.cn/music/photo_new/T002R300x300M000{albumMid}.jpg"
+                    : (singerMid.Length > 0 ? $"https://y.gtimg.cn/music/photo_new/T001R300x300M000{singerMid}.jpg" : "");
+                var durSec = s?["interval"]?.GetValue<long?>() ?? 0;
+                string durStr = durSec > 0 ? durSec.ToString() : "";
                 list.Add(new Song(
                     Safe(s?["songmid"]), Safe(s?["songname"]) is var n && n.Length > 0 ? n : Safe(s?["title"]),
-                    artists, Safe(s?["albumname"]), "qq", vip, Mid: Safe(s?["songmid"])));
+                    artists, Safe(s?["albumname"]), "qq", vip, Mid: Safe(s?["songmid"]), Duration: durStr, Cover: cover));
             }
             return list;
         }
@@ -156,15 +165,27 @@ public static partial class MusicApi
             // (0/144 playable, all land on music.163.com/404), fee 0/8 resolve to a playable
             // CDN mp3 (54/55) — so only 1/4 may be badged VIP. Anything unknown stays VIP.
             var neteaseFee = s?["fee"]?.GetValue<long?>() ?? 0;
+            string picUrl = Safe(s?["album"]?["picUrl"]);
+            if (string.IsNullOrEmpty(picUrl)) picUrl = Safe(s?["al"]?["picUrl"]);
+            var durMs = s?["duration"]?.GetValue<long?>() ?? 0;
+            string durStr = durMs > 0 ? (durMs / 1000.0).ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
             list.Add(new Song(
                 Safe(s?["id"]), Safe(s?["name"]), artists, Safe(s?["album"]?["name"]), "netease",
-                Vip: neteaseFee != 0 && neteaseFee != 8));
+                Vip: neteaseFee != 0 && neteaseFee != 8, Duration: durStr, Cover: picUrl));
         }
         return list;
     }
 
     public static async Task<PlayUrl> NeteaseGetSongUrlAsync(string songId, string? cookie, CancellationToken ct)
     {
+        string? cover = null;
+        try
+        {
+            var detail = await FetchJsonAsync("https://music.163.com/api/song/detail/?id=" + songId + "&ids=[" + songId + "]", null, null, new Dictionary<string, string> { ["User-Agent"] = Ua, ["Referer"] = "https://music.163.com" }, ct);
+            cover = Safe(detail?["songs"]?[0]?["al"]?["picUrl"] ?? detail?["songs"]?[0]?["album"]?["picUrl"]);
+        }
+        catch { }
+
         if (!string.IsNullOrEmpty(cookie) && cookie.Contains("MUSIC_U="))
         {
             try
@@ -172,13 +193,13 @@ public static partial class MusicApi
                 var url = "https://music.163.com/api/song/enhance/player/url/v1?ids=[" + songId + "]&level=standard&encodeType=mp3";
                 var j = await FetchJsonAsync(url, null, null, new Dictionary<string, string> { ["User-Agent"] = Ua, ["Referer"] = "https://music.163.com", ["Cookie"] = cookie }, ct);
                 var durl = Safe(j?["data"]?[0]?["url"]);
-                if (durl.Length > 0) return new PlayUrl(durl, false);
+                if (durl.Length > 0) return new PlayUrl(durl, false, cover);
             }
             catch { }
         }
         var outer = "https://music.163.com/song/media/outer/url?id=" + songId + ".mp3";
-        try { return await GetRedirectUrlAsync(outer, ct); }
-        catch { return new PlayUrl(outer, false); }
+        try { var u = await GetRedirectUrlAsync(outer, ct); return new PlayUrl(u.Url, u.Vip, cover); }
+        catch { return new PlayUrl(outer, false, cover); }
     }
 
     // ─── kugou ───
@@ -191,7 +212,11 @@ public static partial class MusicApi
         foreach (var s in (j?["data"]?["lists"] as JsonArray) ?? new JsonArray())
         {
             bool vip = (s?["PayType"]?.GetValue<long?>() ?? 0) != 0 || (s?["Privilege"]?.GetValue<long?>() ?? 0) != 0;
-            list.Add(new Song(Safe(s?["FileHash"]), Safe(s?["SongName"]), Safe(s?["SingerName"]), Safe(s?["AlbumName"]), "kugou", vip, Hash: Safe(s?["FileHash"])));
+            string cover = Safe(s?["Image"]);
+            if (string.IsNullOrEmpty(cover)) cover = Safe(s?["album_img"]);
+            var durSec = s?["Duration"]?.GetValue<long?>() ?? 0;
+            string durStr = durSec > 0 ? durSec.ToString() : "";
+            list.Add(new Song(Safe(s?["FileHash"]), Safe(s?["SongName"]), Safe(s?["SingerName"]), Safe(s?["AlbumName"]), "kugou", vip, Hash: Safe(s?["FileHash"]), Duration: durStr, Cover: cover));
         }
         return list;
     }
@@ -204,7 +229,9 @@ public static partial class MusicApi
         if (!string.IsNullOrEmpty(cookie)) headers["Cookie"] = cookie;
         var j = await FetchJsonAsync(url, null, null, headers, ct);
         var playUrl = Safe(j?["url"]);
-        return playUrl.Length > 0 ? new PlayUrl(playUrl, false) : new PlayUrl("", true);
+        var img = Safe(j?["imgUrl"]).Replace("{size}", "400");
+        if (string.IsNullOrEmpty(img)) img = Safe(j?["album_img"]).Replace("{size}", "400");
+        return playUrl.Length > 0 ? new PlayUrl(playUrl, false, img) : new PlayUrl("", true, img);
     }
 
     // ─── bilibili ───
@@ -245,8 +272,12 @@ public static partial class MusicApi
             .Where(v => upSet.Contains(Safe(v?["mid"])))
             .OrderByDescending(v => v?["play"]?.GetValue<long?>() ?? 0)
             .Take(limit > 0 ? limit : 5)
-            .Select(v => new Song(Safe(v?["bvid"]), CleanBiliTitle(Safe(v?["title"])), Safe(v?["author"]), "", "bilibili", false,
-                Bvid: Safe(v?["bvid"]), Duration: Safe(v?["duration"])))
+            .Select(v => {
+                var pic = Safe(v?["pic"]);
+                if (pic.StartsWith("//")) pic = "https:" + pic;
+                return new Song(Safe(v?["bvid"]), CleanBiliTitle(Safe(v?["title"])), Safe(v?["author"]), "", "bilibili", false,
+                    Bvid: Safe(v?["bvid"]), Duration: Safe(v?["duration"]), Cover: pic);
+            })
             .ToList();
         return filtered;
     }
@@ -259,13 +290,15 @@ public static partial class MusicApi
         var vcode = view?["code"]?.GetValue<long?>() ?? -1;
         if (vcode != 0) throw new Exception("获取视频信息失败: " + (Safe(view?["message"]) is var m && m.Length > 0 ? m : "code=" + vcode));
         var cid = view?["data"]?["cid"]?.GetValue<long?>();
+        var pic = Safe(view?["data"]?["pic"]);
+        if (pic.StartsWith("//")) pic = "https:" + pic;
         var play = await FetchJsonAsync($"https://api.bilibili.com/x/player/playurl?bvid={bvid}&cid={cid}&fnval=16&fnver=0", null, null, headers, ct);
         var pcode = play?["code"]?.GetValue<long?>() ?? -1;
         if (pcode != 0) throw new Exception("获取播放URL失败: " + (Safe(play?["message"]) is var m && m.Length > 0 ? m : "code=" + pcode));
         var audios = ((play?["data"]?["dash"]?["audio"] as JsonArray) ?? new JsonArray()).ToList();
-        if (audios.Count == 0) return new PlayUrl("", true);
+        if (audios.Count == 0) return new PlayUrl("", true, pic);
         var best = audios.OrderByDescending(a => a?["bandwidth"]?.GetValue<long?>() ?? 0).First();
-        return new PlayUrl(Safe(best?["baseUrl"]), false);
+        return new PlayUrl(Safe(best?["baseUrl"]), false, pic);
     }
 
     // ─── migu ───
@@ -321,8 +354,11 @@ public static partial class MusicApi
             // with chargeAuditions 0 still plays). copyrightId rides in Mid for the play call.
             // The field arrives as a string on some hits and a number on others → ToFlag.
             var vip = ToFlag(s?["chargeAuditions"]) == 1;
+            var pic = Safe(s?["albumPicUrl"]);
+            if (string.IsNullOrEmpty(pic) && s?["imgItems"] is JsonArray arr && arr.Count > 0)
+                pic = Safe(arr[0]?["img"]);
             list.Add(new Song(Safe(s?["contentId"]), Safe(s?["name"]), artists, "", "migu", vip,
-                Mid: Safe(s?["copyrightId"])));
+                Mid: Safe(s?["copyrightId"]), Cover: pic));
         }
         return list;
     }
@@ -591,7 +627,8 @@ public sealed class SongRequestService
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Mid = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Hash = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Bvid = null,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Duration = null);
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Duration = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Cover = null);
 
     private readonly AppConfig _config;
     private readonly object _lock = new();
@@ -754,7 +791,7 @@ public sealed class SongRequestService
         {
             _playlist.Add(new PlaylistEntry(song.Id, song.Name, song.Artist, song.Album, song.Platform, song.Vip,
                 requester ?? "", DateTimeOffset.Now.ToUnixTimeMilliseconds(),
-                song.Mid, song.Hash, song.Bvid, song.Duration));
+                song.Mid, song.Hash, song.Bvid, song.Duration, song.Cover));
             if (_currentIndex < 0) _currentIndex = 0;
         }
         SavePlaylist();
@@ -773,7 +810,8 @@ public sealed class SongRequestService
             requester.Length > 0 ? requester : "手动添加",
             DateTimeOffset.Now.ToUnixTimeMilliseconds(),
             mid.Length > 0 ? mid : null, hash.Length > 0 ? hash : null, bvid.Length > 0 ? bvid : null,
-            SafeStr(songNode?["duration"]) is var du && du.Length > 0 ? du : null);
+            SafeStr(songNode?["duration"]) is var du && du.Length > 0 ? du : null,
+            SafeStr(songNode?["cover"]) is var cv && cv.Length > 0 ? cv : null);
         lock (_lock)
         {
             _playlist.Add(entry);
@@ -893,9 +931,19 @@ public sealed class SongRequestService
         try
         {
             var result = await MusicApi.GetSongUrlAsync(song.Platform,
-                new MusicApi.Song(song.Id, song.Name, song.Artist, song.Album, song.Platform, song.Vip, song.Mid, song.Hash, song.Bvid, song.Duration),
+                new MusicApi.Song(song.Id, song.Name, song.Artist, song.Album, song.Platform, song.Vip, song.Mid, song.Hash, song.Bvid, song.Duration, song.Cover),
                 cookie, ct);
-            return new { ok = true, result.Url, result.Vip, song };
+            var updatedSong = song;
+            if (string.IsNullOrEmpty(song.Cover) && !string.IsNullOrEmpty(result.Cover))
+            {
+                updatedSong = song with { Cover = result.Cover };
+                lock (_lock)
+                {
+                    if (index >= 0 && index < _playlist.Count) _playlist[index] = updatedSong;
+                }
+                SavePlaylist();
+            }
+            return new { ok = true, result.Url, result.Vip, song = updatedSong };
         }
         catch (Exception e)
         {
@@ -1041,7 +1089,8 @@ public sealed class SongRequestService
                         Sv(o, "mid") is var m && m.Length > 0 ? m : null,
                         Sv(o, "hash") is var h && h.Length > 0 ? h : null,
                         Sv(o, "bvid") is var bv && bv.Length > 0 ? bv : null,
-                        Sv(o, "duration") is var du && du.Length > 0 ? du : null));
+                        Sv(o, "duration") is var du && du.Length > 0 ? du : null,
+                        Sv(o, "cover") is var cv && cv.Length > 0 ? cv : null));
                 }
             }
             _currentIndex = (int)Nv(data, "currentIndex", -1);

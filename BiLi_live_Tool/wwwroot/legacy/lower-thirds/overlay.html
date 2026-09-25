@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lower Thirds & Now Playing Overlay</title>
+    <link rel="stylesheet" href="overlay.css?v=018">
+    <style>
+        /* Music Bubble 特化微调 */
+        #now-playing-bubble {
+            position: absolute;
+            bottom: 2rem;
+            left: 2rem;
+            z-index: 100;
+            transition: transform 0.4s ease, opacity 0.4s ease;
+        }
+        #now-playing-bubble.collapsed {
+            transform: translateY(120%) scale(0.9);
+            opacity: 0;
+            pointer-events: none;
+        }
+        #np-cover-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .ws-indicator {
+            position: fixed;
+            top: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .ws-disconnected .ws-indicator {
+            background: #ef4444;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body class="browser-source lower-thirds">
+    <div id="ws-dot" class="ws-indicator"></div>
+
+    <!-- 4 个经典 Lower Third 通道 -->
+    <div id="lower-third-1" class="alt left style-1 hide-anim">
+        <div id="alt-1-logo" class="logo no-logo">
+            <img id="alt-1-logo-image" src="//:0" alt="Logo" />
+        </div>
+        <div class="graph-1"></div>
+        <div class="text-content">
+            <div class="text-mask"><div id="alt-1-name"></div></div>
+            <div class="text-mask"><div id="alt-1-info"></div></div>
+        </div>
+        <div class="graph-2"></div>
+    </div>
+
+    <div id="lower-third-2" class="alt left style-1 hide-anim">
+        <div id="alt-2-logo" class="logo no-logo">
+            <img id="alt-2-logo-image" src="//:0" alt="Logo" />
+        </div>
+        <div class="graph-1"></div>
+        <div class="text-content">
+            <div class="text-mask"><div id="alt-2-name"></div></div>
+            <div class="text-mask"><div id="alt-2-info"></div></div>
+        </div>
+        <div class="graph-2"></div>
+    </div>
+
+    <div id="lower-third-3" class="alt left style-1 hide-anim">
+        <div id="alt-3-logo" class="logo no-logo">
+            <img id="alt-3-logo-image" src="//:0" alt="Logo" />
+        </div>
+        <div class="graph-1"></div>
+        <div class="text-content">
+            <div class="text-mask"><div id="alt-3-name"></div></div>
+            <div class="text-mask"><div id="alt-3-info"></div></div>
+        </div>
+        <div class="graph-2"></div>
+    </div>
+
+    <div id="lower-third-4" class="alt left style-1 hide-anim">
+        <div id="alt-4-logo" class="logo no-logo">
+            <img id="alt-4-logo-image" src="//:0" alt="Logo" />
+        </div>
+        <div class="graph-1"></div>
+        <div class="text-content">
+            <div class="text-mask"><div id="alt-4-name"></div></div>
+            <div class="text-mask"><div id="alt-4-info"></div></div>
+        </div>
+        <div class="graph-2"></div>
+    </div>
+
+    <!-- 切歌联动：Now Playing Lower Third 动态音乐气泡 -->
+    <div id="now-playing-bubble" class="alt left style-1 hide-anim">
+        <div id="np-logo" class="logo">
+            <img id="np-cover-image" src="logos/logo_1.png" alt="Cover" />
+        </div>
+        <div class="graph-1"></div>
+        <div class="text-content">
+            <div class="text-mask"><div id="np-title">🎵 正在播放</div></div>
+            <div class="text-mask"><div id="np-artist">音乐名称 - 歌手</div></div>
+        </div>
+        <div class="graph-2"></div>
+    </div>
+
+    <script src="overlay.js?v=018"></script>
+</body>
+</html>

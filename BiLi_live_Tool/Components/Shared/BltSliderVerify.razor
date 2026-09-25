@@ -1,0 +1,160 @@
+@* BltSliderVerify.razor — HeroUI 质感滑动验证组件
+   防止连点器与高频点击：向右拖动滑块完成验证意图确认后触发 OnVerified。
+   处于冷却倒计时或加载中时自动锁定轨道与滑块。 *@
+
+<div class="blt-slider-wrap @(IsLocked ? "disabled" : "") @(IsLoading ? "loading" : "") @(_isSuccess ? "success" : "")"
+     style="position:relative;width:320px;height:40px;border-radius:20px;background:var(--bg-2, rgba(255,255,255,0.06));border:1px solid var(--border-color, rgba(255,255,255,0.14));overflow:hidden;user-select:none;-webkit-user-select:none;display:inline-flex;align-items:center;vertical-align:middle;box-sizing:border-box;">
+
+    <!-- 滑动高亮进度填充条 -->
+    <div style="position:absolute;left:0;top:0;bottom:0;width:@(_progressPercent)%;background:linear-gradient(90deg, rgba(0, 111, 238, 0.25), rgba(0, 111, 238, 0.55));transition:@(_isDragging ? "none" : "width 0.25s ease-out");pointer-events:none;"></div>
+
+    <!-- 提示文案层 -->
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:@LabelColor;pointer-events:none;z-index:2;letter-spacing:0.5px">
+        @if (IsLoading)
+        {
+            <span><BltIcon Emoji="⏳" /> 正在验证授权状态…</span>
+        }
+        else if (CooldownSeconds > 0)
+        {
+            <span style="color:var(--amber, #f5a524)"><BltIcon Emoji="⏱" /> 请等待 @(CooldownSeconds) 秒后再试</span>
+        }
+        else if (_isSuccess)
+        {
+            <span style="color:var(--emerald, #17c964)"><BltIcon Emoji="✓" /> 验证已提交</span>
+        }
+        else
+        {
+            <span><BltIcon Emoji="👉" /> 向右滑动完成重试验证</span>
+        }
+    </div>
+
+    <!-- 拖动手柄 -->
+    <div @onpointerdown="HandlePointerDown"
+         @onpointermove="HandlePointerMove"
+         @onpointerup="HandlePointerUp"
+         @onpointercancel="HandlePointerCancel"
+         style="position:absolute;left:@(_thumbLeft)px;top:2px;width:34px;height:34px;border-radius:17px;background:@ThumbBg;box-shadow:0 2px 8px @ThumbShadow;display:flex;align-items:center;justify-content:center;cursor:@ThumbCursor;z-index:3;touch-action:none;transition:@(_isDragging ? "none" : "left 0.25s ease-out");color:#fff;font-weight:bold;font-size:13px;">
+        @if (IsLoading)
+        {
+            <span style="display:inline-block;animation:bltSpin 1s linear infinite">↻</span>
+        }
+        else if (CooldownSeconds > 0)
+        {
+            <span>🔒</span>
+        }
+        else if (_isSuccess)
+        {
+            <span>✓</span>
+        }
+        else
+        {
+            <span>➔</span>
+        }
+    </div>
+</div>
+
+<style>
+    @@keyframes bltSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+
+@code {
+    [Parameter] public EventCallback OnVerified { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public int CooldownSeconds { get; set; }
+
+    private const double MaxLeft = 278.0; // 320 - 34 - 4 - 4
+    private double _thumbLeft = 4.0;
+    private double _progressPercent;
+    private bool _isDragging;
+    private bool _isSuccess;
+    private double _startX;
+    private double _startLeft;
+
+    private bool IsLocked => CooldownSeconds > 0 || IsLoading;
+
+    private string ThumbCursor => IsLocked ? "not-allowed" : (_isDragging ? "grabbing" : "grab");
+
+    private string LabelColor => IsLocked ? "var(--ink-3, #71717a)" : "var(--ink-2, #a1a1aa)";
+
+    private string ThumbBg => CooldownSeconds > 0
+        ? "var(--ink-3, #52525b)"
+        : (_isSuccess ? "var(--emerald, #17c964)" : "var(--primary, #006fee)");
+
+    private string ThumbShadow => CooldownSeconds > 0
+        ? "rgba(0,0,0,0.2)"
+        : (_isSuccess ? "rgba(23, 201, 100, 0.4)" : "rgba(0, 111, 238, 0.45)");
+
+    protected override void OnParametersSet()
+    {
+        // Reset slider state when cooled down or loading finishes
+        if (!IsLoading && CooldownSeconds <= 0 && _isSuccess)
+        {
+            _isSuccess = false;
+            _thumbLeft = 4.0;
+            _progressPercent = 0;
+        }
+        else if (CooldownSeconds > 0)
+        {
+            _thumbLeft = 4.0;
+            _progressPercent = 0;
+            _isDragging = false;
+        }
+    }
+
+    private void HandlePointerDown(PointerEventArgs e)
+    {
+        if (IsLocked || _isSuccess) return;
+        _isDragging = true;
+        _startX = e.ClientX;
+        _startLeft = _thumbLeft;
+    }
+
+    private void HandlePointerMove(PointerEventArgs e)
+    {
+        if (!_isDragging || IsLocked) return;
+        var dx = e.ClientX - _startX;
+        var newLeft = Math.Clamp(_startLeft + dx, 4.0, MaxLeft);
+        _thumbLeft = newLeft;
+        _progressPercent = Math.Clamp((newLeft - 4.0) / (MaxLeft - 4.0) * 100, 0, 100);
+    }
+
+    private async Task HandlePointerUp(PointerEventArgs e)
+    {
+        if (!_isDragging) return;
+        _isDragging = false;
+
+        if (_progressPercent >= 88.0 && !IsLocked)
+        {
+            _thumbLeft = MaxLeft;
+            _progressPercent = 100;
+            _isSuccess = true;
+            await OnVerified.InvokeAsync();
+        }
+        else
+        {
+            // Snap back
+            _thumbLeft = 4.0;
+            _progressPercent = 0;
+        }
+    }
+
+    private void HandlePointerCancel(PointerEventArgs e)
+    {
+        _isDragging = false;
+        if (!_isSuccess)
+        {
+            _thumbLeft = 4.0;
+            _progressPercent = 0;
+        }
+    }
+
+    /// <summary>Resets the slider handle back to the starting position.</summary>
+    public void Reset()
+    {
+        _isSuccess = false;
+        _isDragging = false;
+        _thumbLeft = 4.0;
+        _progressPercent = 0;
+        StateHasChanged();
+    }
+}

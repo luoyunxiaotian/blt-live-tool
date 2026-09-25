@@ -1,0 +1,774 @@
+@page "/lowerthirds"
+@using System.IO
+@using System.Text.Json
+@using BiLi_live_Tool.Services
+@using BiLi_live_Tool.Services.LowerThirds
+@using BiLi_live_Tool.Services.SystemMedia
+@inject LowerThirdsService LtService
+@inject SystemMediaService MediaService
+@inject KestrelHost Api
+@inject IJSRuntime JS
+@inject UiKit UI
+@implements IDisposable
+
+<div class="blt-pagehead">
+    <h1>下三分之一字幕</h1><span class="en">LOWER THIRDS</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:10px">
+        <button class="blt-btn" @onclick="TurnAllOff">全部下线</button>
+        <button class="blt-btn primary" @onclick="OpenOverlay">打开浮层</button>
+    </span>
+</div>
+
+<div class="blt-topstrip">
+    <span class="seg">4 通道状态
+        @for (int i = 1; i <= 4; i++)
+        {
+            var ch = LtService.GetChannel(i);
+            var on = ch?.Active == true;
+            <span class="blt-badge @(on ? "green" : "off")" style="margin-left:4px" @onclick="() => SelectChannel(ch!.Id)" role="button">
+                CH@(i) @(on ? "ON" : "OFF")
+            </span>
+        }
+    </span>
+    <span class="seg">选中通道 <b>CH@_selectedChannelId (@GetSelectedChannel()?.ChannelName)</b></span>
+    <span class="seg">外部音乐联动 <b class="@(LtService.Data.AutoMusicBubble ? "green" : "off")">@(LtService.Data.AutoMusicBubble ? "ON" : "OFF")</b></span>
+    @if (_feedback.Length > 0)
+    {
+        <span class="seg"><b class="@(_feedbackOk ? "green" : "red")">@_feedback</b></span>
+    }
+</div>
+
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：通道概览 + OBS 地址 + 全局联动与系统音乐嗅探 ── *@
+    <div>
+        @* 通道快捷控制 *@
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="🎛" /> 通道总览与推流</span><span class="en">CHANNELS</span>
+                <span class="right"><span>点击通道快速切换编辑</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:flex;flex-direction:column;gap:10px">
+                    @foreach (var ch in LtService.Data.Channels)
+                    {
+                        var isSel = ch.Id == _selectedChannelId;
+                        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r);background:@(isSel ? "var(--bg-3)" : "var(--bg-2)");border:1px solid @(isSel ? "var(--amber)" : "var(--line)");cursor:pointer"
+                             @onclick="() => SelectChannel(ch.Id)">
+                            <div style="width:10px;height:10px;border-radius:50%;background:@(ch.Active ? "var(--green)" : "var(--ink-4)")"></div>
+                            <div style="flex:1;min-width:0">
+                                <div style="display:flex;align-items:center;gap:6px">
+                                    <b style="font-size:13px">CH@ch.Id · @ch.ChannelName</b>
+                                    <span class="blt-badge" style="background:@ch.Color1;color:#fff;font-size:10px">样式 @ch.Style</span>
+                                    @if (ch.OneShot)
+                                    {
+                                        <span class="blt-badge amber" style="font-size:10px">@(ch.ActiveTime)s自动退场</span>
+                                    }
+                                </div>
+                                <div style="color:var(--ink-2);font-size:12px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                    <b>@(string.IsNullOrEmpty(ch.Name) ? "(无标题)" : ch.Name)</b> - @(string.IsNullOrEmpty(ch.Info) ? "(无副标题)" : ch.Info)
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:6px;flex:none" @onclick:stopPropagation="true">
+                                <button class="blt-btn @(ch.Active ? "amber" : "primary")" style="padding:3px 12px;font-size:12px" @onclick="() => ToggleChannel(ch.Id)">
+                                    @(ch.Active ? "下线" : "推流")
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">
+                    <label class="blt-label">OBS 浏览器源地址 (推荐尺寸 1920×1080)</label>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <input class="blt-input mono" readonly value="@OverlayUrl" style="font-size:11.5px" />
+                        <button class="blt-btn" @onclick="CopyOverlayUrl">复制地址</button>
+                        <button class="blt-btn" @onclick="OpenOverlay">打开预览</button>
+                    </div>
+                    <div class="blt-hint" style="margin:4px 0 0">
+                        在 OBS 中添加「浏览器源」，粘贴该地址，分辨率填 1920×1080，勾选「源在变为可用时刷新浏览器」。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* 全局设置与系统媒体联动 *@
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="🎵" /> 系统音乐感知联动 (Now Playing)</span><span class="en">INTEGRATION</span>
+                <span class="right"><span>WinRT + WASAPI 混音嗅探</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div>
+                        <label class="blt-label">切歌自动弹出字幕气泡</label>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span class="blt-switch @(LtService.Data.AutoMusicBubble ? "on" : "")" @onclick="ToggleAutoMusicBubble">
+                                <span class="track"></span>@(LtService.Data.AutoMusicBubble ? "ON" : "OFF")
+                            </span>
+                            <span class="blt-hint" style="margin:0">外部播放器切歌时触发</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">气泡停留时长（秒）</label>
+                        <input class="blt-input" type="number" min="2" max="30" step="1"
+                               value="@LtService.Data.MusicBubbleDuration"
+                               @onchange="OnDurationChanged" />
+                    </div>
+                    <div style="grid-column: span 2">
+                        <label class="blt-label">智能避让冲突（通道 1 激活时折叠音乐气泡）</label>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span class="blt-switch @(LtService.Data.AvoidConflict ? "on" : "")" @onclick="ToggleAvoidConflict">
+                                <span class="track"></span>@(LtService.Data.AvoidConflict ? "ON" : "OFF")
+                            </span>
+                            <span class="blt-hint" style="margin:0">为主播/主嘉宾字幕卡片让位，防止左下角视觉重叠</span>
+                        </div>
+                    </div>
+                </div>
+
+                @* 当前外部播放器状态实时展示 *@
+                <div style="margin-top:12px;padding:10px;background:var(--bg-2);border-radius:var(--r);border:1px solid var(--line)">
+                    <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+                        <b>当前检测到的系统媒体：</b>
+                        <span class="blt-badge @(MediaService.CurrentTrack.HasSong ? "green" : "off")">
+                            @(MediaService.CurrentTrack.HasSong ? MediaService.CurrentTrack.Status : "未在播放")
+                        </span>
+                        @if (MediaService.CurrentTrack.SourceApp.Length > 0)
+                        {
+                            <span class="blt-badge blue">@MediaService.CurrentTrack.SourceApp</span>
+                        }
+                        <button class="blt-btn" style="margin-left:auto;padding:2px 8px;font-size:11px" @onclick="TestMusicBubble">
+                            测试弹出气泡
+                        </button>
+                    </div>
+
+                    @if (MediaService.CurrentTrack.HasSong)
+                    {
+                        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                            @if (!string.IsNullOrEmpty(MediaService.CurrentTrack.CoverUrl))
+                            {
+                                <img src="@MediaService.CurrentTrack.CoverUrl" style="width:40px;height:40px;border-radius:4px;object-fit:cover;border:1px solid var(--line)" alt="cover" />
+                            }
+                            else
+                            {
+                                <div style="width:40px;height:40px;border-radius:4px;background:var(--bg-3);display:flex;align-items:center;justify-content:center;font-size:18px">🎵</div>
+                            }
+                            <div style="flex:1;min-width:0">
+                                <div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                    @MediaService.CurrentTrack.Title
+                                </div>
+                                <div style="color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                    @MediaService.CurrentTrack.Artist @(string.IsNullOrEmpty(MediaService.CurrentTrack.Album) ? "" : $"· {MediaService.CurrentTrack.Album}")
+                                </div>
+                            </div>
+                            <div style="text-align:right;font-size:11px;color:var(--ink-3);font-family:var(--mono)">
+                                峰值 @(Math.Round(MediaService.CurrentTrack.VolumePeak * 100))%
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="blt-hint" style="margin:6px 0 0">
+                            支持网易云、QQ音乐、酷狗、Spotify、汽水音乐及本程序点歌。如需常驻黑胶唱片/卡片浮层，请前往 <a href="/song" style="color:var(--primary);text-decoration:none">点歌页面获取 Now Playing 浮层地址 →</a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：当前选中通道参数配置 + 10插槽预设 + 实时效果预览 ── *@
+    <div>
+        @{
+            var sel = GetSelectedChannel();
+        }
+        @if (sel != null)
+        {
+            <div class="blt-panel">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="✏" /> 通道 CH@sel.Id 设定 (@sel.ChannelName)</span><span class="en">CONFIG</span>
+                    <span class="right">
+                        <span class="blt-badge @(sel.Active ? "green" : "off")">@(sel.Active ? "已显示" : "已隐藏")</span>
+                    </span>
+                </div>
+                <div class="blt-panel-body">
+                    @* 10个内存槽位 *@
+                    <div>
+                        <div style="display:flex;align-items:center;justify-content:space-between">
+                            <label class="blt-label" style="margin:0">预设内存槽位 (10 Slots)</label>
+                            <span class="blt-hint" style="margin:0">当前选中: 插槽 #@sel.CurrentSlotId</span>
+                        </div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
+                            @for (int s = 1; s <= 10; s++)
+                            {
+                                int slotId = s;
+                                var slotObj = sel.Slots.Find(x => x.Id == slotId);
+                                bool isCur = sel.CurrentSlotId == slotId;
+                                <button class="blt-btn @(isCur ? "primary" : "")"
+                                        style="flex:1;min-width:32px;padding:3px 0;font-size:11.5px;font-family:var(--mono)"
+                                        title="@(slotObj?.Label ?? $"Slot {slotId}")"
+                                        @onclick="() => PickSlot(sel.Id, slotId)">
+                                    #@slotId
+                                </button>
+                            }
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+                            @{
+                                var curSlot = sel.Slots.Find(x => x.Id == sel.CurrentSlotId);
+                            }
+                            <input class="blt-input" style="flex:1;font-size:12px" placeholder="插槽备注名"
+                                   value="@(curSlot?.Label ?? "")"
+                                   @onchange="(e) => OnSlotLabelChanged(sel.Id, sel.CurrentSlotId, e.Value?.ToString())" />
+                            <button class="blt-btn" style="flex:none;font-size:12px" @onclick="() => SaveCurrentToSlot(sel.Id, sel.CurrentSlotId)">
+                                💾 保存当前表单到插槽 #@sel.CurrentSlotId
+                            </button>
+                        </div>
+                    </div>
+
+                    @* 文字输入 *@
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+                        <div>
+                            <label class="blt-label">主标题 / 名字 (Name)</label>
+                            <input class="blt-input" @bind="sel.Name" @bind:after="OnFormChanged" placeholder="例如：主播昵称、话题标题" />
+                        </div>
+                        <div>
+                            <label class="blt-label">副标题 / 职位 / 说明 (Info)</label>
+                            <input class="blt-input" @bind="sel.Info" @bind:after="OnFormChanged" placeholder="例如：B站知名UP主、话题介绍" />
+                        </div>
+                    </div>
+
+                    @* 样式与版式 *@
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+                        <div>
+                            <label class="blt-label">动效样式模板</label>
+                            <select class="blt-input" value="@sel.Style" @onchange="OnStyleChanged">
+                                <option value="1">样式 1 · 经典双条滑动</option>
+                                <option value="2">样式 2 · 现代色块切片</option>
+                                <option value="3">样式 3 · 极简平滑折线</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="blt-label">对齐排版</label>
+                            <select class="blt-input" value="@sel.Align" @onchange="OnAlignChanged">
+                                <option value="left">靠左对齐 (Left)</option>
+                                <option value="center">居中对齐 (Center)</option>
+                                <option value="right">靠右对齐 (Right)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                                <label class="blt-label" style="margin:0">徽标图标</label>
+                                <div style="display:flex;gap:4px">
+                                    <button class="blt-btn" style="padding:1px 6px;font-size:10.5px" @onclick="PickAndImportLogo" title="从电脑选择并导入自定义图片图标">
+                                        📁 导入图标
+                                    </button>
+                                    <button class="blt-btn" style="padding:1px 6px;font-size:10.5px" @onclick="OpenLogosFolder" title="在文件管理器中打开图标素材目录">
+                                        📂 目录
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:6px;align-items:center">
+                                @if (!string.IsNullOrEmpty(sel.Logo))
+                                {
+                                    <div style="width:28px;height:28px;border-radius:4px;background:#1e222d;display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;border:1px solid var(--line)" title="@sel.Logo">
+                                        <img src="@GetLogoDisplayUrl(sel.Logo)" style="width:22px;height:22px;object-fit:contain" alt="preview" />
+                                    </div>
+                                }
+                                <select class="blt-input" value="@sel.Logo" @onchange="OnLogoChanged" style="flex:1">
+                                    <option value="">无徽标 (纯文字)</option>
+                                    @foreach (var item in _availableLogos)
+                                    {
+                                        <option value="@item.Value">@item.Label</option>
+                                    }
+                                </select>
+                                @if (!string.IsNullOrEmpty(sel.Logo))
+                                {
+                                    <button class="blt-btn" style="padding:2px 7px;font-size:10.5px;flex:none" @onclick="ClearLogo" title="清除当前图标">✕</button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    @* 颜色定制 *@
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:10px">
+                        <div>
+                            <label class="blt-label">主色调 (Color 1)</label>
+                            <div style="display:flex;gap:4px;align-items:center">
+                                <input type="color" value="@sel.Color1" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;background:transparent"
+                                       @onchange="(e) => { sel.Color1 = e.Value?.ToString() ?? sel.Color1; OnFormChanged(); }" />
+                                <input class="blt-input mono" style="font-size:11px;padding:2px 4px" @bind="sel.Color1" @bind:after="OnFormChanged" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="blt-label">副色调 (Color 2)</label>
+                            <div style="display:flex;gap:4px;align-items:center">
+                                <input type="color" value="@sel.Color2" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;background:transparent"
+                                       @onchange="(e) => { sel.Color2 = e.Value?.ToString() ?? sel.Color2; OnFormChanged(); }" />
+                                <input class="blt-input mono" style="font-size:11px;padding:2px 4px" @bind="sel.Color2" @bind:after="OnFormChanged" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="blt-label">主文字色</label>
+                            <div style="display:flex;gap:4px;align-items:center">
+                                <input type="color" value="@sel.TextColor1" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;background:transparent"
+                                       @onchange="(e) => { sel.TextColor1 = e.Value?.ToString() ?? sel.TextColor1; OnFormChanged(); }" />
+                                <input class="blt-input mono" style="font-size:11px;padding:2px 4px" @bind="sel.TextColor1" @bind:after="OnFormChanged" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="blt-label">副文字色</label>
+                            <div style="display:flex;gap:4px;align-items:center">
+                                <input type="color" value="@sel.TextColor2" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;background:transparent"
+                                       @onchange="(e) => { sel.TextColor2 = e.Value?.ToString() ?? sel.TextColor2; OnFormChanged(); }" />
+                                <input class="blt-input mono" style="font-size:11px;padding:2px 4px" @bind="sel.TextColor2" @bind:after="OnFormChanged" />
+                            </div>
+                        </div>
+                    </div>
+
+                    @* 动效时长与退场参数 *@
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:10px">
+                        <div>
+                            <label class="blt-label">退场倒计时(秒)</label>
+                            <input class="blt-input" type="number" min="1" max="60" @bind="sel.ActiveTime" @bind:after="OnFormChanged" />
+                        </div>
+                        <div>
+                            <label class="blt-label">动效耗时(秒)</label>
+                            <input class="blt-input" type="number" step="0.1" min="0.3" max="5.0" @bind="sel.AnimationTime" @bind:after="OnFormChanged" />
+                        </div>
+                        <div>
+                            <label class="blt-label">单次播放自动退场</label>
+                            <span class="blt-switch @(sel.OneShot ? "on" : "")" @onclick="ToggleOneShot">
+                                <span class="track"></span>@(sel.OneShot ? "ON" : "OFF")
+                            </span>
+                        </div>
+                        <div>
+                            <label class="blt-label">常驻不退场</label>
+                            <span class="blt-switch @(sel.LockActive ? "on" : "")" @onclick="ToggleLockActive">
+                                <span class="track"></span>@(sel.LockActive ? "LOCK" : "OFF")
+                            </span>
+                        </div>
+                    </div>
+
+                    @* 实时效果即时预览框 *@
+                    <div style="margin-top:14px;padding:12px;background:var(--bg-3);border-radius:var(--r);border:1px dashed var(--line)">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                            <span class="blt-label" style="margin:0">效果即时预览 (Preview)</span>
+                            <span class="blt-hint" style="margin:0">样式 @sel.Style · @sel.Align</span>
+                        </div>
+                        <div style="background:#111827;padding:24px 20px;border-radius:6px;display:flex;align-items:center;justify-content:@(sel.Align == "right" ? "flex-end" : sel.Align == "center" ? "center" : "flex-start")">
+                            <div style="display:flex;align-items:stretch;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.4)">
+                                @if (sel.ShowLogo && !string.IsNullOrEmpty(sel.Logo))
+                                {
+                                    <div style="background:@sel.Color1;padding:8px 12px;display:flex;align-items:center;justify-content:center;border-top-left-radius:4px;border-bottom-left-radius:4px">
+                                        <img src="@GetLogoDisplayUrl(sel.Logo)" style="width:28px;height:28px;object-fit:contain" alt="logo" />
+                                    </div>
+                                }
+                                <div style="display:flex;flex-direction:column">
+                                    <div style="background:@sel.Color1;color:@sel.TextColor1;padding:6px 16px;font-weight:700;font-size:16px;letter-spacing:0.5px">
+                                        @(string.IsNullOrEmpty(sel.Name) ? "主标题名称" : sel.Name)
+                                    </div>
+                                    <div style="background:@sel.Color2;color:@sel.TextColor2;padding:3px 16px;font-size:12px;font-weight:500">
+                                        @(string.IsNullOrEmpty(sel.Info) ? "副标题/职位说明" : sel.Info)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @* 操作按钮栏 *@
+                    <div style="display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap">
+                        <button class="blt-btn @(sel.Active ? "amber" : "primary")" style="padding:5px 16px;font-size:13px" @onclick="() => ToggleChannel(sel.Id)">
+                            @(sel.Active ? "⏹ 结束推流 (下线)" : "▶ 开始推流 (上线)")
+                        </button>
+                        <button class="blt-btn" style="padding:5px 14px" @onclick="UpdateLiveChannel" disabled="@(!sel.Active)">
+                            🔄 立即更新浮层内容
+                        </button>
+                        <button class="blt-btn" style="padding:5px 14px" @onclick="() => SaveCurrentToSlot(sel.Id, sel.CurrentSlotId)">
+                            💾 保存到插槽 #@sel.CurrentSlotId
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private int _selectedChannelId = 1;
+    private string _feedback = "";
+    private bool _feedbackOk = true;
+
+    private string OverlayUrl => $"http://127.0.0.1:{Api.Port}/lower-thirds/overlay.html";
+
+    protected override void OnInitialized()
+    {
+        ReloadLogosList();
+        LtService.ChannelChanged += OnChannelChanged;
+        MediaService.TrackChanged += OnTrackChanged;
+    }
+
+    private LowerThirdChannel? GetSelectedChannel()
+    {
+        return LtService.GetChannel(_selectedChannelId);
+    }
+
+    private void SelectChannel(int channelId)
+    {
+        _selectedChannelId = channelId;
+        ReloadLogosList();
+        StateHasChanged();
+    }
+
+    private void ToggleChannel(int channelId)
+    {
+        LtService.ToggleChannel(channelId);
+        var ch = LtService.GetChannel(channelId);
+        _feedback = ch?.Active == true ? $"通道 CH{channelId} 已上线推流" : $"通道 CH{channelId} 已下线";
+        _feedbackOk = true;
+    }
+
+    private void TurnAllOff()
+    {
+        for (int i = 1; i <= 4; i++)
+        {
+            LtService.ToggleChannel(i, false);
+        }
+        _feedback = "所有通道字幕已下线";
+        _feedbackOk = true;
+    }
+
+    private void PickSlot(int channelId, int slotId)
+    {
+        LtService.ApplySlot(channelId, slotId, activate: false);
+        _feedback = $"通道 CH{channelId} 已载入插槽 #{slotId} 预设";
+        _feedbackOk = true;
+    }
+
+    private void SaveCurrentToSlot(int channelId, int slotId)
+    {
+        var sel = LtService.GetChannel(channelId);
+        if (sel == null) return;
+        var curSlot = sel.Slots.Find(x => x.Id == slotId);
+        LtService.SaveCurrentAsSlot(channelId, slotId, curSlot?.Label);
+        _feedback = $"通道 CH{channelId} 当前内容已存入插槽 #{slotId}";
+        _feedbackOk = true;
+    }
+
+    private void OnSlotLabelChanged(int channelId, int slotId, string? label)
+    {
+        var sel = LtService.GetChannel(channelId);
+        if (sel == null) return;
+        var slot = sel.Slots.Find(x => x.Id == slotId);
+        if (slot != null)
+        {
+            slot.Label = label ?? "";
+            LtService.Save();
+        }
+    }
+
+    private void OnFormChanged()
+    {
+        LtService.Save();
+        var sel = GetSelectedChannel();
+        if (sel != null && sel.Active)
+        {
+            LtService.BroadcastChannelState(sel);
+        }
+    }
+
+    private void UpdateLiveChannel()
+    {
+        var sel = GetSelectedChannel();
+        if (sel != null)
+        {
+            LtService.BroadcastChannelState(sel);
+            _feedback = $"通道 CH{sel.Id} 浮层内容已实时更新";
+            _feedbackOk = true;
+        }
+    }
+
+    private void OnStyleChanged(ChangeEventArgs e)
+    {
+        var sel = GetSelectedChannel();
+        if (sel != null && int.TryParse(e.Value?.ToString(), out int style))
+        {
+            sel.Style = style;
+            OnFormChanged();
+        }
+    }
+
+    private void OnAlignChanged(ChangeEventArgs e)
+    {
+        var sel = GetSelectedChannel();
+        if (sel != null)
+        {
+            sel.Align = e.Value?.ToString() ?? "left";
+            OnFormChanged();
+        }
+    }
+
+    public record LogoOption(string Value, string Label);
+    private List<LogoOption> _availableLogos = new();
+
+    private void ReloadLogosList()
+    {
+        var list = new List<LogoOption>
+        {
+            new("logos/logo_1.png", "Logo 1 (默认)"),
+            new("logos/logo_2.png", "Logo 2 (游戏)"),
+            new("logos/logo_3.png", "Logo 3 (音乐)"),
+            new("logos/logo_4.png", "Logo 4 (科技)"),
+            new("logos/logo_5.png", "Logo 5 (社交)"),
+            new("logos/logo_6.png", "Logo 6 (主播)")
+        };
+
+        var known = new HashSet<string>(list.Select(x => x.Value), StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var dir = Path.Combine(AppConfig.LegacyRoot, "lower-thirds", "logos");
+            if (Directory.Exists(dir))
+            {
+                var files = Directory.GetFiles(dir);
+                foreach (var file in files)
+                {
+                    var ext = Path.GetExtension(file).ToLowerInvariant();
+                    if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".svg" || ext == ".webp" || ext == ".gif" || ext == ".ico")
+                    {
+                        var fn = Path.GetFileName(file);
+                        var rel = $"logos/{fn}";
+                        if (!known.Contains(rel))
+                        {
+                            list.Add(new LogoOption(rel, $"{fn} (自定义)"));
+                            known.Add(rel);
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+
+        var sel = GetSelectedChannel();
+        if (sel != null && !string.IsNullOrWhiteSpace(sel.Logo) && !known.Contains(sel.Logo))
+        {
+            list.Add(new LogoOption(sel.Logo, $"{Path.GetFileName(sel.Logo)} (自定)"));
+        }
+
+        _availableLogos = list;
+    }
+
+    private string GetLogoDisplayUrl(string logoPath)
+    {
+        if (string.IsNullOrWhiteSpace(logoPath)) return "";
+        if (logoPath.StartsWith("http://") || logoPath.StartsWith("https://") || logoPath.StartsWith("data:"))
+            return logoPath;
+        return $"http://127.0.0.1:{Api.Port}/lower-thirds/{logoPath.TrimStart('/')}";
+    }
+
+    private void OnLogoChanged(ChangeEventArgs e)
+    {
+        var sel = GetSelectedChannel();
+        if (sel != null)
+        {
+            var logo = e.Value?.ToString() ?? "";
+            sel.Logo = logo;
+            sel.ShowLogo = !string.IsNullOrEmpty(logo);
+            OnFormChanged();
+        }
+    }
+
+    private async Task PickAndImportLogo()
+    {
+        try
+        {
+            var customFileType = new Microsoft.Maui.Storage.FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+            {
+                { DevicePlatform.WinUI, new[] { ".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico" } },
+            });
+
+            var file = await Microsoft.Maui.Storage.FilePicker.Default.PickAsync(new Microsoft.Maui.Storage.PickOptions
+            {
+                PickerTitle = "请选择徽标图标图片（PNG/JPG/SVG/WEBP/GIF）",
+                FileTypes = customFileType
+            });
+
+            if (file == null) return;
+
+            var ext = Path.GetExtension(file.FileName ?? "").ToLowerInvariant();
+            var validExts = new[] { ".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico" };
+            if (string.IsNullOrEmpty(ext) || Array.IndexOf(validExts, ext) < 0)
+            {
+                await UI.ToastAsync("请选择有效的图片文件（PNG、JPG、SVG、WEBP、GIF）", false);
+                return;
+            }
+
+            var logosDir = Path.Combine(AppConfig.LegacyRoot, "lower-thirds", "logos");
+            Directory.CreateDirectory(logosDir);
+
+            var rawName = Path.GetFileNameWithoutExtension(file.FileName) ?? "logo";
+            var safeName = string.Concat(rawName.Split(Path.GetInvalidFileNameChars())).Trim();
+            if (string.IsNullOrWhiteSpace(safeName)) safeName = "custom_logo_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
+
+            var targetFileName = $"{safeName}{ext}";
+            var targetPath = Path.Combine(logosDir, targetFileName);
+
+            if (File.Exists(targetPath))
+            {
+                targetFileName = $"{safeName}_{DateTime.Now:HHmmss}{ext}";
+                targetPath = Path.Combine(logosDir, targetFileName);
+            }
+
+            using (var inStream = await file.OpenReadAsync())
+            using (var outStream = File.Create(targetPath))
+            {
+                await inStream.CopyToAsync(outStream);
+            }
+
+            ReloadLogosList();
+
+            var sel = GetSelectedChannel();
+            if (sel != null)
+            {
+                sel.Logo = $"logos/{targetFileName}";
+                sel.ShowLogo = true;
+                OnFormChanged();
+            }
+
+            _feedback = $"图标「{targetFileName}」导入成功并已应用";
+            _feedbackOk = true;
+            await UI.ToastAsync($"图标「{targetFileName}」导入成功并已应用！", true);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await UI.ToastAsync("导入图标失败：" + ex.Message, false);
+        }
+    }
+
+    private void OpenLogosFolder()
+    {
+        try
+        {
+            var logosDir = Path.Combine(AppConfig.LegacyRoot, "lower-thirds", "logos");
+            Directory.CreateDirectory(logosDir);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{logosDir}\"",
+                UseShellExecute = true
+            });
+        }
+        catch { }
+    }
+
+    private void ClearLogo()
+    {
+        var sel = GetSelectedChannel();
+        if (sel != null)
+        {
+            sel.Logo = "";
+            sel.ShowLogo = false;
+            OnFormChanged();
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleOneShot()
+    {
+        var sel = GetSelectedChannel();
+        if (sel != null)
+        {
+            sel.OneShot = !sel.OneShot;
+            OnFormChanged();
+        }
+    }
+
+    private void ToggleLockActive()
+    {
+        var sel = GetSelectedChannel();
+        if (sel != null)
+        {
+            sel.LockActive = !sel.LockActive;
+            OnFormChanged();
+        }
+    }
+
+    private void ToggleAutoMusicBubble()
+    {
+        LtService.SetGlobalConfig(autoMusicBubble: !LtService.Data.AutoMusicBubble);
+    }
+
+    private void ToggleAvoidConflict()
+    {
+        LtService.SetGlobalConfig(avoidConflict: !LtService.Data.AvoidConflict);
+    }
+
+    private void OnDurationChanged(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double sec))
+        {
+            LtService.SetGlobalConfig(musicBubbleDuration: Math.Clamp(sec, 2.0, 30.0));
+        }
+    }
+
+    private void TestMusicBubble()
+    {
+        MediaService.SimulateTrack(new SystemMediaTrack
+        {
+            HasSong = true,
+            Status = "Playing",
+            Title = "测试歌曲 - Live Special",
+            Artist = "音乐人",
+            Album = "单曲精选",
+            SourceApp = "NetEaseMusic",
+            VolumePeak = 0.85f,
+            CoverUrl = "logos/logo_3.png"
+        });
+        LtService.TriggerTestMusicBubble();
+        _feedback = "已发送切歌气泡测试信号";
+        _feedbackOk = true;
+    }
+
+    private async Task CopyOverlayUrl()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", OverlayUrl);
+            _feedback = "浮层地址已复制到剪贴板";
+            _feedbackOk = true;
+        }
+        catch
+        {
+            _feedback = "复制失败，请手动选择复制";
+            _feedbackOk = false;
+        }
+    }
+
+    private void OpenOverlay()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(OverlayUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _feedback = "打开失败: " + ex.Message;
+            _feedbackOk = false;
+        }
+    }
+
+    private void OnChannelChanged(LowerThirdChannel ch)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnTrackChanged(SystemMediaTrack track)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LtService.ChannelChanged -= OnChannelChanged;
+        MediaService.TrackChanged -= OnTrackChanged;
+    }
+}

@@ -11,6 +11,7 @@
 //   - codes/messages mirror the original table (NO_UID / TS_EXPIRED / BAD_SIGN /
 //     NOT_WHITELISTED / EXPIRED / TIMEOUT / NETWORK_ERROR).
 using System;
+using System.Collections.Concurrent;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -30,13 +31,21 @@ public sealed record VerifyState(
     string CheckedAt,
     bool Checked);
 
+public sealed record VerifyRefreshResult(
+    bool Ok,
+    bool RateLimited,
+    int CooldownRemaining,
+    int Failures,
+    string Message,
+    VerifyState State);
+
 public sealed class VerifyService
 {
     public const string AuthorUid = "10412378";
     private const string VerifyUrl = "https://ai-daynews.xyz/api/verify";
     /// <summary>
     /// HMAC key for the whitelist endpoint. Deliberately kept OUT of the repository:
-    /// it is read from %BLT_VERIFY_KEY% or &lt;app&gt;erify-key.txt (copied into
+    /// it is read from %BLT_VERIFY_KEY% or &lt;app&gt; erify-key.txt (copied into
     /// builds that legitimately talk to the author's verify server). When missing we
     /// report a clear reason instead of letting the server answer "签名验证失败".
     /// </summary>
@@ -61,6 +70,15 @@ public sealed class VerifyService
     private static readonly Regex DedeUserIDRegex = new(@"(?:^|;\s*)DedeUserID=(\d+)", RegexOptions.Compiled);
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(9) };
 
+    private sealed class UidThrottleState
+    {
+        public int ConsecutiveFailures;
+        public DateTimeOffset CooldownUntil;
+    }
+
+    private readonly ConcurrentDictionary<long, UidThrottleState> _throttles = new();
+    private readonly ConcurrentDictionary<long, Task<(bool Ok, string Name, string Code, string Message)>> _inFlight = new();
+
     private readonly AppConfig _config;
     private readonly LiveService _live;
     private readonly object _lock = new();
@@ -79,6 +97,31 @@ public sealed class VerifyService
     public VerifyState State { get { lock (_lock) return _state; } }
 
     public bool Locked => _debugLock ?? State.Locked;
+
+    /// <summary>Current B站 UID from the active cookie.</summary>
+    public long CurrentUid => ExtractUid(_config.Cookie);
+
+    /// <summary>Remaining cooldown seconds for a specific UID (0 if ready).</summary>
+    public int GetCooldownRemaining(long uid)
+    {
+        if (uid <= 0) return 0;
+        if (_throttles.TryGetValue(uid, out var s))
+        {
+            var remaining = (s.CooldownUntil - DateTimeOffset.UtcNow).TotalSeconds;
+            if (remaining > 0) return (int)Math.Ceiling(remaining);
+        }
+        return 0;
+    }
+
+    /// <summary>Consecutive verification failure count for a specific UID.</summary>
+    public int GetConsecutiveFailures(long uid)
+    {
+        if (uid <= 0) return 0;
+        return _throttles.TryGetValue(uid, out var s) ? s.ConsecutiveFailures : 0;
+    }
+
+    public int CurrentCooldownRemaining => GetCooldownRemaining(CurrentUid);
+    public int CurrentConsecutiveFailures => GetConsecutiveFailures(CurrentUid);
 
     /// <summary>Diagnostics hook (loopback bridge only): force/clear the locked state.</summary>
     public void SetDebugLock(bool? locked)
@@ -108,27 +151,51 @@ public sealed class VerifyService
 
     /// <summary>
     /// Checks the current cookie's uid unless it was already verified.
-    /// <paramref name="force"/> re-checks even when the uid is unchanged (panel's
-    /// 「重试验证」 button). Safe to call often: the cheap path is a regex + compare.
+    /// Backward-compatible wrapper over RefreshDetailedAsync.
     /// </summary>
     public async Task<VerifyState> RefreshAsync(bool force = false, CancellationToken ct = default)
+    {
+        var res = await RefreshDetailedAsync(force, ct).ConfigureAwait(false);
+        return res.State;
+    }
+
+    /// <summary>
+    /// Checks the current cookie's uid with detailed rate limiting and result information.
+    /// Employs per-UID rate limiting and in-flight request collapsing.
+    /// </summary>
+    public async Task<VerifyRefreshResult> RefreshDetailedAsync(bool force = false, CancellationToken ct = default)
     {
         var uid = ExtractUid(_config.Cookie);
         if (uid == 0)
         {
-            // Not logged in → treated as unauthorized (original behaviour: it locked
-            // and asked the user to sign in with an authorized account). The gate UI
-            // offers login/relogin, and the next check unlocks automatically once the
-            // browser captures a whitelisted uid.
             _lastUid = 0;
             SetState(new VerifyState(true, 0, "", "NO_UID", "未检测到 B站 UID：请先登录 B站账号（未授权账号登出后同样会锁定）", Now(), true));
-            // Locking drops any live connection, exactly like the original.
             _live.Stop();
-            return State;
+            return new VerifyRefreshResult(false, false, 0, 0, State.Message, State);
         }
-        if (!force && uid == _lastUid && State.Checked) return State;
-        // Avoid hammering the endpoint when the cookie keeps changing.
-        if (!force && DateTimeOffset.UtcNow - _lastAttempt < TimeSpan.FromSeconds(10)) return State;
+
+        if (force)
+        {
+            var cooldown = GetCooldownRemaining(uid);
+            if (cooldown > 0)
+            {
+                return new VerifyRefreshResult(
+                    Ok: false,
+                    RateLimited: true,
+                    CooldownRemaining: cooldown,
+                    Failures: GetConsecutiveFailures(uid),
+                    Message: $"重试过于频繁，请等待 {cooldown} 秒后再试",
+                    State: State);
+            }
+        }
+        else
+        {
+            if (uid == _lastUid && State.Checked)
+                return new VerifyRefreshResult(!State.Locked, false, 0, GetConsecutiveFailures(uid), State.Message, State);
+            if (DateTimeOffset.UtcNow - _lastAttempt < TimeSpan.FromSeconds(10))
+                return new VerifyRefreshResult(!State.Locked, false, 0, GetConsecutiveFailures(uid), State.Message, State);
+        }
+
         _lastAttempt = DateTimeOffset.UtcNow;
 
         if (HmacSecret.Length == 0)
@@ -136,31 +203,68 @@ public sealed class VerifyService
             _lastUid = uid;
             SetState(new VerifyState(true, uid, "", "NO_KEY",
                 "授权校验密钥缺失（源码不含密钥）：自行构建请联系作者获取 verify-key.txt", Now(), true));
-            return State;
+            return new VerifyRefreshResult(false, false, 0, 0, State.Message, State);
         }
-        var (ok, name, code, message) = await VerifyUidAsync(uid, ct);
+
+        // Per-UID request collapsing: if multiple callers trigger verify for the same UID simultaneously,
+        // they all share the exact same in-flight task instead of sending duplicate network packets.
+        var task = _inFlight.GetOrAdd(uid, id => PerformVerifyUidAsync(id, ct));
+        var (ok, name, code, message) = await task.ConfigureAwait(false);
+
         if (ok)
         {
             _lastUid = uid;
+            _throttles.TryRemove(uid, out _);
             SetState(new VerifyState(false, uid, name, "", "已授权", Now(), true));
+            return new VerifyRefreshResult(true, false, 0, 0, "验证通过：" + (string.IsNullOrEmpty(name) ? uid.ToString() : name), State);
         }
         else
         {
-            _lastUid = uid;   // don't retry in a loop for the same uid
-            // Only a server verdict (not on the whitelist / expired / bad signature)
-            // may lock the app. Network reachability problems must not: a flaky link
-            // or a TLS hiccup would otherwise lock a legitimately authorized user out.
+            _lastUid = uid;
             var softFailure = code is "NETWORK_ERROR" or "TIMEOUT";
             SetState(new VerifyState(
                 softFailure ? State.Locked : true,
                 uid, "", code,
                 softFailure ? message + "（网络问题，稍后自动重试，不影响本地功能）" : message,
                 Now(), true));
+
+            // Record failure and calculate progressive backoff cooldown for this specific UID
+            var throttle = _throttles.GetOrAdd(uid, _ => new UidThrottleState());
+            int cooldownSec;
+            lock (throttle)
+            {
+                throttle.ConsecutiveFailures++;
+                cooldownSec = throttle.ConsecutiveFailures switch
+                {
+                    1 => 10,
+                    2 => 20,
+                    _ => 40
+                };
+                throttle.CooldownUntil = DateTimeOffset.UtcNow.AddSeconds(cooldownSec);
+            }
+
+            if (State.Locked) _live.Stop();
+
+            return new VerifyRefreshResult(
+                Ok: false,
+                RateLimited: false,
+                CooldownRemaining: cooldownSec,
+                Failures: throttle.ConsecutiveFailures,
+                Message: State.Message,
+                State: State);
         }
-        // Locking drops any live connection, exactly like the original's
-        // disconnectRoom() on the locked branch.
-        if (State.Locked) _live.Stop();
-        return State;
+    }
+
+    private async Task<(bool Ok, string Name, string Code, string Message)> PerformVerifyUidAsync(long uid, CancellationToken ct)
+    {
+        try
+        {
+            return await VerifyUidAsync(uid, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _inFlight.TryRemove(uid, out _);
+        }
     }
 
     /// <summary>Forgets the verified uid so the next RefreshAsync re-checks (new login).</summary>

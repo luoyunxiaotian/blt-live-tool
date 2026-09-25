@@ -1,0 +1,284 @@
+/* Theme: retro-typewriter (复古波普打字机) — Inspired by Retro Pop Star Typewriter Keyboard.
+   Features: Pure circular canary-yellow button keycaps, vintage tomato-red fonts,
+   elevated mechanical mint-green key stem posts underneath, punch-down typewriter action. */
+
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 8px;
+
+  --tw-yellow: #ffcb1e;
+  --tw-yellow-light: #ffe066;
+  --tw-yellow-shadow: #c79200;
+  --tw-red-text: #d33a2a;
+  --tw-stem-green: #2bb68a;
+  --tw-stem-dark: #19785a;
+  --tw-pink: #f44786;
+  --tw-navy: #181a38;
+  --tw-yellow-glow: rgba(255, 203, 30, 0.85);
+
+  --tw-anim-t: calc(65ms / var(--kv-anim-speed, 1));
+  --tw-snap: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+#kv {
+  bottom: 18px;
+  gap: 14px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 16px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- Realistic Keyboard (Retro Typewriter - Pure Floating Circular Keys on Stems) ---- */
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.kv-real-row {
+  display: flex;
+  gap: var(--kv-key-gap);
+  position: relative;
+}
+
+/* Base Circular Typewriter Keycap */
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--tw-yellow-light) 0%, var(--tw-yellow) 85%);
+  border: 1.5px solid #ffbe00;
+  color: var(--tw-red-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13.5px;
+  font-weight: 900;
+  font-family: "PingFang SC", "Arial Rounded MT Bold", "Segoe UI", sans-serif;
+  letter-spacing: 0.2px;
+  user-select: none;
+  box-sizing: border-box;
+  position: relative;
+  /* 3D Circular Bevel & Under-Rim Shadow */
+  box-shadow: inset 0 2.5px 0 rgba(255, 255, 255, 0.7),
+              0 4.5px 0 var(--tw-yellow-shadow),
+              0 8px 12px rgba(24, 26, 56, 0.35);
+  transition: transform var(--tw-anim-t) var(--tw-snap),
+              box-shadow var(--tw-anim-t) ease,
+              filter var(--tw-anim-t) ease;
+}
+
+/* Elevated Mint-Green Mechanical Stem Post (悬空机械轴心立柱) */
+.kv-real-key::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 7px;
+  background: linear-gradient(180deg, var(--tw-stem-green), var(--tw-stem-dark));
+  border-radius: 2px;
+  z-index: -1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  transition: height var(--tw-anim-t) ease, bottom var(--tw-anim-t) ease;
+}
+
+/* Punch-down Mechanical Action */
+.kv-real-key.active {
+  transform: translateY(4.5px);
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.8),
+              0 0.5px 0 var(--tw-yellow-shadow),
+              0 0 18px var(--tw-yellow-glow);
+  filter: brightness(1.1);
+  color: #ff1c00;
+}
+.kv-real-key.active::after {
+  height: 2.5px;
+  bottom: -2.5px;
+}
+
+/* Spacebar: Elongated Pill Capsule */
+.kv-real-key[data-code="32"] {
+  border-radius: 9999px;
+  background: linear-gradient(180deg, var(--tw-yellow-light) 0%, var(--tw-yellow) 100%);
+}
+.kv-real-key[data-code="32"]::before {
+  content: '★ RETRO TYPEWRITER ★';
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: var(--tw-red-text);
+  opacity: 0.85;
+}
+.kv-real-key[data-code="32"]::after {
+  width: 28px;
+}
+
+/* Special Modifier Keys: Capsule Pill Shape */
+.kv-real-key[data-label="Shift"],
+.kv-real-key[data-label="Enter"],
+.kv-real-key[data-label="Bksp"],
+.kv-real-key[data-label="Tab"],
+.kv-real-key[data-label="Caps"],
+.kv-real-key[data-label="Ctrl"],
+.kv-real-key[data-label="Alt"],
+.kv-real-key[data-label="Win"] {
+  border-radius: 18px;
+  font-size: 12px;
+}
+.kv-real-key[data-label="Shift"]::after,
+.kv-real-key[data-label="Enter"]::after,
+.kv-real-key[data-label="Bksp"]::after,
+.kv-real-key[data-label="Tab"]::after {
+  width: 14px;
+}
+
+/* Return / Esc / Star Accent Keys: Mint Green Button */
+.kv-real-key[data-code="27"],
+.kv-real-key[data-label="`"],
+.kv-real-key[data-label="="] {
+  background: radial-gradient(circle at 35% 30%, #5ce4ba 0%, var(--tw-stem-green) 85%);
+  border-color: #219973;
+  color: #ffffff;
+  box-shadow: inset 0 2.5px 0 rgba(255, 255, 255, 0.7),
+              0 4.5px 0 var(--tw-stem-dark),
+              0 8px 12px rgba(24, 26, 56, 0.35);
+}
+.kv-real-key[data-code="27"].active,
+.kv-real-key[data-label="`"].active,
+.kv-real-key[data-label="="].active {
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.8),
+              0 0.5px 0 var(--tw-stem-dark),
+              0 0 18px rgba(43, 182, 138, 0.85);
+  color: #ffffff;
+}
+
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- Realistic Mouse (Retro Pop Typewriter Style) ---- */
+.kv-real-mouse-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.kv-real-mouse {
+  width: 93px;
+  height: 112px;
+  transition: transform var(--tw-anim-t) var(--tw-snap);
+  filter: drop-shadow(0 6px 14px rgba(24, 26, 56, 0.4));
+}
+.kv-mouse-part {
+  transition: fill var(--tw-anim-t) ease;
+  fill: #181a38;
+}
+.kv-mouse-wheel {
+  transition: fill var(--tw-anim-t) ease;
+  fill: var(--tw-stem-green);
+}
+.kv-mouse-outline {
+  fill: none;
+  stroke: var(--tw-pink);
+  stroke-width: 2.2;
+}
+.kv-mouse-sep {
+  stroke: #ffbe00;
+  stroke-width: 1.5;
+}
+
+.kv-mouse-l { fill: var(--tw-yellow); }
+.kv-mouse-r { fill: var(--tw-yellow-light); }
+.kv-mouse-l.active { fill: var(--tw-red-text); filter: drop-shadow(0 0 10px rgba(211, 58, 42, 0.8)); }
+.kv-mouse-r.active { fill: var(--tw-red-text); filter: drop-shadow(0 0 10px rgba(211, 58, 42, 0.8)); }
+.kv-mouse-wheel.active { fill: #ffffff; filter: drop-shadow(0 0 8px rgba(43, 182, 138, 0.9)); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--tw-anim-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--tw-stem-green); }
+.kv-mouse-wheel-down.active { fill: var(--tw-pink); }
+
+.kv-mouse-side {
+  fill: var(--tw-pink);
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  transition: fill var(--tw-anim-t) ease;
+}
+.kv-mouse-side.active { fill: #ffffff; filter: drop-shadow(0 0 8px rgba(244, 71, 134, 0.8)); }
+
+.kv-mouse-dir { opacity: 0; transition: opacity calc(100ms / var(--kv-anim-speed, 1)) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--tw-yellow); filter: drop-shadow(0 0 6px var(--tw-yellow-glow)); }
+
+.kv-mouse-label {
+  font-size: 11.5px;
+  color: var(--tw-yellow);
+  text-shadow: 0 1px 2px #000000;
+  font-family: "PingFang SC", "Segoe UI", sans-serif;
+  font-weight: 900;
+  min-height: 14px;
+  letter-spacing: 0.5px;
+}
+
+/* ---- Gamepad (Retro Pop Typewriter Style) ---- */
+.kv-gp {
+  display: inline-block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 6px 16px rgba(24, 26, 56, 0.4)); }
+.kv-gp-body { fill: #181a38; stroke: var(--tw-pink); stroke-width: 2.5; }
+.kv-gp-trig { fill: var(--tw-yellow); stroke: var(--tw-yellow-shadow); stroke-width: 2; opacity: calc(0.5 + var(--tv, 0) * 0.5); transition: opacity var(--tw-anim-t) ease; }
+.kv-gp-trig.active { fill: var(--tw-red-text); stroke: #ffffff; opacity: 1; filter: drop-shadow(0 0 10px rgba(211, 58, 42, 0.8)); }
+.kv-gp-trig-fill { fill: var(--tw-yellow); opacity: 0.85; }
+.kv-gp-trig-text { fill: var(--tw-red-text); font-size: 10px; font-weight: 900; text-anchor: middle; font-family: sans-serif; pointer-events: none; }
+.kv-gp-shoulder { fill: var(--tw-stem-green); stroke: var(--tw-stem-dark); stroke-width: 2; transition: all var(--tw-anim-t) ease; }
+.kv-gp-shoulder.active { fill: #ffffff; filter: drop-shadow(0 0 8px rgba(43, 182, 138, 0.8)); }
+.kv-gp-shoulder-text { fill: #ffffff; font-size: 10px; font-weight: 900; text-anchor: middle; font-family: sans-serif; pointer-events: none; }
+.kv-gp-stick-outer { fill: #0f1024; stroke: var(--tw-pink); stroke-width: 2; }
+.kv-gp-stick-inner { fill: var(--tw-yellow); stroke: var(--tw-yellow-shadow); stroke-width: 2; transition: all var(--tw-anim-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: var(--tw-yellow); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--tw-red-text); stroke: none; filter: drop-shadow(0 0 6px var(--tw-yellow-glow)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--tw-red-text); filter: drop-shadow(0 0 8px rgba(211, 58, 42, 0.8)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: var(--tw-stem-green); stroke: var(--tw-stem-dark); stroke-width: 1.5; transition: all var(--tw-anim-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: #ffffff; filter: drop-shadow(0 0 8px rgba(43, 182, 138, 0.8)); }
+.kv-gp-face { fill: var(--tw-yellow); stroke: var(--face-c, var(--tw-yellow-shadow)); stroke-width: 2.5; transition: all var(--tw-anim-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--tw-red-text)); filter: drop-shadow(0 0 12px var(--face-c, var(--tw-yellow-glow))); }
+.kv-gp-face-text { fill: var(--tw-red-text); font-size: 12px; font-weight: 900; text-anchor: middle; font-family: sans-serif; pointer-events: none; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #ffffff; }
+.kv-gp-menu-btn { fill: var(--tw-pink); stroke: #ffffff; stroke-width: 1.5; transition: all var(--tw-anim-t) ease; }
+.kv-gp-menu-btn.active { fill: #ffffff; filter: drop-shadow(0 0 6px rgba(244, 71, 134, 0.85)); }
+.kv-gp-menu-text { fill: #ffffff; font-size: 7px; font-weight: 900; text-anchor: middle; font-family: sans-serif; pointer-events: none; }
+
+/* ---- Stream & Flow Keys Fallback ---- */
+.kv-key {
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  background: var(--tw-yellow);
+  box-shadow: 0 4px 0 var(--tw-yellow-shadow), 0 6px 12px rgba(0, 0, 0, 0.3);
+  color: var(--tw-red-text);
+  font-weight: 900;
+  font-family: sans-serif;
+  font-size: 14px;
+}
+.kv-key-down {
+  transform: translateY(4px);
+  box-shadow: 0 0.5px 0 var(--tw-yellow-shadow), 0 0 14px var(--tw-yellow-glow);
+}

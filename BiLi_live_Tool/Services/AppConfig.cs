@@ -124,6 +124,37 @@ public sealed class AppConfig
     public bool AutoConnect { get { lock (_lock) return _doc.TryGetPropertyValue("autoConnect", out var v) && v is JsonValue bv && bv.TryGetValue<bool>(out var b) && b; } }
     public string Uid { get { lock (_lock) { return _doc.TryGetPropertyValue("uid", out var v) && v is JsonValue val && val.TryGetValue<string>(out var s) ? s ?? "" : ""; } } }
 
+    public string NowPlayingStyle
+    {
+        get { lock (_lock) return _GetStr(_doc, "nowPlayingStyle") is var s && s.Length > 0 ? s : "vinyl"; }
+        set { lock (_lock) { _doc["nowPlayingStyle"] = value; SaveNoLock(); } }
+    }
+    public string NowPlayingTheme
+    {
+        get { lock (_lock) return _GetStr(_doc, "nowPlayingTheme") is var s && s.Length > 0 ? s : "dark"; }
+        set { lock (_lock) { _doc["nowPlayingTheme"] = value; SaveNoLock(); } }
+    }
+    public bool NowPlayingAutoHide
+    {
+        get { lock (_lock) return _doc.TryGetPropertyValue("nowPlayingAutoHide", out var v) && v is JsonValue bv && bv.TryGetValue<bool>(out var b) && b; }
+        set { lock (_lock) { _doc["nowPlayingAutoHide"] = value; SaveNoLock(); } }
+    }
+    public double NowPlayingScale
+    {
+        get { lock (_lock) return _doc.TryGetPropertyValue("nowPlayingScale", out var v) && v is JsonValue nv && nv.TryGetValue<double>(out var d) && d > 0 ? d : 1.0; }
+        set { lock (_lock) { _doc["nowPlayingScale"] = value; SaveNoLock(); } }
+    }
+    public bool PreferInternalPlayer
+    {
+        get { lock (_lock) return !_doc.TryGetPropertyValue("preferInternalPlayer", out var v) || (v is JsonValue bv && (!bv.TryGetValue<bool>(out var b) || b)); }
+        set { lock (_lock) { _doc["preferInternalPlayer"] = value; SaveNoLock(); } }
+    }
+    public bool IgnoreBrowsers
+    {
+        get { lock (_lock) return !_doc.TryGetPropertyValue("ignoreBrowsers", out var v) || (v is JsonValue bv && (!bv.TryGetValue<bool>(out var b) || b)); }
+        set { lock (_lock) { _doc["ignoreBrowsers"] = value; SaveNoLock(); } }
+    }
+
     public void SetRoomAndCookie(string roomId, string cookie)
     {
         lock (_lock)

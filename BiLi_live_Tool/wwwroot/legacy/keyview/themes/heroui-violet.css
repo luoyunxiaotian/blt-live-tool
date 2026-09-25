@@ -1,0 +1,189 @@
+/* Theme: heroui-violet (HeroUI 幻夜紫晶) — Midnight Cyber Violet, neon magenta, glowing purple. */
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+  --kv-violet: #9353d3;
+  --kv-violet-dark: #7828c8;
+  --kv-violet-glow: rgba(147, 83, 211, 0.85);
+  --kv-violet-light: #c084fc;
+  --kv-pink: #f31260;
+  --kv-line: rgba(168, 85, 247, 0.22);
+  --kv-line-strong: rgba(168, 85, 247, 0.55);
+  --kv-fg: #f4efff;
+  --kv-fg-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  --kv-tint: rgba(21, 16, 38, 0.75);
+  --kv-anim-t: calc(65ms / var(--kv-anim-speed, 1));
+}
+
+#kv {
+  bottom: 18px;
+  gap: 12px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 14px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- Realistic Keyboard (HeroUI Violet - Pure Floating Keys, No Chassis Box) ---- */
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.kv-real-row { display: flex; gap: var(--kv-key-gap); }
+
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  border-radius: 9px;
+  background: var(--kv-tint);
+  border: 1px solid var(--kv-line);
+  color: var(--kv-fg);
+  text-shadow: var(--kv-fg-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  letter-spacing: 0.3px;
+  user-select: none;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(168, 85, 247, 0.15);
+  transition: transform var(--kv-anim-t) cubic-bezier(0.4, 0, 0.2, 1),
+              background var(--kv-anim-t) ease,
+              border-color var(--kv-anim-t) ease,
+              box-shadow var(--kv-anim-t) ease,
+              color var(--kv-anim-t) ease;
+}
+.kv-real-key.active {
+  background: linear-gradient(135deg, #7828c8, #9353d3 65%, #f31260);
+  border-color: #c084fc;
+  color: #ffffff;
+  transform: translateY(2px) scale(0.97);
+  box-shadow: 0 0 20px var(--kv-violet-glow), 0 0 36px rgba(243, 18, 96, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- Realistic Mouse (HeroUI Violet - Pure Floating Mouse, No Chassis Box) ---- */
+.kv-real-mouse-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.kv-real-mouse {
+  width: 93px;
+  height: 112px;
+  transition: transform var(--kv-anim-t) ease;
+  filter: drop-shadow(0 2px 10px rgba(120, 40, 200, 0.35));
+}
+.kv-mouse-part { transition: fill var(--kv-anim-t) ease; fill: var(--kv-tint); }
+.kv-mouse-wheel { transition: fill var(--kv-anim-t) ease; fill: rgba(168, 85, 247, 0.25); }
+.kv-mouse-outline { fill: none; stroke: var(--kv-line-strong); stroke-width: 1.5; }
+.kv-mouse-sep { stroke: var(--kv-line); stroke-width: 1; }
+
+.kv-mouse-l.active { fill: var(--kv-violet); filter: drop-shadow(0 0 10px var(--kv-violet-glow)); }
+.kv-mouse-r.active { fill: var(--kv-pink); filter: drop-shadow(0 0 10px rgba(243, 18, 96, 0.85)); }
+.kv-mouse-wheel.active { fill: var(--kv-violet-light); filter: drop-shadow(0 0 8px var(--kv-violet-glow)); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--kv-anim-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--kv-violet); filter: drop-shadow(0 0 6px var(--kv-violet-glow)); }
+.kv-mouse-wheel-down.active { fill: var(--kv-pink); filter: drop-shadow(0 0 6px rgba(243, 18, 96, 0.8)); }
+
+.kv-mouse-side { fill: var(--kv-tint); stroke: var(--kv-line); stroke-width: 1; transition: fill var(--kv-anim-t) ease, stroke var(--kv-anim-t) ease; }
+.kv-mouse-side.active { fill: var(--kv-violet); stroke: var(--kv-violet-light); filter: drop-shadow(0 0 8px var(--kv-violet-glow)); }
+
+.kv-mouse-dir { opacity: 0; transition: opacity calc(100ms / var(--kv-anim-speed, 1)) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--kv-violet-light); filter: drop-shadow(0 0 6px var(--kv-violet-glow)); }
+
+.kv-mouse-label {
+  font-size: 11px;
+  color: var(--kv-fg);
+  text-shadow: var(--kv-fg-shadow);
+  opacity: 0.9;
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-weight: 600;
+  min-height: 14px;
+  letter-spacing: 0.5px;
+}
+
+/* ---- Gamepad (HeroUI Violet - Pure Floating Pad, No Chassis Box) ---- */
+.kv-gp {
+  display: inline-block;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 4px 14px rgba(120, 40, 200, 0.35)); }
+.kv-gp-body { fill: rgba(16, 11, 32, 0.94); stroke: rgba(168, 85, 247, 0.3); stroke-width: 2.5; }
+.kv-gp-trig { fill: rgba(34, 24, 64, 0.85); stroke: rgba(168, 85, 247, 0.25); stroke-width: 2; opacity: calc(0.5 + var(--tv, 0) * 0.5); transition: opacity var(--kv-anim-t) ease; }
+.kv-gp-trig.active { fill: var(--kv-violet); stroke: var(--kv-violet-light); opacity: 1; filter: drop-shadow(0 0 10px var(--kv-violet-glow)); }
+.kv-gp-trig-fill { fill: var(--kv-pink); opacity: 0.85; }
+.kv-gp-trig-text { fill: var(--kv-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; }
+.kv-gp-shoulder { fill: rgba(34, 24, 64, 0.85); stroke: rgba(168, 85, 247, 0.25); stroke-width: 2; transition: all var(--kv-anim-t) ease; }
+.kv-gp-shoulder.active { fill: var(--kv-violet); filter: drop-shadow(0 0 8px var(--kv-violet-glow)); }
+.kv-gp-shoulder-text { fill: var(--kv-fg); font-size: 10px; font-weight: 700; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; }
+.kv-gp-stick-outer { fill: rgba(11, 7, 23, 0.95); stroke: rgba(168, 85, 247, 0.2); stroke-width: 2; }
+.kv-gp-stick-inner { fill: rgba(34, 24, 64, 0.9); stroke: rgba(0, 0, 0, 0.5); stroke-width: 2; transition: all var(--kv-anim-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: rgba(168, 85, 247, 0.35); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--kv-violet-light); stroke: none; filter: drop-shadow(0 0 6px var(--kv-violet-glow)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--kv-violet); filter: drop-shadow(0 0 8px var(--kv-violet-glow)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: rgba(34, 24, 64, 0.9); stroke: rgba(168, 85, 247, 0.25); stroke-width: 1.5; transition: all var(--kv-anim-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--kv-violet); filter: drop-shadow(0 0 8px var(--kv-violet-glow)); }
+.kv-gp-face { fill: rgba(16, 11, 32, 0.95); stroke: var(--face-c, var(--kv-violet)); stroke-width: 2.5; transition: all var(--kv-anim-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--kv-violet)); filter: drop-shadow(0 0 12px var(--face-c, var(--kv-violet))); }
+.kv-gp-face-text { fill: var(--kv-fg); font-size: 12px; font-weight: 800; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; transition: fill var(--kv-anim-t) ease; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #ffffff; }
+.kv-gp-menu-btn { fill: rgba(34, 24, 64, 0.9); stroke: rgba(168, 85, 247, 0.25); stroke-width: 1.5; transition: all var(--kv-anim-t) ease; }
+.kv-gp-menu-btn.active { fill: var(--kv-pink); filter: drop-shadow(0 0 6px rgba(243, 18, 96, 0.8)); }
+.kv-gp-menu-text { fill: var(--kv-fg); font-size: 7px; font-weight: 700; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; }
+
+/* ---- Standard Flow Keys (HeroUI Violet fallback) ---- */
+.kv-key {
+  border-radius: 12px;
+  background: rgba(21, 16, 38, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(168, 85, 247, 0.2);
+  color: var(--kv-fg);
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-weight: 700;
+}
+.kv-key-down {
+  background: linear-gradient(135deg, #7828c8, #9353d3 65%, #f31260);
+  border-color: #c084fc;
+  color: #ffffff;
+  box-shadow: 0 0 20px var(--kv-violet-glow), 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+.kv-ripple {
+  border-color: var(--kv-violet);
+  box-shadow: 0 0 14px var(--kv-violet-glow);
+}

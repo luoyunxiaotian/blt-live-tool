@@ -1,0 +1,261 @@
+/* Theme: anya-macaron (阿尼亚软萌奶糖) — Inspired by Anya Forger Macaron Keyboard.
+   Features: MOA bulbous puffy keycaps, pastel peach pink/matcha green/custard yellow,
+   checkerboard keys, deep 3D 5px extruded side profile, bouncy dampening press. */
+
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 38px;
+  --kv-key-gap: 6px;
+  --anya-peach: #f7a7a6;
+  --anya-peach-light: #ffb8b7;
+  --anya-peach-shadow: #cf6e76;
+  --anya-matcha: #94d88a;
+  --anya-matcha-light: #a9e8a0;
+  --anya-matcha-shadow: #5d9f54;
+  --anya-cream: #fad675;
+  --anya-cream-light: #ffe594;
+  --anya-cream-shadow: #c69532;
+  --anya-pink-glow: rgba(247, 167, 166, 0.85);
+  --anya-text-dark: #5c3539;
+  --anya-anim-t: calc(75ms / var(--kv-anim-speed, 1));
+  --anya-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#kv {
+  bottom: 18px;
+  gap: 14px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 16px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- Realistic Keyboard (Anya Macaron - Pure Floating 3D Keys) ---- */
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.kv-real-row {
+  display: flex;
+  gap: var(--kv-key-gap);
+}
+
+/* Base Keycap: Chubby MOA Profile (3D Extruded Rounded Cushion) */
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--anya-peach-light) 0%, var(--anya-peach) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(110, 35, 45, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: "PingFang SC", "Segoe UI", "Comic Sans MS", "Microsoft YaHei", sans-serif;
+  letter-spacing: 0.3px;
+  user-select: none;
+  box-sizing: border-box;
+  /* Physical 3D keycap depth: 5px extruded under-rim */
+  box-shadow: 0 5px 0 var(--anya-peach-shadow), 0 8px 14px rgba(100, 30, 40, 0.25), inset 0 2px 3px rgba(255, 255, 255, 0.65);
+  transition: transform var(--anya-anim-t) var(--anya-bounce),
+              box-shadow var(--anya-anim-t) ease,
+              filter var(--anya-anim-t) ease;
+}
+
+/* Pressing Animation: 4.5px deep depression with squish */
+.kv-real-key.active {
+  transform: translateY(4.5px);
+  box-shadow: 0 0.5px 0 var(--anya-peach-shadow), 0 2px 6px rgba(100, 30, 40, 0.3), 0 0 18px var(--anya-pink-glow), inset 0 2px 4px rgba(0, 0, 0, 0.12);
+  filter: brightness(1.08);
+}
+
+/* Matcha Green Keys (Function keys, Esc, Tab, Caps, Backspace) */
+.kv-real-key[data-code="27"],
+.kv-real-key[data-label^="F"],
+.kv-real-key[data-label="Tab"],
+.kv-real-key[data-label="Caps"],
+.kv-real-key[data-label="Bksp"],
+.kv-real-key[data-label="`"],
+.kv-real-key[data-label="\\"] {
+  background: linear-gradient(180deg, var(--anya-matcha-light) 0%, var(--anya-matcha) 100%);
+  box-shadow: 0 5px 0 var(--anya-matcha-shadow), 0 8px 14px rgba(40, 90, 40, 0.22), inset 0 2px 3px rgba(255, 255, 255, 0.65);
+}
+.kv-real-key[data-code="27"].active,
+.kv-real-key[data-label^="F"].active,
+.kv-real-key[data-label="Tab"].active,
+.kv-real-key[data-label="Caps"].active,
+.kv-real-key[data-label="Bksp"].active,
+.kv-real-key[data-label="`"].active,
+.kv-real-key[data-label="\\"].active {
+  box-shadow: 0 0.5px 0 var(--anya-matcha-shadow), 0 2px 6px rgba(40, 90, 40, 0.3), 0 0 18px rgba(148, 216, 138, 0.8), inset 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+/* Custard Yellow Key: Spacebar & Special */
+.kv-real-key[data-code="32"],
+.kv-real-key[data-label="0"],
+.kv-real-key[data-label="Menu"] {
+  background: linear-gradient(180deg, var(--anya-cream-light) 0%, var(--anya-cream) 100%);
+  box-shadow: 0 5px 0 var(--anya-cream-shadow), 0 8px 14px rgba(120, 90, 20, 0.22), inset 0 2px 3px rgba(255, 255, 255, 0.7);
+  color: var(--anya-text-dark);
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.7);
+}
+.kv-real-key[data-code="32"]::before {
+  content: '★ ANYA FORGER ★';
+  font-size: 11.5px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #8c5b05;
+}
+.kv-real-key[data-code="32"].active,
+.kv-real-key[data-label="0"].active,
+.kv-real-key[data-label="Menu"].active {
+  box-shadow: 0 0.5px 0 var(--anya-cream-shadow), 0 2px 6px rgba(120, 90, 20, 0.3), 0 0 18px rgba(250, 214, 117, 0.85);
+}
+
+/* Pink-Cream Checkerboard (粉白棋盘格按键) */
+.kv-real-key[data-col="10"],
+.kv-real-key[data-col="11"],
+.kv-real-key[data-col="12"],
+.kv-real-key[data-col="13"] {
+  background: repeating-conic-gradient(#ffe3e3 0% 25%, #ffffff 0% 50%) 50% / 10px 10px;
+  color: #db495c;
+  text-shadow: 0 1px 0 #ffffff;
+  border: 1.5px solid #ffccd2;
+  box-shadow: 0 5px 0 #cf6e76, 0 8px 14px rgba(100, 30, 40, 0.25), inset 0 2px 2px rgba(255, 255, 255, 0.8);
+}
+.kv-real-key[data-col="10"].active,
+.kv-real-key[data-col="11"].active,
+.kv-real-key[data-col="12"].active,
+.kv-real-key[data-col="13"].active {
+  box-shadow: 0 0.5px 0 #cf6e76, 0 2px 6px rgba(100, 30, 40, 0.3), 0 0 18px rgba(247, 167, 166, 0.9);
+}
+
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- Realistic Mouse (Anya Macaron Pastel) ---- */
+.kv-real-mouse-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.kv-real-mouse {
+  width: 93px;
+  height: 112px;
+  transition: transform var(--anya-anim-t) var(--anya-bounce);
+  filter: drop-shadow(0 6px 14px rgba(180, 90, 100, 0.35));
+}
+.kv-mouse-part {
+  transition: fill var(--anya-anim-t) ease;
+  fill: #fff0f1;
+}
+.kv-mouse-wheel {
+  transition: fill var(--anya-anim-t) ease;
+  fill: var(--anya-cream);
+}
+.kv-mouse-outline {
+  fill: none;
+  stroke: var(--anya-peach);
+  stroke-width: 2.2;
+}
+.kv-mouse-sep {
+  stroke: var(--anya-peach-shadow);
+  stroke-width: 1.5;
+}
+
+.kv-mouse-l { fill: var(--anya-peach-light); }
+.kv-mouse-r { fill: var(--anya-matcha-light); }
+.kv-mouse-l.active { fill: var(--anya-peach-shadow); filter: drop-shadow(0 0 10px var(--anya-pink-glow)); }
+.kv-mouse-r.active { fill: var(--anya-matcha-shadow); filter: drop-shadow(0 0 10px rgba(148, 216, 138, 0.8)); }
+.kv-mouse-wheel.active { fill: #f3b700; filter: drop-shadow(0 0 8px rgba(250, 214, 117, 0.8)); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--anya-anim-t) ease; }
+.kv-mouse-wheel-up.active { fill: var(--anya-peach); filter: drop-shadow(0 0 6px var(--anya-pink-glow)); }
+.kv-mouse-wheel-down.active { fill: var(--anya-matcha); filter: drop-shadow(0 0 6px rgba(148, 216, 138, 0.8)); }
+
+.kv-mouse-side {
+  fill: #ffffff;
+  stroke: var(--anya-peach);
+  stroke-width: 1.5;
+  transition: fill var(--anya-anim-t) ease;
+}
+.kv-mouse-side.active { fill: var(--anya-peach); filter: drop-shadow(0 0 8px var(--anya-pink-glow)); }
+
+.kv-mouse-dir { opacity: 0; transition: opacity calc(100ms / var(--kv-anim-speed, 1)) ease; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--anya-peach); filter: drop-shadow(0 0 6px var(--anya-pink-glow)); }
+
+.kv-mouse-label {
+  font-size: 11.5px;
+  color: #db495c;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  font-family: "PingFang SC", "Segoe UI", sans-serif;
+  font-weight: 800;
+  min-height: 14px;
+  letter-spacing: 0.5px;
+}
+
+/* ---- Gamepad (Anya Macaron Pastel) ---- */
+.kv-gp {
+  display: inline-block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(0 6px 16px rgba(180, 90, 100, 0.35)); }
+.kv-gp-body { fill: #fff2f3; stroke: var(--anya-peach); stroke-width: 2.5; }
+.kv-gp-trig { fill: var(--anya-peach-light); stroke: var(--anya-peach-shadow); stroke-width: 2; opacity: calc(0.5 + var(--tv, 0) * 0.5); transition: opacity var(--anya-anim-t) ease; }
+.kv-gp-trig.active { fill: var(--anya-peach); stroke: #ffffff; opacity: 1; filter: drop-shadow(0 0 10px var(--anya-pink-glow)); }
+.kv-gp-trig-fill { fill: var(--anya-peach); opacity: 0.85; }
+.kv-gp-trig-text { fill: #ffffff; font-size: 10px; font-weight: 800; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; }
+.kv-gp-shoulder { fill: var(--anya-matcha-light); stroke: var(--anya-matcha-shadow); stroke-width: 2; transition: all var(--anya-anim-t) ease; }
+.kv-gp-shoulder.active { fill: var(--anya-matcha); filter: drop-shadow(0 0 8px rgba(148, 216, 138, 0.8)); }
+.kv-gp-shoulder-text { fill: #ffffff; font-size: 10px; font-weight: 800; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; }
+.kv-gp-stick-outer { fill: #ffeef0; stroke: var(--anya-peach); stroke-width: 2; }
+.kv-gp-stick-inner { fill: var(--anya-cream); stroke: var(--anya-cream-shadow); stroke-width: 2; transition: all var(--anya-anim-t) ease; }
+.kv-gp-stick-ring { fill: none; stroke: var(--anya-peach); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--anya-peach); stroke: none; filter: drop-shadow(0 0 6px var(--anya-pink-glow)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: var(--anya-peach); filter: drop-shadow(0 0 8px var(--anya-pink-glow)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: var(--anya-matcha-light); stroke: var(--anya-matcha-shadow); stroke-width: 1.5; transition: all var(--anya-anim-t) ease; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: var(--anya-matcha); filter: drop-shadow(0 0 8px rgba(148, 216, 138, 0.8)); }
+.kv-gp-face { fill: var(--anya-peach-light); stroke: var(--face-c, var(--anya-peach)); stroke-width: 2.5; transition: all var(--anya-anim-t) ease; }
+.kv-gp-face.active { fill: var(--face-c, var(--anya-peach)); filter: drop-shadow(0 0 12px var(--face-c, var(--anya-peach))); }
+.kv-gp-face-text { fill: #ffffff; font-size: 12px; font-weight: 800; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #ffffff; }
+.kv-gp-menu-btn { fill: var(--anya-cream); stroke: var(--anya-cream-shadow); stroke-width: 1.5; transition: all var(--anya-anim-t) ease; }
+.kv-gp-menu-btn.active { fill: #f3b700; filter: drop-shadow(0 0 6px rgba(250, 214, 117, 0.85)); }
+.kv-gp-menu-text { fill: var(--anya-text-dark); font-size: 7px; font-weight: 800; text-anchor: middle; font-family: -apple-system, sans-serif; pointer-events: none; }
+
+/* ---- Stream & Flow Keys Fallback ---- */
+.kv-key {
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--anya-peach-light), var(--anya-peach));
+  box-shadow: 0 4px 0 var(--anya-peach-shadow), 0 6px 12px rgba(100, 30, 40, 0.25);
+  color: #ffffff;
+  font-weight: 800;
+  font-family: "PingFang SC", "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+.kv-key-down {
+  transform: translateY(4px);
+  box-shadow: 0 0.5px 0 var(--anya-peach-shadow), 0 0 14px var(--anya-pink-glow);
+}

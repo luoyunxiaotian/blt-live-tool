@@ -9,6 +9,7 @@
 @inject IJSRuntime JS
 @inject BiLi_live_Tool.Services.UiKit UI
 @inject BiLi_live_Tool.Services.KestrelHost Api
+@inject BiLi_live_Tool.Services.SystemMedia.SystemMediaService MediaService
 @implements IDisposable
 
 <div class="blt-pagehead"><h1>点歌功能</h1><span class="en">SONG REQUEST</span></div>
@@ -288,6 +289,146 @@
             </div>
         </div>
 
+        @* ── 媒体感知与 OBS 音乐浮层 (Now Playing) ── *@
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="🎧" /> 媒体感知与 OBS 音乐浮层 (Now Playing)</span><span class="en">NOW PLAYING</span>
+                <span class="right">
+                    <span class="blt-switch @(MediaService.Enabled ? "on" : "")" @onclick="ToggleMediaService" title="切换系统媒体监听">
+                        <span class="track"></span>@(MediaService.Enabled ? "ON" : "OFF")
+                    </span>
+                </span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:flex;align-items:center;gap:12px">
+                    @if (!string.IsNullOrEmpty(MediaService.CurrentTrack.CoverUrl))
+                    {
+                        <img src="@GetMediaCoverDisplayUrl()" style="width:54px;height:54px;border-radius:6px;object-fit:cover;border:1px solid var(--line);flex:none;box-shadow:0 2px 8px rgba(0,0,0,0.15)" alt="cover" />
+                    }
+                    else
+                    {
+                        <div style="width:54px;height:54px;border-radius:6px;background:var(--bg-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;flex:none">
+                            🎵
+                        </div>
+                    }
+                    <div style="flex:1;min-width:0">
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                            <span class="blt-badge @(MediaService.CurrentTrack.HasSong ? (MediaService.CurrentTrack.Status == "Playing" ? "green" : "amber") : "off")">
+                                @(MediaService.CurrentTrack.HasSong ? (MediaService.CurrentTrack.Status == "Playing" ? "▶ 播放中" : "⏸ 已暂停") : "未在播放")
+                            </span>
+                            @if (!string.IsNullOrEmpty(MediaService.CurrentTrack.SourceApp))
+                            {
+                                <span class="blt-badge blue">@MediaService.CurrentTrack.SourceApp</span>
+                            }
+                            @if (!string.IsNullOrEmpty(MediaService.CurrentTrack.Requester))
+                            {
+                                <span class="blt-badge" style="background:rgba(251,114,153,0.15);color:#fb7299;border:1px solid rgba(251,114,153,0.3)">点歌: @MediaService.CurrentTrack.Requester</span>
+                            }
+                        </div>
+                        <div style="font-weight:700;font-size:14px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                            @(MediaService.CurrentTrack.HasSong ? MediaService.CurrentTrack.Title : "暂无正在播放的歌曲")
+                        </div>
+                        <div style="color:var(--ink-2);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                            @(MediaService.CurrentTrack.HasSong ? (MediaService.CurrentTrack.Artist + (string.IsNullOrEmpty(MediaService.CurrentTrack.Album) ? "" : $" · {MediaService.CurrentTrack.Album}")) : "本程序点歌或外部网易云/QQ音乐/Spotify播放时自动感知")
+                        </div>
+                    </div>
+                </div>
+
+                @if (MediaService.CurrentTrack.HasSong && (MediaService.CurrentTrack.DurationSec > 0 || MediaService.CurrentTrack.PositionSec > 0))
+                {
+                    <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+                        <span class="mono" style="font-size:11px;color:var(--ink-2)">@(TimeSpan.FromSeconds(MediaService.CurrentTrack.PositionSec).ToString(@"mm\:ss"))</span>
+                        <div style="flex:1;height:5px;background:var(--bg-3);border-radius:2.5px;overflow:hidden">
+                            <div style="height:100%;width:@(MediaService.CurrentTrack.DurationSec > 0 ? Math.Min(100, Math.Max(0, (int)(MediaService.CurrentTrack.PositionSec / MediaService.CurrentTrack.DurationSec * 100))) : 0)%;background:var(--primary);transition:width 0.3s"></div>
+                        </div>
+                        <span class="mono" style="font-size:11px;color:var(--ink-2)">@(MediaService.CurrentTrack.DurationSec > 0 ? TimeSpan.FromSeconds(MediaService.CurrentTrack.DurationSec).ToString(@"mm\:ss") : "--:--")</span>
+                    </div>
+                }
+
+                @if (MediaService.CurrentTrack.HasSong && MediaService.CurrentTrack.VolumePeak > 0)
+                {
+                    <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
+                        <span class="blt-hint" style="margin:0;font-size:11px">WASAPI 混音峰值</span>
+                        <div style="flex:1;height:5px;background:var(--bg-3);border-radius:2.5px;overflow:hidden">
+                            <div style="height:100%;width:@(Math.Round(MediaService.CurrentTrack.VolumePeak * 100))%;background:var(--green);transition:width 0.3s"></div>
+                        </div>
+                        <span class="mono" style="font-size:10.5px;color:var(--ink-2)">@(Math.Round(MediaService.CurrentTrack.VolumePeak * 100))%</span>
+                    </div>
+                }
+
+                @* ── 过滤与优先级配置 ── *@
+                <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer" title="点歌列表中播放时优先展示本程序曲目">
+                        <input type="checkbox" checked="@MediaService.PreferInternalPlayer" @onchange="TogglePreferInternal" />
+                        <span>优先本程序点歌</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer" title="过滤Edge/Chrome等浏览器播放的视频，仅捕获专业音乐播放器">
+                        <input type="checkbox" checked="@MediaService.IgnoreBrowsers" @onchange="ToggleIgnoreBrowsers" />
+                        <span>过滤浏览器视频 (推荐勾选)</span>
+                    </label>
+                </div>
+
+                @* ── Now Playing OBS 浮层风格与参数定制 ── *@
+                <div style="margin-top:12px;padding:12px;background:var(--bg-2);border-radius:8px;border:1px solid var(--line)">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                        <span style="font-size:12.5px;font-weight:700">📺 Now Playing OBS 音乐浮层定制</span>
+                        <span class="blt-badge blue" style="font-size:11px">参数即时联动</span>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+                        <div>
+                            <label class="blt-label">浮层视觉风格 (Style)</label>
+                            <select class="blt-input" value="@_npStyle" @onchange="OnNpStyleChanged">
+                                <option value="vinyl">💿 黑胶唱片 (精美旋转)</option>
+                                <option value="card">🗂 现代卡片 (大尺寸毛玻璃)</option>
+                                <option value="compact">🏷 极简横条 (角落角标)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="blt-label">主题配色 (Theme)</label>
+                            <select class="blt-input" value="@_npTheme" @onchange="OnNpThemeChanged">
+                                <option value="dark">🌙 暗黑深色</option>
+                                <option value="light">☀️ 清爽浅色</option>
+                                <option value="glass">🧊 晶莹磨砂玻璃</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="blt-label">画面缩放 (Scale)</label>
+                            <select class="blt-input" value="@_npScaleStr" @onchange="OnNpScaleChanged">
+                                <option value="0.75">75% (超小)</option>
+                                <option value="0.85">85% (紧凑)</option>
+                                <option value="1.0">100% (标准默认)</option>
+                                <option value="1.15">115% (放大)</option>
+                                <option value="1.25">125% (清晰特大)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="blt-label">停播自动隐藏 (AutoHide)</label>
+                            <div style="margin-top:4px">
+                                <span class="blt-switch @(_npAutoHide ? "on" : "")" @onclick="ToggleNpAutoHide">
+                                    <span class="track"></span>@(_npAutoHide ? "开启" : "关闭")
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:12px">
+                        <label class="blt-label">OBS 浏览器源地址 (自动拼接定制参数)</label>
+                        <div style="display:flex;gap:8px;align-items:center">
+                            <input class="blt-input mono" readonly value="@GetNowPlayingOverlayUrl()" style="font-size:11.5px;flex:1" />
+                            <button class="blt-btn" @onclick="CopyNowPlayingUrl">复制地址</button>
+                            <button class="blt-btn primary" @onclick="OpenNowPlayingOverlay">打开预览</button>
+                        </div>
+                    </div>
+
+                    <div class="blt-hint" style="margin:8px 0 0;font-size:11.5px">
+                        💡 OBS 添加提示：来源 → 添加「浏览器」→ 粘贴上方地址。<br/>
+                        推荐画布分辨率：黑胶唱片 <b>580×160</b>，现代卡片 <b>520×150</b>，极简横条 <b>460×76</b>。
+                    </div>
+                </div>
+            </div>
+        </div>
+
         @* ── OBS 歌词浮层（原版 lyrics/overlay.html，OBS 里加浏览器源指向该地址） ── *@
         <div class="blt-panel">
             <div class="blt-panel-head">
@@ -304,8 +445,8 @@
                     <button class="blt-btn" @onclick="OpenOverlay">在浏览器里预览</button>
                 </div>
                 <div class="blt-hint" style="margin-top:8px">
-                    OBS：来源 → 浏览器 → 粘贴上面的地址，建议竖屏比例（如 420×760）。歌词随播放进度滚动；
-                    播放时进度会通过 WebSocket 的 song_progress 帧推送（未播放时浮层显示等待状态）。
+                    OBS：来源 → 浏览器 → 粘贴上面的地址，建议竖屏比例（如 420×760）。<br/>
+                    💡 <b>现已全面支持 Now Playing 外部播放器！</b>不管是程序内点歌，还是在电脑上使用网易云音乐、QQ音乐、酷狗、Spotify 等外部播放器放歌，均会自动抓取歌词并同步高亮滚动（优先程序内点歌，停止时自动切换外部音乐）。
                 </div>
             </div>
         </div>
@@ -659,7 +800,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        InitNowPlayingSettings();
         Player.Changed += OnSongChanged;
+        MediaService.TrackChanged += OnSystemTrackChanged;
+        MediaService.ProgressChanged += OnSystemProgressChanged;
         await RefreshAll(false);
     }
 
@@ -731,8 +875,125 @@
     {
         if (ReferenceEquals(_page, this)) _page = null;   // a stale DOM must not reach a disposed page
         Player.Changed -= OnSongChanged;
+        MediaService.TrackChanged -= OnSystemTrackChanged;
+        MediaService.ProgressChanged -= OnSystemProgressChanged;
         _http?.Dispose();
         _http = null;
+    }
+
+    private void OnSystemTrackChanged(BiLi_live_Tool.Services.SystemMedia.SystemMediaTrack track)
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSystemProgressChanged(double pos, double dur)
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private string _npStyle = "vinyl";
+    private string _npTheme = "dark";
+    private string _npScaleStr = "1.0";
+    private bool _npAutoHide = false;
+
+    private void InitNowPlayingSettings()
+    {
+        _npStyle = Config.NowPlayingStyle;
+        _npTheme = Config.NowPlayingTheme;
+        _npScaleStr = Config.NowPlayingScale.ToString("0.0#", CultureInfo.InvariantCulture);
+        _npAutoHide = Config.NowPlayingAutoHide;
+    }
+
+    private void OnNpStyleChanged(ChangeEventArgs e)
+    {
+        _npStyle = e.Value?.ToString() ?? "vinyl";
+        Config.NowPlayingStyle = _npStyle;
+        StateHasChanged();
+    }
+
+    private void OnNpThemeChanged(ChangeEventArgs e)
+    {
+        _npTheme = e.Value?.ToString() ?? "dark";
+        Config.NowPlayingTheme = _npTheme;
+        StateHasChanged();
+    }
+
+    private void OnNpScaleChanged(ChangeEventArgs e)
+    {
+        _npScaleStr = e.Value?.ToString() ?? "1.0";
+        if (double.TryParse(_npScaleStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var sc))
+        {
+            Config.NowPlayingScale = sc;
+        }
+        StateHasChanged();
+    }
+
+    private void ToggleNpAutoHide()
+    {
+        _npAutoHide = !_npAutoHide;
+        Config.NowPlayingAutoHide = _npAutoHide;
+        StateHasChanged();
+    }
+
+    private string GetNowPlayingOverlayUrl()
+    {
+        var sb = new StringBuilder($"http://127.0.0.1:{Api.Port}/now-playing/overlay.html?");
+        sb.Append($"style={_npStyle}&theme={_npTheme}");
+        if (_npAutoHide) sb.Append("&autohide=1");
+        if (_npScaleStr != "1.0" && _npScaleStr != "1") sb.Append($"&scale={_npScaleStr}");
+        return sb.ToString();
+    }
+
+    private string GetMediaCoverDisplayUrl()
+    {
+        if (string.IsNullOrEmpty(MediaService.CurrentTrack.CoverUrl)) return "";
+        var url = MediaService.CurrentTrack.CoverUrl;
+        if (url.StartsWith("/"))
+        {
+            url = $"http://127.0.0.1:{Api.Port}{url}";
+        }
+        if (!string.IsNullOrEmpty(MediaService.CurrentTrack.CoverHash))
+        {
+            url += (url.Contains('?') ? "&" : "?") + "h=" + Uri.EscapeDataString(MediaService.CurrentTrack.CoverHash);
+        }
+        return url;
+    }
+
+    private void ToggleMediaService()
+    {
+        MediaService.Enabled = !MediaService.Enabled;
+        StateHasChanged();
+    }
+
+    private void ToggleIgnoreBrowsers()
+    {
+        MediaService.IgnoreBrowsers = !MediaService.IgnoreBrowsers;
+        StateHasChanged();
+    }
+
+    private void TogglePreferInternal()
+    {
+        MediaService.PreferInternalPlayer = !MediaService.PreferInternalPlayer;
+        StateHasChanged();
+    }
+
+    private async Task CopyNowPlayingUrl()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetNowPlayingOverlayUrl());
+            SetMsg("Now Playing 浮层定制地址已复制到剪贴板", "green");
+        }
+        catch { }
+    }
+
+    private void OpenNowPlayingOverlay()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(GetNowPlayingOverlayUrl()) { UseShellExecute = true });
+        }
+        catch { }
     }
 
     // ---------- player / lyrics ----------

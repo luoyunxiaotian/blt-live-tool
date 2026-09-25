@@ -1,5 +1,12 @@
 {
   "themes": [
+    { "id": "anya-macaron", "name": "阿尼亚软萌奶糖", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/anya-macaron.css", "preview": "MOA软萌球帽+粉绿黄奶糖色+棋盘格+3D立体下沉", "render": "layout", "params": [] },
+    { "id": "mc-minerals", "name": "我的世界矿石方块", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/mc-minerals.css", "preview": "铜矿/钻石/绿宝石三色矿石+等轴3D侧厚+下砸暴击闪烁", "render": "layout", "params": [] },
+    { "id": "retro-typewriter", "name": "复古波普打字机", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/retro-typewriter.css", "preview": "明黄纯圆纽扣键帽+绿色机械悬空轴柱+冲压下沉", "render": "layout", "params": [] },
+    { "id": "heroui-dark", "name": "HeroUI 极黑晶核", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/heroui-dark.css", "preview": "HeroUI 极黑暗夜+电光蓝科技发光，圆角晶莹质感", "render": "layout", "params": [] },
+    { "id": "heroui-violet", "name": "HeroUI 幻夜紫晶", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/heroui-violet.css", "preview": "深邃紫黑晶莹质感+赛博霓虹粉紫流光，高对比悬浮", "render": "layout", "params": [] },
+    { "id": "heroui-emerald", "name": "HeroUI 翡翠极光", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/heroui-emerald.css", "preview": "黑曜石底色+清新翡翠薄荷流光发光，生机科技感", "render": "layout", "params": [] },
+    { "id": "heroui-light", "name": "HeroUI 陶瓷白晶", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/heroui-light.css", "preview": "纯净高透白晶瓷感+皇家电光蓝点缀，极简轻盈", "render": "layout", "params": [] },
     {
       "id": "glass",
       "name": "毛玻璃极简",

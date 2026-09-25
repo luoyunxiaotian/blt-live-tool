@@ -239,6 +239,9 @@ namespace BiLi_live_Tool
         /// </summary>
         internal static (string Bg, string Fg) TitleBarColors(string theme) => theme switch
         {
+            "heroui-dark" => ("#000000", "#ECEDEE"),
+            "heroui-violet" => ("#080511", "#F4EFFF"),
+            "heroui-emerald" => ("#040D09", "#ECFDF5"),
             "workbench" => ("#F7F8FA", "#1A1D24"),
             "bili" => ("#FFFFFF", "#33333E"),
             "vibrancy" => ("#F5F5F7", "#1D1D1F"),

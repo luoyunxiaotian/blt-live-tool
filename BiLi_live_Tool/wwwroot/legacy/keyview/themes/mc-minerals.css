@@ -1,0 +1,314 @@
+/* Theme: mc-minerals (我的世界矿石方块) — Inspired by Minecraft Voxel Mineral Keyboards.
+   Features: 3-band mineral blocks (Copper/Terracotta, Diamond, Emerald), pixel font & borders,
+   heavy 6px 3D isometric side extrusion, block-punch impact with particle flash. */
+
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 38px;
+  --kv-key-gap: 5px;
+
+  /* Copper / Terracotta Mineral (铜矿/红石陶瓦) */
+  --mc-cop-top: #e89984;
+  --mc-cop-side: #a6503c;
+  --mc-cop-edge: #4b1f14;
+  --mc-cop-text: #2f120a;
+  --mc-cop-glow: rgba(232, 153, 132, 0.85);
+
+  /* Diamond Mineral (钻石矿) */
+  --mc-dia-top: #5ee2e6;
+  --mc-dia-side: #1b858c;
+  --mc-dia-edge: #093c40;
+  --mc-dia-text: #092f32;
+  --mc-dia-glow: rgba(94, 226, 230, 0.9);
+
+  /* Emerald Mineral (绿宝石矿) */
+  --mc-eme-top: #40d836;
+  --mc-eme-side: #187711;
+  --mc-eme-edge: #093c06;
+  --mc-eme-text: #082d05;
+  --mc-eme-glow: rgba(64, 216, 54, 0.9);
+
+  --mc-anim-t: calc(45ms / var(--kv-anim-speed, 1));
+}
+
+#kv {
+  bottom: 18px;
+  gap: 14px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 16px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- Realistic Keyboard (Minecraft Minerals - Pure Floating Voxel Blocks) ---- */
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.kv-real-row {
+  display: flex;
+  gap: var(--kv-key-gap);
+}
+
+/* Base Minecraft Voxel Block Key */
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  border-radius: 0;
+  background: var(--mc-dia-top);
+  border: 2px solid var(--mc-dia-edge);
+  color: var(--mc-dia-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13.5px;
+  font-weight: 900;
+  font-family: "Minecraft", "Press Start 2P", "Consolas", "Courier New", monospace;
+  letter-spacing: -0.5px;
+  user-select: none;
+  box-sizing: border-box;
+  image-rendering: pixelated;
+  /* 3D Isometric Voxel Extrusion: 6px front depth */
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.45),
+              inset -2px -2px 0 rgba(0, 0, 0, 0.25),
+              0 6px 0 var(--mc-dia-side),
+              0 8px 0 var(--mc-dia-edge),
+              0 10px 14px rgba(0, 0, 0, 0.45);
+  transition: transform var(--mc-anim-t) step-end,
+              box-shadow var(--mc-anim-t) step-end,
+              filter var(--mc-anim-t) step-end;
+}
+
+/* Minecraft Block Punching: Downward crush 5px */
+.kv-real-key.active {
+  transform: translateY(5px);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.6),
+              inset -2px -2px 0 rgba(0, 0, 0, 0.4),
+              0 1px 0 var(--mc-dia-side),
+              0 2px 0 var(--mc-dia-edge),
+              0 0 20px var(--mc-dia-glow);
+  filter: brightness(1.35) contrast(1.15);
+}
+
+/* ===== Column Zone 1: Copper / Terracotta (Columns 0, 1, 2) ===== */
+.kv-real-key[data-col="0"],
+.kv-real-key[data-col="1"],
+.kv-real-key[data-col="2"] {
+  background: var(--mc-cop-top);
+  border-color: var(--mc-cop-edge);
+  color: var(--mc-cop-text);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.45),
+              inset -2px -2px 0 rgba(0, 0, 0, 0.25),
+              0 6px 0 var(--mc-cop-side),
+              0 8px 0 var(--mc-cop-edge),
+              0 10px 14px rgba(0, 0, 0, 0.45);
+}
+.kv-real-key[data-col="0"].active,
+.kv-real-key[data-col="1"].active,
+.kv-real-key[data-col="2"].active {
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.6),
+              inset -2px -2px 0 rgba(0, 0, 0, 0.4),
+              0 1px 0 var(--mc-cop-side),
+              0 2px 0 var(--mc-cop-edge),
+              0 0 20px var(--mc-cop-glow);
+}
+
+/* ===== Column Zone 2: Diamond Block (Columns 3, 4, 5, 6) ===== */
+.kv-real-key[data-col="3"],
+.kv-real-key[data-col="4"],
+.kv-real-key[data-col="5"],
+.kv-real-key[data-col="6"] {
+  background: var(--mc-dia-top);
+  border-color: var(--mc-dia-edge);
+  color: var(--mc-dia-text);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.5),
+              inset -2px -2px 0 rgba(0, 0, 0, 0.25),
+              0 6px 0 var(--mc-dia-side),
+              0 8px 0 var(--mc-dia-edge),
+              0 10px 14px rgba(0, 0, 0, 0.45);
+}
+.kv-real-key[data-col="3"].active,
+.kv-real-key[data-col="4"].active,
+.kv-real-key[data-col="5"].active,
+.kv-real-key[data-col="6"].active {
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.7),
+              inset -2px -2px 0 rgba(0, 0, 0, 0.4),
+              0 1px 0 var(--mc-dia-side),
+              0 2px 0 var(--mc-dia-edge),
+              0 0 20px var(--mc-dia-glow);
+}
+
+/* ===== Column Zone 3: Emerald Block (Columns 7, 8, 9, 10+) ===== */
+.kv-real-key[data-col="7"],
+.kv-real-key[data-col="8"],
+.kv-real-key[data-col="9"],
+.kv-real-key[data-col="10"],
+.kv-real-key[data-col="11"],
+.kv-real-key[data-col="12"],
+.kv-real-key[data-col="13"] {
+  background: var(--mc-eme-top);
+  border-color: var(--mc-eme-edge);
+  color: var(--mc-eme-text);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.5),
+              inset -2px -2px 0 rgba(0, 0, 0, 0.25),
+              0 6px 0 var(--mc-eme-side),
+              0 8px 0 var(--mc-eme-edge),
+              0 10px 14px rgba(0, 0, 0, 0.45);
+}
+.kv-real-key[data-col="7"].active,
+.kv-real-key[data-col="8"].active,
+.kv-real-key[data-col="9"].active,
+.kv-real-key[data-col="10"].active,
+.kv-real-key[data-col="11"].active,
+.kv-real-key[data-col="12"].active,
+.kv-real-key[data-col="13"].active {
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.7),
+              inset -2px -2px 0 rgba(0, 0, 0, 0.4),
+              0 1px 0 var(--mc-eme-side),
+              0 2px 0 var(--mc-eme-edge),
+              0 0 20px var(--mc-eme-glow);
+}
+
+/* Special Minecraft Spacebar */
+.kv-real-key[data-code="32"] {
+  background: linear-gradient(90deg, var(--mc-cop-top) 0%, var(--mc-dia-top) 50%, var(--mc-eme-top) 100%);
+  border-color: var(--mc-dia-edge);
+  color: #ffffff;
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.5),
+              0 6px 0 var(--mc-dia-side),
+              0 8px 0 #000000;
+}
+.kv-real-key[data-code="32"]::before {
+  content: 'MINECRAFT BLOCKS';
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #0b2e32;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.kv-real-spacer { width: 24px; flex: 0 0 auto; }
+
+/* ---- Realistic Mouse (Minecraft Voxel Pixel Style) ---- */
+.kv-real-mouse-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.kv-real-mouse {
+  width: 93px;
+  height: 112px;
+  transition: transform var(--mc-anim-t) step-end;
+  filter: drop-shadow(4px 4px 0 #0a1f22);
+}
+.kv-mouse-part {
+  transition: fill var(--mc-anim-t) step-end;
+  fill: #1d2b2e;
+}
+.kv-mouse-wheel {
+  transition: fill var(--mc-anim-t) step-end;
+  fill: var(--mc-eme-top);
+}
+.kv-mouse-outline {
+  fill: none;
+  stroke: var(--mc-dia-edge);
+  stroke-width: 3;
+}
+.kv-mouse-sep {
+  stroke: var(--mc-dia-edge);
+  stroke-width: 2;
+}
+
+.kv-mouse-l { fill: var(--mc-cop-top); }
+.kv-mouse-r { fill: var(--mc-dia-top); }
+.kv-mouse-l.active { fill: #ffffff; filter: drop-shadow(0 0 10px var(--mc-cop-glow)); }
+.kv-mouse-r.active { fill: #ffffff; filter: drop-shadow(0 0 10px var(--mc-dia-glow)); }
+.kv-mouse-wheel.active { fill: #ffffff; filter: drop-shadow(0 0 8px var(--mc-eme-glow)); }
+.kv-mouse-wheel-half { fill: transparent; transition: fill var(--mc-anim-t) step-end; }
+.kv-mouse-wheel-up.active { fill: var(--mc-dia-top); }
+.kv-mouse-wheel-down.active { fill: var(--mc-eme-top); }
+
+.kv-mouse-side {
+  fill: var(--mc-eme-top);
+  stroke: var(--mc-eme-edge);
+  stroke-width: 2;
+  transition: fill var(--mc-anim-t) step-end;
+}
+.kv-mouse-side.active { fill: #ffffff; filter: drop-shadow(0 0 8px var(--mc-eme-glow)); }
+
+.kv-mouse-dir { opacity: 0; transition: opacity calc(100ms / var(--kv-anim-speed, 1)) step-end; }
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow { fill: var(--mc-dia-top); filter: drop-shadow(0 0 6px var(--mc-dia-glow)); }
+
+.kv-mouse-label {
+  font-size: 11.5px;
+  color: var(--mc-dia-top);
+  font-family: "Minecraft", "Press Start 2P", monospace;
+  font-weight: 900;
+  text-shadow: 1px 1px 0 #000000;
+  min-height: 14px;
+}
+
+/* ---- Gamepad (Minecraft Voxel Blocks) ---- */
+.kv-gp {
+  display: inline-block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.kv-gp-svg { display: block; width: 340px; height: auto; filter: drop-shadow(4px 4px 0 #0a1f22); }
+.kv-gp-body { fill: #1c2628; stroke: var(--mc-dia-edge); stroke-width: 3; }
+.kv-gp-trig { fill: var(--mc-cop-top); stroke: var(--mc-cop-edge); stroke-width: 2; opacity: calc(0.5 + var(--tv, 0) * 0.5); transition: opacity var(--mc-anim-t) step-end; }
+.kv-gp-trig.active { fill: #ffffff; stroke: var(--mc-cop-top); opacity: 1; filter: drop-shadow(0 0 10px var(--mc-cop-glow)); }
+.kv-gp-trig-fill { fill: var(--mc-cop-top); opacity: 0.85; }
+.kv-gp-trig-text { fill: var(--mc-cop-text); font-size: 10px; font-weight: 900; text-anchor: middle; font-family: monospace; pointer-events: none; }
+.kv-gp-shoulder { fill: var(--mc-dia-top); stroke: var(--mc-dia-edge); stroke-width: 2; transition: all var(--mc-anim-t) step-end; }
+.kv-gp-shoulder.active { fill: #ffffff; filter: drop-shadow(0 0 8px var(--mc-dia-glow)); }
+.kv-gp-shoulder-text { fill: var(--mc-dia-text); font-size: 10px; font-weight: 900; text-anchor: middle; font-family: monospace; pointer-events: none; }
+.kv-gp-stick-outer { fill: #121a1b; stroke: var(--mc-eme-edge); stroke-width: 2; }
+.kv-gp-stick-inner { fill: var(--mc-eme-top); stroke: var(--mc-eme-edge); stroke-width: 2; transition: all var(--mc-anim-t) step-end; }
+.kv-gp-stick-ring { fill: none; stroke: var(--mc-dia-top); stroke-width: 1; stroke-dasharray: 4 3; }
+.kv-gp-stick-dot { fill: var(--mc-eme-top); stroke: none; filter: drop-shadow(0 0 6px var(--mc-eme-glow)); }
+.kv-gp-stick-l-g.active .kv-gp-stick-inner, .kv-gp-stick-r-g.active .kv-gp-stick-inner { fill: #ffffff; filter: drop-shadow(0 0 8px var(--mc-eme-glow)); }
+.kv-gp-dpad-u, .kv-gp-dpad-d, .kv-gp-dpad-l, .kv-gp-dpad-r, .kv-gp-dpad-c { fill: var(--mc-cop-top); stroke: var(--mc-cop-edge); stroke-width: 2; transition: all var(--mc-anim-t) step-end; }
+.kv-gp-dpad-u.active, .kv-gp-dpad-d.active, .kv-gp-dpad-l.active, .kv-gp-dpad-r.active { fill: #ffffff; filter: drop-shadow(0 0 8px var(--mc-cop-glow)); }
+.kv-gp-face { fill: var(--mc-dia-top); stroke: var(--face-c, var(--mc-dia-edge)); stroke-width: 2.5; transition: all var(--mc-anim-t) step-end; }
+.kv-gp-face.active { fill: #ffffff; filter: drop-shadow(0 0 12px var(--face-c, var(--mc-dia-glow))); }
+.kv-gp-face-text { fill: var(--mc-dia-text); font-size: 12px; font-weight: 900; text-anchor: middle; font-family: monospace; pointer-events: none; }
+.kv-gp-face.active + .kv-gp-face-text { fill: #000000; }
+.kv-gp-menu-btn { fill: var(--mc-eme-top); stroke: var(--mc-eme-edge); stroke-width: 1.5; transition: all var(--mc-anim-t) step-end; }
+.kv-gp-menu-btn.active { fill: #ffffff; filter: drop-shadow(0 0 6px var(--mc-eme-glow)); }
+.kv-gp-menu-text { fill: var(--mc-eme-text); font-size: 7px; font-weight: 900; text-anchor: middle; font-family: monospace; pointer-events: none; }
+
+/* ---- Stream & Flow Keys Fallback ---- */
+.kv-key {
+  border-radius: 0;
+  background: var(--mc-dia-top);
+  border: 2px solid var(--mc-dia-edge);
+  color: var(--mc-dia-text);
+  box-shadow: 0 4px 0 var(--mc-dia-side), 0 6px 0 #000;
+  font-family: monospace;
+  font-weight: 900;
+  font-size: 14px;
+}
+.kv-key-down {
+  transform: translateY(4px);
+  box-shadow: 0 0 14px var(--mc-dia-glow);
+}

@@ -45,6 +45,8 @@ namespace BiLi_live_Tool
             builder.Services.AddSingleton<VerifyService>();
             builder.Services.AddSingleton<DebouncedSaver>();
             builder.Services.AddSingleton<CleanupService>();
+            builder.Services.AddSingleton<BiLi_live_Tool.Services.SystemMedia.SystemMediaService>();
+            builder.Services.AddSingleton<BiLi_live_Tool.Services.LowerThirds.LowerThirdsService>();
             builder.Services.AddSingleton<KestrelHost>();
 
 #if DEBUG
@@ -63,6 +65,7 @@ namespace BiLi_live_Tool
             SingleInstance.EnforceOrExit();
 #endif
 
+            app.Services.GetRequiredService<BiLi_live_Tool.Services.SystemMedia.SystemMediaService>().Start();
             app.Services.GetRequiredService<KestrelHost>().StartInBackground();
 
             // Silent update check on start-up (Electron parity: src/main.js R2). Throttled

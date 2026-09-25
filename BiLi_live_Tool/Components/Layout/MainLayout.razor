@@ -54,6 +54,7 @@
             <NavLink class="blt-navitem" href="/alert"><BltIcon Emoji="🖼" /> 提醒特效墙</NavLink>
             <NavLink class="blt-navitem" href="/widgets"><BltIcon Emoji="📋" /> 文字挂件</NavLink>
             <NavLink class="blt-navitem" href="/keyview"><BltIcon Emoji="🎮" /> 键鼠手柄可视化</NavLink>
+            <NavLink class="blt-navitem" href="/lowerthirds"><BltIcon Emoji="🏷" /> 下三分之一字幕</NavLink>
         </div>
 
         <div class="blt-navgroup @Fold("sys") @Here("sys")" @onclick="ToggleSys">
@@ -80,8 +81,11 @@
             <span class="seg">HTTP <b>127.0.0.1:@Api.Port</b> @ApiState()</span>
             <span class="seg">
                 <BltIcon Emoji="🎨" />主题
-                <select class="blt-input" style="width:138px;padding:1px 6px;font-size:11px" value="@_theme" @onchange="OnThemeChanged">
+                <select class="blt-input" style="width:145px;padding:1px 6px;font-size:11px" value="@_theme" @onchange="OnThemeChanged">
                     <option value="classic">★ 经典默认（旧版）</option>
+                    <option value="heroui-dark">✦ HeroUI 极黑</option>
+                    <option value="heroui-violet">✦ HeroUI 紫罗兰</option>
+                    <option value="heroui-emerald">✦ HeroUI 翡翠</option>
                     <option value="console">C 专业控制台</option>
                     <option value="neon">A 暗夜霓虹</option>
                     <option value="workbench">B 清爽工作台</option>
@@ -123,7 +127,29 @@
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
                         <button class="blt-btn primary" @onclick="CopyAuthorUid"><BltIcon Emoji="📋" />复制作者B站ID</button>
                         <button class="blt-btn" @onclick="OpenAuthorSpace"><BltIcon Emoji="🔗" />打开作者B站主页</button>
-                        <button class="blt-btn" @onclick="RetryVerify"><BltIcon Emoji="↻" />重试验证</button>
+                        @if (Verify.CurrentConsecutiveFailures >= 2)
+                        {
+                            <BltSliderVerify IsLoading="@_isVerifying" CooldownSeconds="@_verifyCooldown" OnVerified="RetryVerify" />
+                        }
+                        else
+                        {
+                            <button class="blt-btn @(_verifyCooldown > 0 || _isVerifying ? "disabled" : "")"
+                                    disabled="@(_verifyCooldown > 0 || _isVerifying)"
+                                    @onclick="RetryVerify">
+                                @if (_isVerifying)
+                                {
+                                    <span><BltIcon Emoji="⏳" /> 验证中…</span>
+                                }
+                                else if (_verifyCooldown > 0)
+                                {
+                                    <span><BltIcon Emoji="⏱" /> 重试验证 (@(_verifyCooldown)s)</span>
+                                }
+                                else
+                                {
+                                    <span><BltIcon Emoji="↻" /> 重试验证</span>
+                                }
+                            </button>
+                        }
                         <button class="blt-btn" @onclick="OpenLoginBrowser"><BltIcon Emoji="🔑" />重新登录</button>
                         <button class="blt-btn" @onclick="ClearLogin"><BltIcon Emoji="🚪" />清除登录态</button>
                         <span class="blt-hint" style="align-self:center;margin:0">@_verifyNote</span>
@@ -232,17 +258,68 @@
         StateHasChanged();
     }
 
+    private System.Threading.Timer? _verifyCooldownTimer;
+    private int _verifyCooldown;
+    private bool _isVerifying;
+
+    private void StartVerifyCooldown(int seconds)
+    {
+        _verifyCooldown = seconds;
+        _verifyCooldownTimer?.Dispose();
+        _verifyCooldownTimer = new System.Threading.Timer(_ =>
+        {
+            if (_verifyCooldown > 0)
+            {
+                _verifyCooldown--;
+                InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                _verifyCooldownTimer?.Dispose();
+                _verifyCooldownTimer = null;
+                InvokeAsync(StateHasChanged);
+            }
+        }, null, 1000, 1000);
+    }
+
     private async Task RetryVerify()
     {
+        if (_isVerifying || _verifyCooldown > 0) return;
+        _isVerifying = true;
         _verifyNote = "正在重新验证…";
         StateHasChanged();
         try
         {
-            var r = await JS.InvokeAsync<string>("bltFetchVerifyRefresh");
-            _verifyNote = string.IsNullOrEmpty(r) ? "已提交重试" : r;
+            var res = await Verify.RefreshDetailedAsync(force: true);
+            _verifyCooldown = res.CooldownRemaining;
+            if (res.RateLimited)
+            {
+                _verifyNote = $"请勿频繁重试，请等待 {res.CooldownRemaining} 秒";
+                StartVerifyCooldown(res.CooldownRemaining);
+            }
+            else if (res.Ok)
+            {
+                _verifyNote = "验证通过！已恢复全部功能";
+                _verifyCooldown = 0;
+            }
+            else
+            {
+                _verifyNote = string.IsNullOrEmpty(res.Message) ? "验证仍未通过" : "仍未通过：" + res.Message;
+                if (res.CooldownRemaining > 0)
+                {
+                    StartVerifyCooldown(res.CooldownRemaining);
+                }
+            }
         }
-        catch { _verifyNote = "重试请求失败"; }
-        StateHasChanged();
+        catch (Exception ex)
+        {
+            _verifyNote = "重试请求失败: " + ex.Message;
+        }
+        finally
+        {
+            _isVerifying = false;
+            StateHasChanged();
+        }
     }
 
     private bool UpdateBadgeVisible() => Upd.LastResult?.HasUpdate == true;
@@ -262,7 +339,7 @@
         ("live", "直播控制", new[] { "/tts", "/autodanmu", "/pk", "/song" }),
         ("show", "实时与展示", new[] { "/realtime", "/gifts" }),
         ("logs", "日志记录", new[] { "/logs" }),
-        ("obs", "OBS 浮层", new[] { "/alert", "/widgets", "/keyview" }),
+        ("obs", "OBS 浮层", new[] { "/alert", "/widgets", "/keyview", "/lowerthirds" }),
         ("sys", "设置", new[] { "/help", "/diagnostics", "/" }),
     };
 
@@ -376,6 +453,7 @@
     private static readonly string[] Themes =
     {
         "classic", "console", "neon", "workbench", "bili", "vibrancy", "brutal", "hud", "editorial",
+        "heroui-dark", "heroui-violet", "heroui-emerald",
     };
 
     protected override void OnInitialized()
@@ -510,6 +588,7 @@
         Speaker.Changed -= OnSpeakerChanged;
         Speaker.Stop();
         Sounds.Stop();
+        _verifyCooldownTimer?.Dispose();
         _timer?.Dispose();
         Ui.Unregister();
     }

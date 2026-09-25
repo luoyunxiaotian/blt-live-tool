@@ -54,7 +54,13 @@
           return fetch('/api/maui/verify/refresh', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
           }).then(function (r) { return r.json(); })
-            .then(function (j) { var s = (j && j.state) || {}; return s.locked ? ('仍未通过：' + (s.message || '')) : ('验证通过：' + (s.name || '')); })
+            .then(function (j) {
+              if (j && j.rateLimited) {
+                return '重试过于频繁，请等待 ' + (j.cooldownRemaining || 10) + ' 秒后再试';
+              }
+              var s = (j && j.state) || {};
+              return s.locked ? ('仍未通过：' + (s.message || '')) : ('验证通过：' + (s.name || ''));
+            })
             .catch(function () { return '重试请求失败'; });
         } catch (e) { return '重试请求失败'; }
       };

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Now Playing · OBS 音乐浮层</title>
+  <link rel="stylesheet" href="./overlay.css?v=20260925">
+</head>
+<body>
+  <div id="np-stage" class="np-hidden">
+    <!-- 主卡片容器 -->
+    <div id="np-card" class="style-vinyl theme-dark">
+      
+      <!-- 黑胶唱片区域 (Vinyl 模式) -->
+      <div id="np-vinyl-area">
+        <div id="np-jacket">
+          <img id="np-jacket-img" src="" alt="Album Cover" />
+          <div class="np-jacket-gloss"></div>
+        </div>
+        <div id="np-vinyl-disc">
+          <div class="np-vinyl-grooves"></div>
+          <div class="np-vinyl-center">
+            <img id="np-vinyl-label" src="" alt="Label" />
+            <div class="np-vinyl-hole"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 常规封面区域 (Card/Compact 模式) -->
+      <div id="np-cover-area">
+        <div class="np-cover-box">
+          <img id="np-cover-img" src="" alt="Album Art" />
+          <div class="np-cover-border"></div>
+        </div>
+      </div>
+
+      <!-- 元数据信息区域 -->
+      <div id="np-meta-area">
+        <!-- 顶部标签行：来源平台、点歌人、动态跳动音阶 -->
+        <div id="np-badge-row">
+          <span id="np-source-badge" class="np-badge badge-source">等待音乐</span>
+          <span id="np-requester-badge" class="np-badge badge-req" style="display:none;"></span>
+          <div id="np-equalizer" class="np-eq paused">
+            <span class="eq-bar bar-1"></span>
+            <span class="eq-bar bar-2"></span>
+            <span class="eq-bar bar-3"></span>
+            <span class="eq-bar bar-4"></span>
+          </div>
+        </div>
+
+        <!-- 歌曲标题（超长自动平滑跑马灯） -->
+        <div id="np-title-wrap">
+          <div id="np-title">暂无正在播放的歌曲</div>
+        </div>
+
+        <!-- 歌手与专辑 -->
+        <div id="np-artist-wrap">
+          <span id="np-artist">启动音乐播放器即可自动感知</span>
+        </div>
+
+        <!-- 播放进度条 -->
+        <div id="np-progress-wrap">
+          <span id="np-time-cur" class="np-time-text">00:00</span>
+          <div id="np-bar-track">
+            <div id="np-bar-fill"></div>
+          </div>
+          <span id="np-time-total" class="np-time-text">00:00</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="./overlay.js?v=20260925"></script>
+</body>
+</html>

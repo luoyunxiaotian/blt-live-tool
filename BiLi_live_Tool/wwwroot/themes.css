@@ -176,3 +176,443 @@ html[data-theme="classic"] .blt-foot{color:#fff}
 html[data-theme="classic"] .blt-btn.primary{box-shadow:0 0 12px rgba(251,114,153,.22)}
 html[data-theme="classic"] .blt-navitem.active{background:var(--amber-dim)}
 html[data-theme="classic"] .blt-panel{box-shadow:var(--shadow)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HeroUI (NextUI) 现代设计系统组件级完整重构
+   规范参考：github.com/heroui-inc/heroui
+   特性：极致平滑大圆角 (rounded-2xl) + 悬浮胶囊导航 + Flat 填色输入框 + 
+         跑道型发光开关 + 渐变高光按钮微交互 + 药丸发光芯片徽章
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ✦ HeroUI 极黑 (HeroUI Onyx / Default Dark) · 纯黑底 + Zinc-900 卡片 + 电光皇家蓝 */
+html[data-theme="heroui-dark"]{
+  --bg:#000000;
+  --bg-2:#09090b;
+  --panel:#18181b;
+  --panel-2:#27272a;
+  --line:rgba(255,255,255,.09);
+  --line-2:rgba(255,255,255,.16);
+  --ink:#ecedee;
+  --ink-2:#a1a1aa;
+  --ink-3:#71717a;
+  --amber:#006fee;
+  --amber-ink:#338ef7;
+  --amber-dim:rgba(0,111,238,.16);
+  --green:#17c964;
+  --green-ink:#17c964;
+  --green-dim:rgba(23,201,100,.14);
+  --red:#f31260;
+  --red-ink:#f31260;
+  --red-dim:rgba(243,18,96,.14);
+  --blue:#006fee;
+  --blue-ink:#338ef7;
+  --blue-dim:rgba(0,111,238,.16);
+  --r:16px;
+  --accent-ink:#ffffff;
+  --shadow:0 10px 30px -4px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.08);
+}
+
+/* ✦ HeroUI 幻夜紫晶 (HeroUI Cyber Violet) · 午夜紫夜底 + 幻紫卡片 + 魅影霓虹紫 */
+html[data-theme="heroui-violet"]{
+  --bg:#080511;
+  --bg-2:#0f0a1f;
+  --panel:#16102a;
+  --panel-2:#221840;
+  --line:rgba(168,85,247,.18);
+  --line-2:rgba(168,85,247,.28);
+  --ink:#f4efff;
+  --ink-2:#c4b5fd;
+  --ink-3:#8b5cf6;
+  --amber:#7828c8;
+  --amber-ink:#c084fc;
+  --amber-dim:rgba(147,83,211,.18);
+  --green:#17c964;
+  --green-ink:#17c964;
+  --green-dim:rgba(23,201,100,.14);
+  --red:#f31260;
+  --red-ink:#f31260;
+  --red-dim:rgba(243,18,96,.16);
+  --blue:#9353d3;
+  --blue-ink:#c084fc;
+  --blue-dim:rgba(147,83,211,.2);
+  --r:16px;
+  --accent-ink:#ffffff;
+  --shadow:0 12px 34px -4px rgba(8,5,20,.75), 0 0 0 1px rgba(168,85,247,.22);
+}
+
+/* ✦ HeroUI 翡翠极光 (HeroUI Mint Emerald) · 深林暗夜 + 墨翠微光 + 荧光薄荷绿 */
+html[data-theme="heroui-emerald"]{
+  --bg:#040d09;
+  --bg-2:#081a12;
+  --panel:#0e261b;
+  --panel-2:#153828;
+  --line:rgba(23,201,100,.18);
+  --line-2:rgba(23,201,100,.28);
+  --ink:#ecfdf5;
+  --ink-2:#a7f3d0;
+  --ink-3:#6ee7b7;
+  --amber:#17c964;
+  --amber-ink:#34d399;
+  --amber-dim:rgba(23,201,100,.16);
+  --green:#17c964;
+  --green-ink:#34d399;
+  --green-dim:rgba(23,201,100,.16);
+  --red:#f31260;
+  --red-ink:#f31260;
+  --red-dim:rgba(243,18,96,.14);
+  --blue:#059669;
+  --blue-ink:#34d399;
+  --blue-dim:rgba(6,182,212,.16);
+  --r:16px;
+  --accent-ink:#042f1a;
+  --shadow:0 12px 34px -4px rgba(4,13,9,.75), 0 0 0 1px rgba(23,201,100,.2);
+}
+
+/* ===== HeroUI 系列通用高精度组件排版 ===== */
+html[data-theme^="heroui-"] body {
+  letter-spacing: -0.01em;
+}
+
+/* 侧边栏整体 (HeroUI Floating Sidebar) */
+html[data-theme^="heroui-"] .blt-side {
+  padding: 12px 0 16px;
+  border-right: 1px solid var(--line);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* 品牌头部：毛玻璃圆角悬浮卡 */
+html[data-theme^="heroui-"] .blt-brand {
+  margin: 4px 12px 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+html[data-theme^="heroui-"] .blt-brand b {
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+html[data-theme^="heroui-"] .blt-brand span {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 1.8px;
+  opacity: 0.65;
+}
+
+/* 分组标题：HeroUI Listbox Section Header（大写、轻巧、淡化，去除旧版色块） */
+html[data-theme^="heroui-"] .blt-navgroup {
+  background: transparent !important;
+  border: none !important;
+  border-left: none !important;
+  padding: 14px 16px 4px !important;
+  min-height: auto !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: var(--ink-3) !important;
+  cursor: pointer;
+}
+html[data-theme^="heroui-"] .blt-navgroup:hover {
+  color: var(--ink-2) !important;
+  background: transparent !important;
+}
+html[data-theme^="heroui-"] .blt-navgroup.here {
+  color: var(--amber-ink) !important;
+}
+
+/* 导航项：HeroUI 悬浮大圆角胶囊 (Pill Navigation Item) */
+html[data-theme^="heroui-"] .blt-navitem {
+  margin: 3px 10px !important;
+  padding: 9px 14px !important;
+  border-radius: 12px !important;
+  border: none !important;
+  border-left: none !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: var(--ink-2) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html[data-theme^="heroui-"] .blt-navitem:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  transform: translateX(2px);
+}
+html[data-theme^="heroui-"] .blt-navitem.active {
+  background: var(--amber-dim) !important;
+  color: var(--amber-ink) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 16px var(--amber-dim) !important;
+  border: 1px solid var(--amber-dim) !important;
+}
+
+/* 顶部浮动栏 (HeroUI Topbar Pill) */
+html[data-theme^="heroui-"] .blt-topstrip {
+  padding: 8px 14px !important;
+  margin-bottom: 16px !important;
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 14px !important;
+  backdrop-filter: blur(20px) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  gap: 12px !important;
+}
+html[data-theme^="heroui-"] .blt-topstrip .seg {
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11.5px;
+}
+
+/* 卡片面板 (HeroUI Card with Elevation & Blur) */
+html[data-theme^="heroui-"] .blt-panel {
+  border-radius: 16px !important;
+  border: 1px solid var(--line) !important;
+  background: var(--panel) !important;
+  box-shadow: var(--shadow) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  margin-bottom: 18px !important;
+  overflow: hidden !important;
+}
+html[data-theme^="heroui-"] .blt-panel-head {
+  padding: 13px 18px !important;
+  border-bottom: 1px solid var(--line) !important;
+  background: transparent !important;
+}
+html[data-theme^="heroui-"] .blt-panel-head .t {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.2px;
+}
+html[data-theme^="heroui-"] .blt-panel-head .en {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 1px !important;
+  color: var(--ink-3) !important;
+}
+html[data-theme^="heroui-"] .blt-panel-body {
+  padding: 16px 18px !important;
+}
+
+/* 折叠按钮 */
+html[data-theme^="heroui-"] .blt-fold {
+  border-radius: 10px !important;
+  border: 1px solid var(--line) !important;
+  background: var(--panel-2) !important;
+  transition: all 0.2s ease !important;
+}
+html[data-theme^="heroui-"] .blt-fold:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* 总控主控条 (HeroUI Master Banner) */
+html[data-theme^="heroui-"] .blt-master {
+  border-radius: 16px !important;
+  padding: 14px 18px !important;
+  margin-bottom: 16px !important;
+  background: linear-gradient(135deg, var(--panel-2), var(--panel)) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+}
+html[data-theme^="heroui-"] .blt-master.on {
+  border-color: var(--amber) !important;
+  box-shadow: 0 0 24px var(--amber-dim), inset 0 0 0 1px var(--amber-dim) !important;
+}
+
+/* 按钮控件 (HeroUI Button & Micro-interactions) */
+html[data-theme^="heroui-"] .blt-btn {
+  border-radius: 12px !important;
+  padding: 8px 18px !important;
+  font-weight: 600 !important;
+  font-size: 13.5px !important;
+  background: var(--panel-2) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+}
+html[data-theme^="heroui-"] .blt-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+html[data-theme^="heroui-"] .blt-btn:active {
+  transform: scale(0.97) !important;
+}
+html[data-theme^="heroui-"] .blt-btn.primary {
+  background: linear-gradient(135deg, var(--amber), var(--blue)) !important;
+  border: none !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 16px var(--amber-dim) !important;
+}
+html[data-theme^="heroui-"] .blt-btn.primary:hover {
+  box-shadow: 0 6px 24px var(--amber-dim) !important;
+  filter: brightness(1.1) !important;
+  transform: translateY(-1px) scale(1.01) !important;
+}
+html[data-theme^="heroui-"] .blt-btn.primary:active {
+  transform: scale(0.97) !important;
+}
+
+/* 输入框与下拉选择 (HeroUI Flat Input Variant) */
+html[data-theme^="heroui-"] .blt-input {
+  background: var(--panel-2) !important;
+  border: 1.5px solid transparent !important;
+  border-radius: 12px !important;
+  padding: 9px 14px !important;
+  font-size: 13.5px !important;
+  color: var(--ink) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+html[data-theme^="heroui-"] .blt-input:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+html[data-theme^="heroui-"] .blt-input:focus {
+  background: var(--bg) !important;
+  border-color: var(--amber) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3.5px var(--amber-dim) !important;
+}
+html[data-theme^="heroui-"] label.blt-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.8px !important;
+  color: var(--ink-3) !important;
+  margin-bottom: 6px !important;
+}
+
+/* 跑道型发光开关 (HeroUI Switch) */
+html[data-theme^="heroui-"] .blt-switch {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  cursor: pointer !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: var(--ink-2) !important;
+  user-select: none !important;
+}
+html[data-theme^="heroui-"] .blt-switch .track {
+  width: 44px !important;
+  height: 24px !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  border: none !important;
+  position: relative !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  flex: none !important;
+}
+html[data-theme^="heroui-"] .blt-switch .track::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 3px !important;
+  left: 3px !important;
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html[data-theme^="heroui-"] .blt-switch:hover .track {
+  background: rgba(255, 255, 255, 0.24) !important;
+}
+html[data-theme^="heroui-"] .blt-switch.on .track {
+  background: var(--amber) !important;
+  box-shadow: 0 0 14px var(--amber-dim) !important;
+}
+html[data-theme^="heroui-"] .blt-switch.on .track::after {
+  left: 23px !important;
+  background: #ffffff !important;
+}
+
+/* 大号开关 */
+html[data-theme^="heroui-"] .blt-switch.lg .track {
+  width: 52px !important;
+  height: 28px !important;
+}
+html[data-theme^="heroui-"] .blt-switch.lg .track::after {
+  width: 22px !important;
+  height: 22px !important;
+  top: 3px !important;
+  left: 3px !important;
+}
+html[data-theme^="heroui-"] .blt-switch.lg.on .track::after {
+  left: 27px !important;
+}
+
+/* 药丸徽章 (HeroUI Chip / Badge) */
+html[data-theme^="heroui-"] .blt-badge {
+  border-radius: 9999px !important;
+  padding: 3px 12px !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.3px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+}
+html[data-theme^="heroui-"] .blt-badge.green {
+  background: rgba(23, 201, 100, 0.16) !important;
+  color: #17c964 !important;
+  border: 1px solid rgba(23, 201, 100, 0.35) !important;
+}
+html[data-theme^="heroui-"] .blt-badge.amber {
+  background: var(--amber-dim) !important;
+  color: var(--amber-ink) !important;
+  border: 1px solid var(--amber-dim) !important;
+}
+html[data-theme^="heroui-"] .blt-badge.red {
+  background: rgba(243, 18, 96, 0.16) !important;
+  color: #f31260 !important;
+  border: 1px solid rgba(243, 18, 96, 0.35) !important;
+}
+html[data-theme^="heroui-"] .blt-badge.blue {
+  background: var(--blue-dim) !important;
+  color: var(--blue-ink) !important;
+  border: 1px solid var(--blue-dim) !important;
+}
+
+/* 键值对行与日志 (HeroUI List & Table View) */
+html[data-theme^="heroui-"] .blt-kv {
+  padding: 10px 4px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  font-size: 13.5px !important;
+}
+html[data-theme^="heroui-"] .blt-kv .k {
+  color: var(--ink-2) !important;
+  font-weight: 500 !important;
+}
+html[data-theme^="heroui-"] .blt-kv .v {
+  color: var(--ink) !important;
+  font-weight: 600 !important;
+}
+html[data-theme^="heroui-"] .blt-log {
+  border-radius: 14px !important;
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  padding: 8px 0 !important;
+}
+
+/* 底部状态栏 */
+html[data-theme^="heroui-"] .blt-foot {
+  background: var(--panel) !important;
+  border-top: 1px solid var(--line) !important;
+  color: var(--ink-2) !important;
+  font-weight: 500 !important;
+  padding: 0 16px !important;
+}
+

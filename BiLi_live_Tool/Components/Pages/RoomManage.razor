@@ -236,7 +236,10 @@
             <label class="blt-label">skin</label>
             <select class="blt-input" value="@_skin" @onchange="OnSkinChanged">
                 <option value="classic">★ 经典默认（旧版）</option>
-                    <option value="console">C 专业控制台</option>
+                <option value="heroui-dark">✦ HeroUI 极黑</option>
+                <option value="heroui-violet">✦ HeroUI 紫罗兰</option>
+                <option value="heroui-emerald">✦ HeroUI 翡翠</option>
+                <option value="console">C 专业控制台</option>
                 <option value="neon">A 暗夜霓虹</option>
                 <option value="workbench">B 清爽工作台</option>
                 <option value="bili">D B站应援</option>
@@ -274,7 +277,29 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
                     <button class="blt-btn primary" @onclick="CopyAuthorUid2"><BltIcon Emoji="📋" />复制作者B站ID</button>
                     <button class="blt-btn" @onclick="OpenAuthorSpace2"><BltIcon Emoji="🔗" />打开作者B站主页</button>
-                    <button class="blt-btn" @onclick="RetryVerify2"><BltIcon Emoji="↻" />重试验证</button>
+                    @if (Verify.CurrentConsecutiveFailures >= 2)
+                    {
+                        <BltSliderVerify IsLoading="@_isVerifying2" CooldownSeconds="@_verifyCooldown2" OnVerified="RetryVerify2" />
+                    }
+                    else
+                    {
+                        <button class="blt-btn @(_verifyCooldown2 > 0 || _isVerifying2 ? "disabled" : "")"
+                                disabled="@(_verifyCooldown2 > 0 || _isVerifying2)"
+                                @onclick="RetryVerify2">
+                            @if (_isVerifying2)
+                            {
+                                <span><BltIcon Emoji="⏳" /> 验证中…</span>
+                            }
+                            else if (_verifyCooldown2 > 0)
+                            {
+                                <span><BltIcon Emoji="⏱" /> 重试验证 (@(_verifyCooldown2)s)</span>
+                            }
+                            else
+                            {
+                                <span><BltIcon Emoji="↻" /> 重试验证</span>
+                            }
+                        </button>
+                    }
                     <span class="blt-hint" style="align-self:center;margin:0">@_verifyNote2</span>
                 </div>
             </div>
@@ -539,6 +564,7 @@
     private static readonly string[] Themes =
     {
         "classic", "console", "neon", "workbench", "bili", "vibrancy", "brutal", "hud", "editorial",
+        "heroui-dark", "heroui-violet", "heroui-emerald",
     };
     private string _skin = "console";
     private string _foldMsg = "";
@@ -664,17 +690,68 @@
         StateHasChanged();
     }
 
+    private System.Threading.Timer? _cooldownTimer2;
+    private int _verifyCooldown2;
+    private bool _isVerifying2;
+
+    private void StartCooldown2(int seconds)
+    {
+        _verifyCooldown2 = seconds;
+        _cooldownTimer2?.Dispose();
+        _cooldownTimer2 = new System.Threading.Timer(_ =>
+        {
+            if (_verifyCooldown2 > 0)
+            {
+                _verifyCooldown2--;
+                InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                _cooldownTimer2?.Dispose();
+                _cooldownTimer2 = null;
+                InvokeAsync(StateHasChanged);
+            }
+        }, null, 1000, 1000);
+    }
+
     private async Task RetryVerify2()
     {
+        if (_isVerifying2 || _verifyCooldown2 > 0) return;
+        _isVerifying2 = true;
         _verifyNote2 = "正在重新验证…";
         StateHasChanged();
         try
         {
-            var r = await JS.InvokeAsync<string>("bltFetchVerifyRefresh");
-            _verifyNote2 = string.IsNullOrEmpty(r) ? "已提交重试" : r;
+            var res = await Verify.RefreshDetailedAsync(force: true);
+            _verifyCooldown2 = res.CooldownRemaining;
+            if (res.RateLimited)
+            {
+                _verifyNote2 = $"请勿频繁重试，请等待 {res.CooldownRemaining} 秒";
+                StartCooldown2(res.CooldownRemaining);
+            }
+            else if (res.Ok)
+            {
+                _verifyNote2 = "验证通过！已恢复全部功能";
+                _verifyCooldown2 = 0;
+            }
+            else
+            {
+                _verifyNote2 = string.IsNullOrEmpty(res.Message) ? "验证仍未通过" : "仍未通过：" + res.Message;
+                if (res.CooldownRemaining > 0)
+                {
+                    StartCooldown2(res.CooldownRemaining);
+                }
+            }
         }
-        catch { _verifyNote2 = "重试请求失败"; }
-        StateHasChanged();
+        catch (Exception ex)
+        {
+            _verifyNote2 = "重试请求失败: " + ex.Message;
+        }
+        finally
+        {
+            _isVerifying2 = false;
+            StateHasChanged();
+        }
     }
 
     private Task Connect()
@@ -1732,6 +1809,7 @@
     {
         Hub.OnEvent -= OnEvent;
         Hub.StatusChanged -= OnStatus;
+        _cooldownTimer2?.Dispose();
         _likeTimer?.Dispose();
         _likeTimer = null;
         _flushTimer?.Dispose();

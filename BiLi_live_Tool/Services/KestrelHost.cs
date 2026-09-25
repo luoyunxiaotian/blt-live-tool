@@ -44,6 +44,8 @@ public sealed class KestrelHost
     private readonly UpdateChecker _updateChecker;
     private readonly VerifyService _verify;
     private readonly AppUpdater _updater;
+    private readonly SystemMedia.SystemMediaService _mediaService;
+    private readonly LowerThirds.LowerThirdsService _lowerThirds;
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
     private readonly ConcurrentDictionary<Guid, WebSocket> _keyviewClients = new();
     private readonly HttpClient _proxy = new() { Timeout = TimeSpan.FromSeconds(180) };
@@ -129,7 +131,7 @@ public sealed class KestrelHost
 
     public int Port => _config.Port;
 
-    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker, VerifyService verify, AppUpdater updater, AnnouncementService announcements, CleanupService cleanup)
+    public KestrelHost(AppConfig config, EventHub hub, LiveService live, Recorder recorder, LivePipeline pipeline, TtsHost tts, MusicLoginService musicLogin, KeyViewService keyview, TtsSpeaker speaker, SongPlayer songPlayer, UiBridge ui, UpdateChecker updateChecker, VerifyService verify, AppUpdater updater, AnnouncementService announcements, CleanupService cleanup, SystemMedia.SystemMediaService mediaService, LowerThirds.LowerThirdsService lowerThirds)
     {
         _announcements = announcements;
         _config = config;
@@ -147,6 +149,8 @@ public sealed class KestrelHost
         _updateChecker = updateChecker;
         _verify = verify;
         _updater = updater;
+        _mediaService = mediaService;
+        _lowerThirds = lowerThirds;
     }
 
     /// <summary>First free port at or after <paramref name="preferred"/> (up to +9).</summary>
@@ -263,7 +267,7 @@ public sealed class KestrelHost
         app.UseStaticFiles();
 
         // Original root-level overlay URLs keep working after migration.
-        foreach (var dir in new[] { "alert", "lyrics", "widgets", "keyview", "sounds", "skins" })
+        foreach (var dir in new[] { "alert", "lyrics", "widgets", "keyview", "sounds", "skins", "lower-thirds", "now-playing" })
         {
             var full = Path.Combine(AppConfig.LegacyRoot, dir);
             if (Directory.Exists(full))
@@ -829,6 +833,112 @@ public sealed class KestrelHost
             catch (Exception e) { return Results.Json(new { error = e.Message }, JsonWeb, statusCode: 500); }
         });
 
+        // ---- system media (now playing) ----
+        app.MapGet("/api/media/status", () => Results.Json(new
+        {
+            enabled = _mediaService.Enabled,
+            ignoreBrowsers = _mediaService.IgnoreBrowsers,
+            preferInternal = _mediaService.PreferInternalPlayer,
+            track = _mediaService.CurrentTrack
+        }, JsonWeb));
+        app.MapGet("/api/media/now-playing", () => Results.Json(new
+        {
+            enabled = _mediaService.Enabled,
+            ignoreBrowsers = _mediaService.IgnoreBrowsers,
+            preferInternal = _mediaService.PreferInternalPlayer,
+            track = _mediaService.CurrentTrack
+        }, JsonWeb));
+        app.MapGet("/api/media/current", () => Results.Json(_mediaService.CurrentTrack, JsonWeb));
+        app.MapGet("/api/media/cover", (HttpContext ctx) =>
+        {
+            var bytes = _mediaService.CurrentCoverBytes;
+            if (bytes == null || bytes.Length == 0) return Results.NotFound();
+            var hash = _mediaService.CurrentCoverHash ?? "";
+            if (!string.IsNullOrEmpty(hash) && ctx.Request.Headers.IfNoneMatch == $"\"{hash}\"")
+                return Results.StatusCode(304);
+            ctx.Response.Headers.ETag = $"\"{hash}\"";
+            ctx.Response.Headers.CacheControl = "public, max-age=86400";
+            return Results.Bytes(bytes, "image/jpeg");
+        });
+        app.MapPost("/api/media/toggle", async (HttpContext ctx) =>
+        {
+            var body = await ReadJsonObject(ctx);
+            if (body.TryGetPropertyValue("enabled", out var ev) && ev is JsonValue jv && jv.TryGetValue<bool>(out var b))
+                _mediaService.Enabled = b;
+            else
+                _mediaService.Enabled = !_mediaService.Enabled;
+            return Results.Json(new { ok = true, enabled = _mediaService.Enabled }, JsonWeb);
+        });
+        app.MapPost("/api/media/ignore-browsers", async (HttpContext ctx) =>
+        {
+            var body = await ReadJsonObject(ctx);
+            if (body.TryGetPropertyValue("ignore", out var ev) && ev is JsonValue jv && jv.TryGetValue<bool>(out var b))
+                _mediaService.IgnoreBrowsers = b;
+            else
+                _mediaService.IgnoreBrowsers = !_mediaService.IgnoreBrowsers;
+            return Results.Json(new { ok = true, ignoreBrowsers = _mediaService.IgnoreBrowsers }, JsonWeb);
+        });
+        app.MapPost("/api/media/prefer-internal", async (HttpContext ctx) =>
+        {
+            var body = await ReadJsonObject(ctx);
+            if (body.TryGetPropertyValue("prefer", out var ev) && ev is JsonValue jv && jv.TryGetValue<bool>(out var b))
+                _mediaService.PreferInternalPlayer = b;
+            else
+                _mediaService.PreferInternalPlayer = !_mediaService.PreferInternalPlayer;
+            return Results.Json(new { ok = true, preferInternal = _mediaService.PreferInternalPlayer }, JsonWeb);
+        });
+
+        // ---- lower thirds ----
+        app.MapGet("/api/lower-thirds/config", () => Results.Json(_lowerThirds.Data, JsonWeb));
+        app.MapPost("/api/lower-thirds/config", async (HttpContext ctx) =>
+        {
+            try
+            {
+                var cfg = await ctx.Request.ReadFromJsonAsync<LowerThirds.LowerThirdConfig>(JsonWeb);
+                if (cfg != null)
+                {
+                    _lowerThirds.Data.Enabled = cfg.Enabled;
+                    _lowerThirds.Data.AutoMusicBubble = cfg.AutoMusicBubble;
+                    _lowerThirds.Data.MusicBubbleDuration = cfg.MusicBubbleDuration;
+                    _lowerThirds.Data.AvoidConflict = cfg.AvoidConflict;
+                    if (cfg.Channels != null && cfg.Channels.Count > 0)
+                        _lowerThirds.Data.Channels = cfg.Channels;
+                    _lowerThirds.Save();
+                }
+                return Results.Json(new { ok = true, data = _lowerThirds.Data }, JsonWeb);
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(new { error = ex.Message }, JsonWeb, statusCode: 500);
+            }
+        });
+        app.MapPost("/api/lower-thirds/toggle", async (HttpContext ctx) =>
+        {
+            var body = await ReadJsonObject(ctx);
+            int channelId = (int)(body?["channelId"]?.GetValue<long?>() ?? 1);
+            bool? active = body?.ContainsKey("active") == true ? body["active"]?.GetValue<bool?>() : null;
+            _lowerThirds.ToggleChannel(channelId, active);
+            return Results.Json(new { ok = true, channel = _lowerThirds.GetChannel(channelId) }, JsonWeb);
+        });
+        app.MapPost("/api/lower-thirds/slot", async (HttpContext ctx) =>
+        {
+            var body = await ReadJsonObject(ctx);
+            int channelId = (int)(body?["channelId"]?.GetValue<long?>() ?? 1);
+            int slotId = (int)(body?["slotId"]?.GetValue<long?>() ?? 1);
+            bool activate = body?.ContainsKey("activate") != true || (body["activate"]?.GetValue<bool?>() ?? true);
+            _lowerThirds.ApplySlot(channelId, slotId, activate);
+            return Results.Json(new { ok = true, channel = _lowerThirds.GetChannel(channelId) }, JsonWeb);
+        });
+        app.MapPost("/api/lower-thirds/save-slot", async (HttpContext ctx) =>
+        {
+            var body = await ReadJsonObject(ctx);
+            int channelId = (int)(body?["channelId"]?.GetValue<long?>() ?? 1);
+            int slotId = (int)(body?["slotId"]?.GetValue<long?>() ?? 1);
+            string? label = body?["label"]?.GetValue<string>();
+            _lowerThirds.SaveCurrentAsSlot(channelId, slotId, label);
+            return Results.Json(new { ok = true, channel = _lowerThirds.GetChannel(channelId) }, JsonWeb);
+        });
+
         // ---- diagnostics ----
         app.MapPost("/api/diagnostics", async (HttpContext ctx) =>
         {
@@ -930,6 +1040,67 @@ public sealed class KestrelHost
             {
                 case "version":
                     return Results.Json(new { app = VersionText, maui = true }, JsonWeb);
+                case "media/current":
+                    return Results.Json(_mediaService.CurrentTrack, JsonWeb);
+                case "media/toggle":
+                {
+                    if (body.TryGetPropertyValue("enabled", out var ev) && ev is JsonValue jv && jv.TryGetValue<bool>(out var b))
+                        _mediaService.Enabled = b;
+                    else
+                        _mediaService.Enabled = !_mediaService.Enabled;
+                    return Results.Json(new { ok = true, enabled = _mediaService.Enabled }, JsonWeb);
+                }
+                case "lower-thirds/config":
+                    return Results.Json(_lowerThirds.Data, JsonWeb);
+                case "lower-thirds/save-config":
+                {
+                    try
+                    {
+                        var cfgNode = body["config"];
+                        if (cfgNode != null)
+                        {
+                            var cfg = JsonSerializer.Deserialize<LowerThirds.LowerThirdConfig>(cfgNode.ToJsonString(), JsonWeb);
+                            if (cfg != null)
+                            {
+                                _lowerThirds.Data.Enabled = cfg.Enabled;
+                                _lowerThirds.Data.AutoMusicBubble = cfg.AutoMusicBubble;
+                                _lowerThirds.Data.MusicBubbleDuration = cfg.MusicBubbleDuration;
+                                _lowerThirds.Data.AvoidConflict = cfg.AvoidConflict;
+                                if (cfg.Channels != null && cfg.Channels.Count > 0)
+                                    _lowerThirds.Data.Channels = cfg.Channels;
+                                _lowerThirds.Save();
+                            }
+                        }
+                        return Results.Json(new { ok = true, data = _lowerThirds.Data }, JsonWeb);
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.Json(new { error = ex.Message }, JsonWeb, statusCode: 500);
+                    }
+                }
+                case "lower-thirds/toggle":
+                {
+                    int channelId = (int)(body?["channelId"]?.GetValue<long?>() ?? 1);
+                    bool? active = body?.ContainsKey("active") == true ? body["active"]?.GetValue<bool?>() : null;
+                    _lowerThirds.ToggleChannel(channelId, active);
+                    return Results.Json(new { ok = true, channel = _lowerThirds.GetChannel(channelId) }, JsonWeb);
+                }
+                case "lower-thirds/slot":
+                {
+                    int channelId = (int)(body?["channelId"]?.GetValue<long?>() ?? 1);
+                    int slotId = (int)(body?["slotId"]?.GetValue<long?>() ?? 1);
+                    bool activate = body?.ContainsKey("activate") != true || (body["activate"]?.GetValue<bool?>() ?? true);
+                    _lowerThirds.ApplySlot(channelId, slotId, activate);
+                    return Results.Json(new { ok = true, channel = _lowerThirds.GetChannel(channelId) }, JsonWeb);
+                }
+                case "lower-thirds/save-slot":
+                {
+                    int channelId = (int)(body?["channelId"]?.GetValue<long?>() ?? 1);
+                    int slotId = (int)(body?["slotId"]?.GetValue<long?>() ?? 1);
+                    string? label = body?["label"]?.GetValue<string>();
+                    _lowerThirds.SaveCurrentAsSlot(channelId, slotId, label);
+                    return Results.Json(new { ok = true, channel = _lowerThirds.GetChannel(channelId) }, JsonWeb);
+                }
                 case "app/quit":
                     Ui(() => App.QuitForReal());
                     return Results.Json(new { ok = true }, JsonWeb);
@@ -1150,6 +1321,9 @@ public sealed class KestrelHost
                 case "bili/clear-cookies":
                     _config.SetBiliCookie("", "");
                     return Results.Json(new { ok = true }, JsonWeb);
+                case "bili/set-cookie":
+                    _config.SetBiliCookie(SafeStr(body["cookie"]), "");
+                    return Results.Json(new { ok = true, cookie = _config.Cookie }, JsonWeb);
                 case "music/login":
                     _musicLogin.Show(SafeStr(body["platform"]));
                     return Results.Json(new { ok = true }, JsonWeb);
@@ -1272,8 +1446,16 @@ public sealed class KestrelHost
                 }
                 case "verify/refresh":
                 {
-                    var st = await _verify.RefreshAsync(force: true);
-                    return Results.Json(new { ok = true, state = st }, JsonWeb);
+                    var res = await _verify.RefreshDetailedAsync(force: true);
+                    return Results.Json(new
+                    {
+                        ok = res.Ok,
+                        rateLimited = res.RateLimited,
+                        cooldownRemaining = res.CooldownRemaining,
+                        failures = res.Failures,
+                        message = res.Message,
+                        state = res.State,
+                    }, JsonWeb);
                 }
                 case "debug/frames":
                 {
@@ -1347,7 +1529,8 @@ public sealed class KestrelHost
                 {
                     try
                     {
-                        var manifest = Path.Combine(AppConfig.LegacyRoot, "keyview", "themes", "themes.manifest.json");
+                        var manifest = Path.Combine(AppConfig.LegacyRoot, "keyview", "themes.manifest.json");
+                        if (!File.Exists(manifest)) manifest = Path.Combine(AppConfig.LegacyRoot, "keyview", "themes", "themes.manifest.json");
                         var content = File.Exists(manifest) ? JsonNode.Parse(File.ReadAllText(manifest)) : new JsonArray();
                         return Results.Json(content, JsonWeb);
                     }
@@ -1513,6 +1696,7 @@ public sealed class KestrelHost
     private object VerifyPayload()
     {
         var st = _verify.State;
+        var uid = st.Uid > 0 ? st.Uid : _verify.CurrentUid;
         return new
         {
             ok = true,
@@ -1524,6 +1708,8 @@ public sealed class KestrelHost
             checkedAt = st.CheckedAt,
             checked_ = st.Checked,
             authorUid = VerifyService.AuthorUid,
+            cooldownRemaining = _verify.GetCooldownRemaining(uid),
+            failures = _verify.GetConsecutiveFailures(uid),
         };
     }
 

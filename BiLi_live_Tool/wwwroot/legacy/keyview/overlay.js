@@ -157,18 +157,31 @@
       keyByCode.clear();
       const panel = document.createElement('div');
       panel.className = 'kv-real-kb';
-      rows.forEach((row) => {
+      rows.forEach((row, rowIdx) => {
         const rowEl = document.createElement('div');
         rowEl.className = 'kv-real-row';
+        rowEl.setAttribute('data-row', rowIdx);
+        let colIdx = 0;
         row.forEach((key) => {
-          if (key.g) { const sp = document.createElement('div'); sp.className = 'kv-real-spacer'; if (key.gw) sp.style.width = key.gw + 'px'; rowEl.appendChild(sp); return; }
+          if (key.g) {
+            const sp = document.createElement('div');
+            sp.className = 'kv-real-spacer';
+            if (key.gw) sp.style.width = key.gw + 'px';
+            rowEl.appendChild(sp);
+            colIdx++;
+            return;
+          }
           const el = document.createElement('div');
           el.className = 'kv-real-key';
           el.textContent = key.l;
+          el.setAttribute('data-code', key.c);
+          if (key.l) el.setAttribute('data-label', key.l);
+          el.setAttribute('data-col', colIdx);
           const w = key.w || 1;
           el.style.width = (w * 36 + (w - 1) * 5) + 'px';
           rowEl.appendChild(el);
           keyByCode.set(key.c, el);
+          colIdx++;
         });
         panel.appendChild(rowEl);
       });

@@ -29,6 +29,8 @@ public sealed class SongPlayer
 
     public string CurrentName { get; private set; } = "";
     public string CurrentArtist { get; private set; } = "";
+    public string CurrentAlbum { get; private set; } = "";
+    public string CurrentCoverUrl { get; private set; } = "";
     public string CurrentRequester { get; private set; } = "";
     public string CurrentPlatform { get; private set; } = "";
     public double Current { get; private set; }
@@ -144,8 +146,10 @@ public sealed class SongPlayer
             if (url.StartsWith("/")) url = $"http://127.0.0.1:{_config.Port}{url}";
             var song = resp["song"] as JsonObject;
             CurrentName = song?["name"]?.GetValue<string>() ?? "";
-                CurrentSongId = FirstNonEmpty(song?["id"], song?["mid"], song?["hash"], song?["bvid"]);
+            CurrentSongId = FirstNonEmpty(song?["id"], song?["mid"], song?["hash"], song?["bvid"]);
             CurrentArtist = song?["artist"]?.GetValue<string>() ?? "";
+            CurrentAlbum = song?["album"]?.GetValue<string>() ?? "";
+            CurrentCoverUrl = song?["cover"]?.GetValue<string>() ?? "";
             CurrentRequester = song?["requester"]?.GetValue<string>() ?? "";
             CurrentPlatform = song?["platform"]?.GetValue<string>() ?? "";
             PlayingIndex = index;
@@ -212,6 +216,8 @@ public sealed class SongPlayer
         PlayingIndex = -1;
         CurrentName = "";
         CurrentArtist = "";
+        CurrentAlbum = "";
+        CurrentCoverUrl = "";
         CurrentSongId = "";
         CurrentRequester = "";
         CurrentPlatform = "";

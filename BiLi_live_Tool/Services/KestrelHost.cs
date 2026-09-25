@@ -285,6 +285,10 @@ public sealed class KestrelHost
         _keyview.OnConfigFrame += BroadcastKeyViewJson;
         _keyview.ClientCount = () => _keyviewClients.Count;
 
+        // 许可门禁：授权状态一变就重新决定功能开合（未授权一律关；授权后按本地记录恢复）
+        _verify.Changed += ApplyLicenseGate;
+        ApplyLicenseGate();
+
         _app = app;
         await app.StartAsync();
         IsRunning = true;
@@ -1292,10 +1296,16 @@ public sealed class KestrelHost
                     return Results.Json(new { ok = !result.StartsWith("ERR:", StringComparison.Ordinal), result }, JsonWeb);
                 }
                 case "keyview/start":
+                    // 未检测到许可 / 已锁定 → 拒绝启动（所有功能在未授权时保持关闭）
+                    if (!LicenseOk())
+                        return Results.Json(new { error = "未授权：请先登录并等待授权校验通过" }, JsonWeb, statusCode: 403);
                     _keyview.Start();
+                    // 记住这次选择：下次启动只要许可通过就自动恢复，用户不必每次手点
+                    _keyview.Config.Set("enabled", true);
                     return Results.Json(new { ok = true, overlayUrl = $"http://127.0.0.1:{Port}/keyview/overlay.html" }, JsonWeb);
                 case "keyview/stop":
                     _keyview.Stop();
+                    _keyview.Config.Set("enabled", false);   // 手动关闭后不再自动恢复
                     return Results.Json(new { ok = true }, JsonWeb);
                 case "keyview/reinstall":
                 {
@@ -1619,6 +1629,29 @@ public sealed class KestrelHost
 
     // KeyView overlay clients (root-path WS); separate from the live panel WS
     // so overlays never receive live events.
+    /// <summary>许可是否通过：必须"已检测过"且未锁定（含调试锁）。</summary>
+    private bool LicenseOk()
+    {
+        var st = _verify.State;
+        return st.Checked && !_verify.Locked;
+    }
+
+    /// <summary>
+    /// 许可门禁。未检测到许可 / 被锁定时：所有功能保持关闭（这里负责键鼠可视化，实时连接由
+    /// VerifyService 自己停）。检测到许可后：按**本地记录**恢复 —— 用户上次开着就自动开，
+    /// 不必每次启动手点一次；上次手动关过就保持关闭。
+    /// </summary>
+    private void ApplyLicenseGate()
+    {
+        try
+        {
+            if (!LicenseOk()) { _keyview.Stop(); return; }
+            var node = _keyview.Config.GetAll()["enabled"];
+            if (node is JsonValue v && v.TryGetValue<bool>(out var on) && on) _keyview.Start();
+        }
+        catch { }
+    }
+
     private void BroadcastKeyViewJson(string json)
     {
         foreach (var kv in _keyviewClients)
@@ -1656,6 +1689,7 @@ public sealed class KestrelHost
         _hub.OnEvent -= OnHubEvent;
         _hub.StatusChanged -= OnHubStatus;
         _hub.OnOutbound -= OnHubOutbound;
+        _verify.Changed -= ApplyLicenseGate;
         _keyview.OnEventJson -= BroadcastKeyViewJson;
         _keyview.OnConfigFrame -= BroadcastKeyViewJson;
         foreach (var kv in _clients)

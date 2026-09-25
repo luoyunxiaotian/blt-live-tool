@@ -1,4 +1,5 @@
 {
+  "enabled": false,
   "server.port": 7788,
   "overlay.theme": "real",
   "overlay.opacity": 1.0,

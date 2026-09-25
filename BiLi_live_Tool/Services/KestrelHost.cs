@@ -1297,6 +1297,12 @@ public sealed class KestrelHost
                 case "keyview/stop":
                     _keyview.Stop();
                     return Results.Json(new { ok = true }, JsonWeb);
+                case "keyview/reinstall":
+                {
+                    // 诊断/兜底：手动重挂输入钩子（看护在检测到被系统摘掉时会自动做）
+                    _keyview.ReinstallHooks();
+                    return Results.Json(new { ok = true, reinstalls = _keyview.HookReinstalls }, JsonWeb);
+                }
                 case "keyview/status":
                     return Results.Json(_keyview.Status(), JsonWeb);
                 case "keyview/config-get":

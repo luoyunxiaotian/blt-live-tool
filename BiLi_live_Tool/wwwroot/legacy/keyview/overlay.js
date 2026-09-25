@@ -532,6 +532,7 @@
   setInterval(updateCombo, 50);
 
   // ============ WS ============
+  let current = null;
   function connect() {
     const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
     let ws;
@@ -546,9 +547,28 @@
       else if (m.t === 'ms') { if (m.e === 'down') { renderer.onMouseDown(m); comboHit(); } else if (m.e === 'up') renderer.onMouseUp(m); else if (m.e === 'wheel') renderer.onWheel(m); else if (m.e === 'move') renderer.onMouseMove(m); }
       else if (m.t === 'gp') { if (m.e === 'btn') onGpBtn(m); else if (m.e === 'axis') onGpAxis(m); else if (m.e === 'trig') onGpTrig(m); else if (m.e === 'conn') onGpConn(m); }
     };
-    ws.onclose = () => setTimeout(connect, 1500);
+    ws.onclose = () => {
+      // 重连不能只靠定时器：页面被后台节流（OBS 最小化/窗口被遮挡）时定时器会被冻结，
+      // 断线后就再也连不回来，直到页面恢复活动才补上 —— 现场就是「键鼠可视化突然不动了」。
+      // 立即重连一次 + 保留延迟重试；窗口一恢复可见也立刻补连（见下面的 visibilitychange）。
+      current = null;
+      try { connect(); } catch (e) { setTimeout(connect, 1500); }
+      setTimeout(() => { if (!current) connect(); }, 1500);
+    };
     ws.onerror = () => { try { ws.close(); } catch (e) {} };
+    current = ws;
   }
+
+  // 连接自愈：页面重新可见 / 回到前台 / 网络恢复时，若套接字已断就立刻补连
+  function ensureWs() {
+    if (current && (current.readyState === 0 || current.readyState === 1)) return;
+    connect();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) ensureWs(); });
+  window.addEventListener('focus', ensureWs);
+  window.addEventListener('pageshow', ensureWs);
+  window.addEventListener('online', ensureWs);
+  setInterval(ensureWs, 5000);
 
   // ============ init ============
   function start() {

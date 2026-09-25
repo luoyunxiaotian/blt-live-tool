@@ -10,6 +10,10 @@ public sealed class KeyViewHook
     public event Action<string>? OnEventJson;
     public void Start() { }
     public void Stop() { }
+    public long Events => 0;
+    public long LastEventAgoMs => -1;
+    public int Reinstalls => 0;
+    public void Reinstall() { }
 }
 #else
 /// <summary>
@@ -19,6 +23,14 @@ public sealed class KeyViewHook
 /// The hooks are installed on a dedicated thread that pumps messages; events
 /// are pushed into a channel so the hook callback never blocks (a slow
 /// callback would get the hook silently removed by the system).
+///
+/// Windows really does remove low-level hooks silently (callback over
+/// LowLevelHooksTimeout, session transitions, driver churn) and never puts them
+/// back — the overlay then looks dead until the app is restarted, which is the
+/// "偶尔不再响应键鼠" report. A watchdog compares the system's own
+/// "last real input" stamp (GetLastInputInfo, independent of this process) with
+/// the last event we received and re-installs the hooks on our hook thread when
+/// input exists that we did not see.
 /// </summary>
 public sealed class KeyViewHook
 {
@@ -28,6 +40,12 @@ public sealed class KeyViewHook
     private const int WhKeyboardLl = 13;
     private const int WhMouseLl = 14;
     private const uint WmQuit = 0x0012;
+    private const uint WmReinstall = 0x8000 + 0x51;   // WM_APP+81：请钩子线程重挂（自定义消息）
+
+    // 存活看护参数：系统说"刚刚有人动过键鼠"，而我们这段时间一个事件都没收到 → 钩子被摘了
+    private const int WatchIntervalMs = 5000;
+    private const int InputFreshMs = 1500;      // 系统输入时间戳多久内算"刚刚"
+    private const int MissGraceMs = 3000;       // 我们多久没收到事件才认定被摘
 
     private const int WmKeyDown = 0x0100;
     private const int WmSysKeyDown = 0x0104;
@@ -78,6 +96,27 @@ public sealed class KeyViewHook
         SingleReader = true,
     });
 
+    private Timer? _watch;
+    private long _lastEventTicks;
+    private long _events;
+    private int _reinstalls;
+
+    /// <summary>累计派发的事件帧数（诊断用：按键时这个数在涨说明钩子活着）。</summary>
+    public long Events => Interlocked.Read(ref _events);
+
+    /// <summary>重挂次数（>0 说明钩子曾被系统摘掉并被看护恢复）。</summary>
+    public int Reinstalls => _reinstalls;
+
+    /// <summary>距最后一次收到事件过去了多久（毫秒；-1 = 尚未收到过）。</summary>
+    public long LastEventAgoMs
+    {
+        get
+        {
+            var t = Interlocked.Read(ref _lastEventTicks);
+            return t == 0 ? -1 : Environment.TickCount64 - t;
+        }
+    }
+
     // The hook proc is static (native raw pointer), so it routes to whichever
     // instance started last — there is only ever one active hook set.
     private static KeyViewHook? _active;
@@ -93,10 +132,13 @@ public sealed class KeyViewHook
         _thread = new Thread(Run) { IsBackground = true, Name = "KeyViewHook" };
         _thread.Start();
         _ = Task.Run(DrainAsync);
+        _watch ??= new Timer(_ => Watch(), null, WatchIntervalMs, WatchIntervalMs);
     }
 
     public void Stop()
     {
+        try { _watch?.Dispose(); } catch { }
+        _watch = null;
         if (_threadId != 0) PostThreadMessage(_threadId, WmQuit, IntPtr.Zero, IntPtr.Zero);
         _thread?.Join(2000);
         _thread = null;
@@ -106,17 +148,75 @@ public sealed class KeyViewHook
     private void Run()
     {
         _threadId = GetCurrentThreadId();
-        _kbHook = SetWindowsHookExW(WhKeyboardLl, HookProcDelegate, GetModuleHandleW(null), 0);
-        _msHook = SetWindowsHookExW(WhMouseLl, HookProcDelegate, GetModuleHandleW(null), 0);
+        InstallHooks();
         // Message pump keeps the LL hooks alive on this thread.
         while (GetMessage(out var msg, IntPtr.Zero, 0, 0) > 0)
         {
+            if (msg.message == WmReinstall)
+            {
+                // 只在本线程重挂：低级钩子的回调固定在安装它的线程上执行
+                UninstallHooks();
+                InstallHooks();
+                Interlocked.Increment(ref _reinstalls);
+                Interlocked.Exchange(ref _lastEventTicks, Environment.TickCount64);   // 重新计时，避免连环重挂
+                ServiceLog.Info("键鼠", "输入钩子被系统摘掉，已重挂（第 " + _reinstalls + " 次）");
+                continue;
+            }
             _ = TranslateMessage(ref msg);
             _ = DispatchMessage(ref msg);
         }
+        UninstallHooks();
+    }
+
+    /// <summary>手动重挂（诊断/兜底）：走与看护同一条路，保证在钩子线程上执行。</summary>
+    public void Reinstall()
+    {
+        var t = _threadId;
+        if (t != 0) PostThreadMessage(t, WmReinstall, IntPtr.Zero, IntPtr.Zero);
+    }
+
+    private void InstallHooks()
+    {
+        _kbHook = SetWindowsHookExW(WhKeyboardLl, HookProcDelegate, GetModuleHandleW(null), 0);
+        _msHook = SetWindowsHookExW(WhMouseLl, HookProcDelegate, GetModuleHandleW(null), 0);
+    }
+
+    private void UninstallHooks()
+    {
         if (_kbHook != IntPtr.Zero) UnhookWindowsHookEx(_kbHook);
         if (_msHook != IntPtr.Zero) UnhookWindowsHookEx(_msHook);
         _kbHook = _msHook = IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// 看护：系统记录的"最后一次输入"比我们最后一次收到的事件新出 --MissGraceMs-- 以上，
+    /// 且系统那边确实刚刚有输入 → 认定钩子已被摘掉，请钩子线程重挂。
+    /// </summary>
+    private void Watch()
+    {
+        try { WatchCore(); }
+        catch (Exception ex)
+        {
+            // Timer 回调里抛未处理异常会终止整个进程 —— 看护本身绝不能成为崩溃源
+            try { ServiceLog.Info("键鼠", "钩子看护异常（已忽略）：" + ex.Message); } catch { }
+        }
+    }
+
+    private void WatchCore()
+    {
+        var threadId = _threadId;
+        if (threadId == 0) return;
+        var last = Interlocked.Read(ref _lastEventTicks);
+        if (last == 0) return;                       // 还没有任何事件，无从判断
+        if (Environment.TickCount64 - last <= MissGraceMs) return;   // 我们也在收，正常
+
+        var li = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+        if (!GetLastInputInfo(ref li)) return;
+        // dwTime 与 Environment.TickCount 同为 32 位 tick：用无符号差值规避 ~49.7 天回绕
+        var sinceInputMs = unchecked((uint)(Environment.TickCount - (int)li.dwTime));
+        if (sinceInputMs > InputFreshMs) return;     // 最近没人动键鼠 → 不能说明钩子坏了
+
+        PostThreadMessage(threadId, WmReinstall, IntPtr.Zero, IntPtr.Zero);
     }
 
     private static IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam)
@@ -203,7 +303,12 @@ public sealed class KeyViewHook
     private void EmitMs(string e, string button, int x, int y, long ts)
         => Emit($"{{\"t\":\"ms\",\"e\":\"{e}\",\"b\":\"{button}\",\"x\":{x},\"y\":{y},\"ts\":{ts}}}");
 
-    private void Emit(string json) => _queue.Writer.TryWrite(json);
+    private void Emit(string json)
+    {
+        Interlocked.Exchange(ref _lastEventTicks, Environment.TickCount64);
+        Interlocked.Increment(ref _events);
+        _queue.Writer.TryWrite(json);
+    }
 
     private async Task DrainAsync()
     {
@@ -278,7 +383,20 @@ public sealed class KeyViewHook
     [DllImport("kernel32.dll")]
     private static extern uint GetCurrentThreadId();
 
-    [DllImport("kernel32.dll")]
+    // PostThreadMessageW 由 winuser.h 声明 → user32.dll（原先误写成 kernel32：
+    // 调用必然抛 EntryPointNotFoundException，被上层 try/catch 吞掉后表现为
+    // 「Stop() 不生效，界面上关了键鼠可视化，钩子其实还挂着」）
+    [DllImport("user32.dll", SetLastError = true)]
     private static extern bool PostThreadMessage(uint threadId, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LASTINPUTINFO
+    {
+        public uint cbSize;
+        public uint dwTime;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 }
 #endif

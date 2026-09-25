@@ -27,6 +27,9 @@ public sealed class KeyViewService
 
     public KeyViewConfigStore Config => _config;
 
+    /// <summary>钩子重挂次数（诊断）。</summary>
+    public int HookReinstalls => _hook.Reinstalls;
+
     public bool Running
     {
         get { lock (_lock) return _running; }
@@ -77,6 +80,9 @@ public sealed class KeyViewService
         try { _gamepad.Stop(); } catch { }
     }
 
+    /// <summary>手动重挂输入钩子（诊断；看护会自动做这件事）。</summary>
+    public void ReinstallHooks() => _hook.Reinstall();
+
     public object Status()
     {
         lock (_lock)
@@ -84,6 +90,11 @@ public sealed class KeyViewService
             {
                 running = _running,
                 clients = ClientCount?.Invoke() ?? 0,
+                // 诊断：按键时 events 在涨、lastEventAgoMs 很小 → 钩子活着（与前台窗口无关）；
+                // reinstalls > 0 说明钩子曾被系统摘掉、已被看护重挂
+                events = _hook.Events,
+                lastEventAgoMs = _hook.LastEventAgoMs,
+                reinstalls = _hook.Reinstalls,
                 overlayUrl = $"http://127.0.0.1:{(MauiProgram.Services?.GetService<AppConfig>()?.Port ?? 7460)}/keyview/overlay.html",
             };
     }

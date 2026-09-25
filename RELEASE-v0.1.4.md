@@ -73,7 +73,7 @@
 
 | 产物 | 大小 | SHA256 |
 |---|---|---|
-| `blt-live-tool-v0.1.4-maui-setup.exe` | 126.0 MB | `92bedf97957b2537c090d874c9c1b2d68079bfbd3fc848dd58fa3ce1df342690` |
+| `blt-live-tool-v0.1.4-maui-setup.exe` | 126.0 MB | `488948c44d7268788025d01a9bcddd37acb42f93f0003316cf6ee9e37dacfec5` |
 | `blt-live-tool-v0.1.4-maui-win-x64.zip` | 156.6 MB | `441fbff21da6dc1975caa7504396075bcb78936cd48ee5b818888ad9d21db60e` |
 | `patch-0.1.4-from-0.1.3.zip` | 1.6 MB | `8b79114970c5bf6473d6effa2d433f92fdfe76c30433ab23caecbcdf8bc52fae` |
 | `manifest-0.1.4.json` | 131 KB | `3ab7367e454074542b10a252eeb250ba1b9d64e5d3420b081c0f495838073f1f` |
@@ -85,6 +85,12 @@
 内容完整（含 tts 与 verify-key）、启动器能拉起应用且 HTTP 应答、数据写在安装根 `data\`、
 覆盖安装保留数据、清理专项（废弃文件被删 + 备份 + 日志 + 保护名单/越界被拒且写入日志）、
 卸载后 `app\`/启动器/说明/快捷方式/注册表项清除而 `data\` 保留。
+
+脱敏（`tools/sanitize-scan.py`，以你的真实运行配置里的 Cookie/uid 做字面量反查）：
+**源码仓 181 个跟踪文件 0 命中 · 整包 zip 790 文件 0 命中 · 安装后 `app\` 793 文件 0 命中**
+（仅 2~6 处「作者联系 uid/昵称」属有意随包）。另外 `tools/make-installer.py` 新增护栏：
+编译前会清掉负载目录里的运行时残留（`data\`、`<exe>.WebView2\`、`config.json`）——
+应用一旦在负载目录里被启动过就会写这些（里面是登录态与浏览器配置），绝不能进安装包。
 另单独回归了**便携版**：解压 zip 后 exe 在根、无布局标记，写入配置后数据落在 exe 旁
 （不会跑到上一级）。
 

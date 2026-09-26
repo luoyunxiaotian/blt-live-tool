@@ -17,6 +17,8 @@ public sealed class BiliBrowserWindow : IDisposable
     public int IdleClosedMinutes => 0;
     public int IdleCloseMinutes => 10;
     public void Show(nint ownerHwnd, string url) { }
+    public Task ReLoginAsync(nint ownerHwnd) => Task.CompletedTask;
+    public Task ClearBiliCookiesAsync() => Task.CompletedTask;
     public void Hide() { }
     public void Reload() { }
     public void GoBack() { }
@@ -121,6 +123,167 @@ public sealed class BiliBrowserWindow : IDisposable
                 DockToOwner(ownerHwnd);
                 try { _platformWindow?.Activate(); } catch { }
                 MarkActivity();
+            }
+            catch { }
+        });
+    }
+
+    private Task<Microsoft.Web.WebView2.Core.CoreWebView2?> GetCoreWebView2Async()
+    {
+        var tcs = new TaskCompletionSource<Microsoft.Web.WebView2.Core.CoreWebView2?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        RunOnUi(async () =>
+        {
+            try
+            {
+#if WINDOWS
+                for (int i = 0; i < 40; i++)
+                {
+                    var wv = _webView;
+                    if (wv != null)
+                    {
+                        var platformView = wv.Handler?.PlatformView;
+                        if (platformView is Microsoft.UI.Xaml.Controls.WebView2 winWv)
+                        {
+                            if (winWv.CoreWebView2 != null)
+                            {
+                                tcs.TrySetResult(winWv.CoreWebView2);
+                                return;
+                            }
+                            try
+                            {
+                                await winWv.EnsureCoreWebView2Async();
+                                if (winWv.CoreWebView2 != null)
+                                {
+                                    tcs.TrySetResult(winWv.CoreWebView2);
+                                    return;
+                                }
+                            }
+                            catch { }
+                        }
+                        else if (platformView != null)
+                        {
+                            var core = platformView.GetType().GetProperty("CoreWebView2")?.GetValue(platformView)
+                                as Microsoft.Web.WebView2.Core.CoreWebView2;
+                            if (core != null)
+                            {
+                                tcs.TrySetResult(core);
+                                return;
+                            }
+                        }
+                    }
+                    await Task.Delay(50);
+                }
+#endif
+                tcs.TrySetResult(null);
+            }
+            catch
+            {
+                tcs.TrySetResult(null);
+            }
+        });
+        return tcs.Task;
+    }
+
+    /// <summary>
+    /// 清除内嵌 WebView2 的所有 B站 Cookie 和存储，确保重新登录时不会自动恢复旧账号。
+    /// </summary>
+    public async Task ClearBiliCookiesAsync()
+    {
+        try
+        {
+            _lastCookie = "";
+            var core = await GetCoreWebView2Async();
+            if (core == null) return;
+
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            RunOnUi(async () =>
+            {
+                try
+                {
+#if WINDOWS
+                    var domains = new[]
+                    {
+                        "https://bilibili.com",
+                        "https://passport.bilibili.com",
+                        "https://live.bilibili.com",
+                        "https://api.bilibili.com",
+                        "https://www.bilibili.com",
+                        "https://space.bilibili.com",
+                        "https://message.bilibili.com"
+                    };
+                    foreach (var dom in domains)
+                    {
+                        try
+                        {
+                            var list = await core.CookieManager.GetCookiesAsync(dom).AsTask();
+                            foreach (var c in list)
+                            {
+                                core.CookieManager.DeleteCookie(c);
+                            }
+                        }
+                        catch { }
+                    }
+
+                    try { core.CookieManager.DeleteAllCookies(); } catch { }
+
+                    try
+                    {
+                        var profile = core.Profile;
+                        if (profile != null)
+                        {
+                            await profile.ClearBrowsingDataAsync(
+                                Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.Cookies |
+                                Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.LocalStorage |
+                                Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.IndexedDb |
+                                Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.DiskCache |
+                                Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.WebSql
+                            ).AsTask();
+                        }
+                    }
+                    catch { }
+#endif
+                    tcs.TrySetResult(true);
+                }
+                catch
+                {
+                    tcs.TrySetResult(false);
+                }
+            });
+            await tcs.Task;
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// 重新登录：先清空保存的凭证及浏览器内所有旧 Cookie，再打开纯净的 B站 登录页面。
+    /// </summary>
+    public async Task ReLoginAsync(nint ownerHwnd)
+    {
+        if (ownerHwnd == 0 || Volatile.Read(ref _disposed) != 0) return;
+        _lastCookie = "";
+
+        // 1. 先清空已保存的凭证配置
+        try
+        {
+            _config()?.SetBiliCookie("", "");
+        }
+        catch { }
+
+        // 2. 先打开窗口停靠，显示空白页，防止旧页面带 Cookie 自动刷新登录
+        Show(ownerHwnd, "about:blank");
+
+        // 3. 彻底清除 WebView2 内部所有 B站 Cookie 与会话存储
+        await ClearBiliCookiesAsync();
+
+        // 4. 跳转至纯净的 B站 登录扫码页
+        RunOnUi(() =>
+        {
+            try
+            {
+                if (_webView != null)
+                {
+                    _webView.Source = new UrlWebViewSource { Url = "https://passport.bilibili.com/login" };
+                }
             }
             catch { }
         });

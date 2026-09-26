@@ -74,9 +74,9 @@
 
             @* B站浏览器控制条 —— 固定三键，隐藏/关闭在最左（停靠时左栏 38% 可见区必可点） *@
             <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center">
-                <button class="blt-btn" @onclick="HideBiliBrowser" data-tip="挪到屏幕外，内存保留">隐藏浏览器</button>
-                <button class="blt-btn" @onclick="CloseBiliBrowser" data-tip="销毁窗口释放内存，再打开自动重建">关闭浏览器</button>
-                <button class="blt-btn primary" @onclick="OpenBiliBrowser" data-tip="在内置浏览器打开直播间页面（主面板会临时收窄）">打开B站浏览器</button>
+                <button class="blt-btn amber" @onclick="HideBiliBrowser" data-tip="挪到屏幕外，内存保留"><BltIcon Name="eye-off" /> 隐藏浏览器</button>
+                <button class="blt-btn danger" @onclick="CloseBiliBrowser" data-tip="销毁窗口释放内存，再打开自动重建"><BltIcon Name="close" /> 关闭浏览器</button>
+                <button class="blt-btn primary" @onclick="OpenBiliBrowser" data-tip="在内置浏览器打开直播间页面（主面板会临时收窄）"><BltIcon Name="external" /> 打开B站浏览器</button>
             </div>
 
             @* 闲置自动关闭（biliBrowser.idleCloseMin）：开关与分钟数都走本页自动保存 *@
@@ -258,7 +258,6 @@
 
     @if (Verify.Locked)
     {
-        @* 对齐旧版 renderVerifyLockCard：「<BltIcon Name="lock" /> 账号待授权」说明卡 + 三个操作 *@
         <div class="blt-panel" style="border-color:var(--red);background:var(--red-dim)">
             <div class="blt-panel-head" style="border-bottom-color:rgba(245,110,110,.35)">
                 <span class="t" style="color:var(--red-ink)"><BltIcon Name="lock" /> 账号待授权</span>
@@ -266,42 +265,82 @@
                 <span class="right"><span>@Verify.State.CheckedAt</span></span>
             </div>
             <div class="blt-panel-body">
-                <div class="blt-hint" style="color:var(--ink-2);margin:0">
-                    本工具为作者白名单授权制：你的 B站账号 UID <b>@Verify.State.Uid</b> 需要<b>加入作者的白名单</b>后才能使用全部功能。
-                    在授权通过前，连接直播间被锁定（已保存的配置不会丢失，授权后自动恢复）。
-                    <br />原因：@Verify.State.Message
-                </div>
-                <div class="blt-hint" style="color:var(--ink-2);margin-top:6px">
-                    获取授权：联系作者 <b>B站UID <span style="font-family:var(--mono)">@VerifyService.AuthorUid</span></b>，说明你的来意即可申请。
-                </div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-                    <button class="blt-btn primary" @onclick="CopyAuthorUid2"><BltIcon Emoji="📋" />复制作者B站ID</button>
-                    <button class="blt-btn" @onclick="OpenAuthorSpace2"><BltIcon Emoji="🔗" />打开作者B站主页</button>
-                    @if (Verify.CurrentConsecutiveFailures >= 2)
-                    {
-                        <BltSliderVerify IsLoading="@_isVerifying2" CooldownSeconds="@_verifyCooldown2" OnVerified="RetryVerify2" />
-                    }
-                    else
-                    {
-                        <button class="blt-btn @(_verifyCooldown2 > 0 || _isVerifying2 ? "disabled" : "")"
+                @if (Verify.CurrentUid <= 0)
+                {
+                    @* 未登录任何 B 站账号：4 个选项 *@
+                    <div class="blt-hint" style="color:var(--ink-2);margin:0">
+                        检测到当前尚未登录 B站账号。
+                        <br />本工具为作者白名单授权制：请先点击「立即登录」完成 B站账号登录，登录成功后点击「登录后点击此处进行验证」完成白名单校验。
+                        在授权通过前，除登录/授权相关操作外其余功能临时锁定（<b>已保存的配置不会丢失，授权后自动恢复</b>）。
+                    </div>
+                    <div class="blt-hint" style="color:var(--ink-2);margin-top:6px">
+                        获取授权：联系作者 <b>B站UID <span style="font-family:var(--mono)">@VerifyService.AuthorUid</span></b>，说明你的来意即可申请。
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                        <button class="blt-btn" @onclick="CopyAuthorUid2"><BltIcon Name="copy" /> 复制作者 B 站 ID</button>
+                        <button class="blt-btn" @onclick="OpenAuthorSpace2"><BltIcon Name="external" /> 打开 B 站作者主页</button>
+                        <button class="blt-btn blue" @onclick="OpenLoginBrowser2"><BltIcon Name="login" /> 立即登录</button>
+                        <button class="blt-btn success @(_verifyCooldown2 > 0 || _isVerifying2 ? "disabled" : "")"
                                 disabled="@(_verifyCooldown2 > 0 || _isVerifying2)"
                                 @onclick="RetryVerify2">
                             @if (_isVerifying2)
                             {
-                                <span><BltIcon Emoji="⏳" /> 验证中…</span>
+                                <span><BltIcon Name="refresh" /> 验证中…</span>
                             }
                             else if (_verifyCooldown2 > 0)
                             {
-                                <span><BltIcon Emoji="⏱" /> 重试验证 (@(_verifyCooldown2)s)</span>
+                                <span><BltIcon Name="clock" /> 登录后点击此处进行验证 (@(_verifyCooldown2)s)</span>
                             }
                             else
                             {
-                                <span><BltIcon Emoji="↻" /> 重试验证</span>
+                                <span><BltIcon Name="shield-check" /> 登录后点击此处进行验证</span>
                             }
                         </button>
-                    }
-                    <span class="blt-hint" style="align-self:center;margin:0">@_verifyNote2</span>
-                </div>
+                        <span class="blt-hint" style="align-self:center;margin:0">@_verifyNote2</span>
+                    </div>
+                }
+                else
+                {
+                    @* 已登录 B 站账号，但未通过授权：5 个选项 *@
+                    <div class="blt-hint" style="color:var(--ink-2);margin:0">
+                        @Verify.State.Message
+                        <br />本工具为作者白名单授权制：你的 B站账号 UID <b>@Verify.State.Uid</b> 尚未加入作者白名单。
+                        在授权通过前，除登录/授权相关操作外其余功能临时锁定（<b>已保存的配置不会丢失，授权后自动恢复</b>）。
+                    </div>
+                    <div class="blt-hint" style="color:var(--ink-2);margin-top:6px">
+                        获取授权：联系作者 <b>B站UID <span style="font-family:var(--mono)">@VerifyService.AuthorUid</span></b>，说明你的来意即可申请。
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                        <button class="blt-btn" @onclick="CopyAuthorUid2"><BltIcon Name="copy" /> 复制作者 B 站 ID</button>
+                        <button class="blt-btn" @onclick="OpenAuthorSpace2"><BltIcon Name="external" /> 打开 B 站作者主页</button>
+                        @if (Verify.CurrentConsecutiveFailures >= 2)
+                        {
+                            <BltSliderVerify IsLoading="@_isVerifying2" CooldownSeconds="@_verifyCooldown2" OnVerified="RetryVerify2" />
+                        }
+                        else
+                        {
+                            <button class="blt-btn amber @(_verifyCooldown2 > 0 || _isVerifying2 ? "disabled" : "")"
+                                    disabled="@(_verifyCooldown2 > 0 || _isVerifying2)"
+                                    @onclick="RetryVerify2">
+                                @if (_isVerifying2)
+                                {
+                                    <span><BltIcon Name="refresh" /> 验证中…</span>
+                                }
+                                else if (_verifyCooldown2 > 0)
+                                {
+                                    <span><BltIcon Name="clock" /> 重试验证 (@(_verifyCooldown2)s)</span>
+                                }
+                                else
+                                {
+                                    <span><BltIcon Name="refresh" /> 重试验证</span>
+                                }
+                            </button>
+                        }
+                        <button class="blt-btn purple" @onclick="ReLogin2"><BltIcon Name="login" /> 重新登录</button>
+                        <button class="blt-btn danger" @onclick="ClearLogin2"><BltIcon Name="logout" /> 清除登录状态</button>
+                        <span class="blt-hint" style="align-self:center;margin:0">@_verifyNote2</span>
+                    </div>
+                }
             </div>
         </div>
     }
@@ -336,7 +375,7 @@
                 }
                 @if (_updaterPhase == "Staged")
                 {
-                    <button class="blt-btn amber" @onclick="ApplyUpdateNow"><BltIcon Emoji="🔄" />更新并重启</button>
+                    <button class="blt-btn amber" @onclick="ApplyUpdateNow"><BltIcon Emoji="🔄" />更新并重启</button>
                     <button class="blt-btn" @onclick="CancelUpdate">稍后</button>
                 }
             </div>
@@ -736,7 +775,14 @@
             }
             else
             {
-                _verifyNote2 = string.IsNullOrEmpty(res.Message) ? "验证仍未通过" : "仍未通过：" + res.Message;
+                if (Verify.CurrentUid <= 0)
+                {
+                    _verifyNote2 = "未检测到 B站 登录信息：请先点击「立即登录」完成登录";
+                }
+                else
+                {
+                    _verifyNote2 = string.IsNullOrEmpty(res.Message) ? "验证仍未通过" : "仍未通过：" + res.Message;
+                }
                 if (res.CooldownRemaining > 0)
                 {
                     StartCooldown2(res.CooldownRemaining);
@@ -752,6 +798,67 @@
             _isVerifying2 = false;
             StateHasChanged();
         }
+    }
+
+    private async Task OpenLoginBrowser2()
+    {
+        try
+        {
+            _verifyNote2 = "正在打开登录窗口…";
+            StateHasChanged();
+            if (MainPage.Current != null)
+            {
+                await MainPage.Current.ReLoginBiliAsync();
+            }
+            _verifyNote2 = "已打开应用内 B站 登录窗口：登录成功后可在左上角点击【关闭登录窗口】，然后点击【验证】";
+        }
+        catch { _verifyNote2 = "打开登录页失败"; }
+        StateHasChanged();
+    }
+
+    private async Task ReLogin2()
+    {
+        try
+        {
+            var cfg = MauiProgram.Services?.GetService(typeof(AppConfig)) as AppConfig;
+            cfg?.SetBiliCookie("", "");
+            Verify.Reset();
+            _verifyCooldown2 = 0;
+            _cooldownTimer2?.Dispose();
+            _cooldownTimer2 = null;
+            _verifyNote2 = "正在清理旧登录状态并打开登录窗口…";
+            StateHasChanged();
+
+            if (MainPage.Current != null)
+            {
+                await MainPage.Current.ReLoginBiliAsync();
+            }
+            _verifyNote2 = "已打开全新 B站 登录窗口：请使用新账号登录，登录成功后可在左上角点击【关闭登录窗口】，然后点击【验证】";
+        }
+        catch { _verifyNote2 = "重新登录失败"; }
+        StateHasChanged();
+    }
+
+    private async Task ClearLogin2()
+    {
+        try
+        {
+            var cfg = MauiProgram.Services?.GetService(typeof(AppConfig)) as AppConfig;
+            cfg?.SetBiliCookie("", "");
+            Verify.Reset();
+            _verifyCooldown2 = 0;
+            _cooldownTimer2?.Dispose();
+            _cooldownTimer2 = null;
+            if (MainPage.Current != null)
+            {
+                await MainPage.Current.ClearBiliCookiesAsync();
+                MainPage.Current.CloseBiliBrowser();
+            }
+            var st = await Verify.RefreshAsync(force: true);
+            _verifyNote2 = st.Locked ? "已清除登录态及浏览器缓存：请点击「立即登录」登录账号" : "登录态已清除";
+        }
+        catch { _verifyNote2 = "清除失败"; }
+        StateHasChanged();
     }
 
     private Task Connect()

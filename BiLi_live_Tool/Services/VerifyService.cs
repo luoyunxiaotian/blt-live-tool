@@ -271,6 +271,7 @@ public sealed class VerifyService
     public void Reset()
     {
         _lastUid = 0;
+        _throttles.Clear();
         SetState(new VerifyState(false, 0, "", "", "", Now(), false));
     }
 

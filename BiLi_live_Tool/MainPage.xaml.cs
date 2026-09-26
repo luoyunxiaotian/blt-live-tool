@@ -223,6 +223,18 @@ namespace BiLi_live_Tool
             _biliBrowser.Show(owner, url);
         }
 
+        public async Task ReLoginBiliAsync()
+        {
+            var owner = OwnerHwnd();
+            if (owner == 0) return;
+            await _biliBrowser.ReLoginAsync(owner);
+        }
+
+        public async Task ClearBiliCookiesAsync()
+        {
+            await _biliBrowser.ClearBiliCookiesAsync();
+        }
+
         public void HideBiliBrowser() => _biliBrowser.Hide();
         public void CloseBiliBrowser() => _biliBrowser.Close();
 

@@ -25,6 +25,7 @@ public static class BltIcons
         "file" => "<path d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/><path d='M14 3v5h5M9 13h6M9 17h4'/>",
         "box" => "<path d='M3 8l9-5 9 5v8l-9 5-9-5z'/><path d='M3 8l9 5 9-5M12 13v8'/>",
         "shield" => "<path d='M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6z'/>",
+        "shield-check" => "<path d='M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6z'/><path d='M9 12l2 2 4-4'/>",
         "zap" => "<path d='M13 2 4 14h7l-1 8 9-12h-7z'/>",
         "image" => "<rect x='3' y='4' width='18' height='16' rx='2'/><circle cx='8.5' cy='9.5' r='1.5'/><path d='M4 17l5-5 4 4 3-2 4 4'/>",
         "widget" => "<rect x='8' y='3' width='8' height='4' rx='1'/><path d='M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2M8 12h8M8 16h5'/>",
@@ -69,6 +70,8 @@ public static class BltIcons
         "plus" => "<path d='M12 5v14M5 12h14'/>",
         "pencil" => "<path d='M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16z'/><path d='M13.5 6.5 17.5 10.5'/>",
         "bulb" => "<path d='M9 18h6M10 21h4'/><path d='M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.8.5 1.3v.8h6v-.8c0-.5.1-1 .5-1.3A6 6 0 0 0 12 3z'/>",
+        "close" => "<path d='M18 6 6 18M6 6l12 12'/>",
+        "x" => "<path d='M18 6 6 18M6 6l12 12'/>",
         _ => "",
     };
 

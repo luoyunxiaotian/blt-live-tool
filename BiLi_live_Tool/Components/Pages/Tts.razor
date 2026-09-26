@@ -401,7 +401,7 @@
                 @* 4) skip / clear *@
                 <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
                     <button class="blt-btn" @onclick="SkipSpeech" disabled="@(!Speaker.Speaking)">⏭ 跳过本条</button>
-                    <button class="blt-btn" @onclick="ClearSpeechQueue" disabled="@(Speaker.QueueCount == 0)"><BltIcon Emoji="🗑" />清空队列</button>
+                    <button class="blt-btn" @onclick="ClearSpeechQueue" disabled="@(Speaker.QueueCount == 0)"><BltIcon Emoji="🗑" />清空队列</button>
                 </div>
                 <div class="blt-hint">
                     「跳过本条」立刻停掉正在念的这条、接着念下一条；「清空队列」只丢弃排队中的，正在念的不受影响。上限 1~50，达到上限后新事件被忽略（舰长优先开启时舰长弹幕插队到第 2 位之后）。
@@ -425,7 +425,7 @@
         </div>
 
         <div class="blt-panel">
-            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="⚙" />其他参数</span><span class="en">READ ONLY</span>
+            <div class="blt-panel-head"><span class="t"><BltIcon Emoji="⚙" />其他参数</span><span class="en">READ ONLY</span>
                 <span class="right"><span>由原版面板维护</span></span>
             </div>
             <div class="blt-panel-body">

@@ -25,12 +25,27 @@ internal static class Program
     private static int Main(string[] args)
     {
         var exeDir = AppContext.BaseDirectory;
-        var target = Path.Combine(exeDir, "app", "BiLi_live_Tool.exe");
+        var candidates = new[]
+        {
+            Path.Combine(exeDir, "app", "BiLi_live_Tool.exe"),
+            Path.Combine(exeDir, "pkg", "BiLi_live_Tool.exe"),
+            Path.Combine(exeDir, "BiLi_live_Tool.exe")
+        };
 
-        if (!File.Exists(target))
+        string? target = null;
+        foreach (var c in candidates)
+        {
+            if (File.Exists(c))
+            {
+                target = c;
+                break;
+            }
+        }
+
+        if (target == null)
         {
             MessageBoxW(IntPtr.Zero,
-                "没有找到主程序：\n" + target + "\n\n" +
+                "没有找到主程序：\n" + Path.Combine(exeDir, "app", "BiLi_live_Tool.exe") + "\n\n" +
                 "请确认 app 文件夹没有被删除或改名；若确实缺失，重新运行「直播小帮手」安装包修复即可。",
                 "直播小帮手", MB_OK | MB_ICONWARNING);
             return 2;

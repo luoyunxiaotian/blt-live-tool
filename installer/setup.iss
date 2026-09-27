@@ -83,8 +83,7 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 [Files]
 ; 整棵发布树（788 个文件：程序本体 + wwwroot + wwwroot\legacy 浮层/面板 + tts 两个引擎 exe
 ; + verify-key.txt + default-config.json + update-now.* 等），已由打包流程排除 data\、
-; update_staging\、update_backup\、WebView2 配置与 config.json
-Source: "{#PayloadDir}\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PayloadDir}\*"; DestDir: "{app}\app"; Excludes: "*.WebView2,*.WebView2\*,data,data\*,config.json,update_staging,update_staging\*,update_backup,update_backup\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; 根目录三样：启动器（双击即运行）、说明文件、布局标记（放在 app\ 内，见文件头注释）
 Source: "{#LauncherExe}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#ReadmeFile}"; DestDir: "{app}"; Flags: ignoreversion

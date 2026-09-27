@@ -183,7 +183,7 @@
   color: #1a1202;
   box-shadow: 0 0 24px var(--kv-gold-glow), 0 0 48px rgba(245, 158, 11, 0.8), 0 4px 14px rgba(0, 0, 0, 0.4);
 }
-.kv-ripple {
-  border-color: var(--kv-gold);
+.kv-ripple, .kv-ripple-left, .kv-ripple-right {
+  border-color: var(--kv-gold) !important;
   box-shadow: 0 0 14px var(--kv-gold-glow);
 }

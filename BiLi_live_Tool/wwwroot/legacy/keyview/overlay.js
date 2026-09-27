@@ -14,7 +14,7 @@
   function applyTheme(t) {
     currentTheme = t;
     root.setAttribute('data-theme', t);
-    document.getElementById('kv-theme-link').href = 'themes/' + t + '.css';
+    document.getElementById('kv-theme-link').href = 'themes/' + t + '.css?v=' + Date.now();
   }
 
   function rebuildRenderer() {
@@ -22,9 +22,13 @@
     msEl.innerHTML = '';
     gpEl.innerHTML = '';
     if (typeof gpInstances !== 'undefined') gpInstances.clear();
-    fetch('themes.manifest.json').then((r) => r.json()).then((manifest) => {
+    const isKnownLayoutTheme = currentTheme && (
+      currentTheme.startsWith('heroui-') ||
+      ['mc-minerals', 'retro-typewriter', 'real', 'glass'].includes(currentTheme)
+    );
+    fetch('themes.manifest.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((manifest) => {
       const info = (manifest.themes || []).find((x) => x.id === currentTheme);
-      let mode = (info && info.render) || 'recent';
+      let mode = (info && info.render) || (isKnownLayoutTheme ? 'layout' : 'recent');
       const forceMode = cfg['display.renderMode'] || cfg['overlay.renderMode'];
       if (forceMode && forceMode !== 'auto') {
         mode = forceMode;
@@ -36,7 +40,7 @@
       if (info && info.devices && info.devices.length === 1 && info.devices[0] === 'gp') ensureGp(0);
       applyConfig(cfg);
     }).catch(() => {
-      let mode = 'recent';
+      let mode = isKnownLayoutTheme ? 'layout' : 'recent';
       const forceMode = cfg['display.renderMode'] || cfg['overlay.renderMode'];
       if (forceMode && forceMode !== 'auto') mode = forceMode;
       if (mode === 'layout') renderer = createLayoutRenderer();
@@ -119,8 +123,27 @@
       }
     }
     function trim() { while (keyItems.size > maxRecentKeys) { const k = keyItems.keys().next().value; const it = keyItems.get(k); it.el.remove(); keyItems.delete(k); } }
-    function onMouseDown(b) { const r = document.createElement('div'); r.className = 'kv-ripple kv-ripple-' + (b || 'left'); msEl.appendChild(r); setTimeout(() => r.remove(), 650); }
-    function onWheel(dy) { const w = document.createElement('div'); w.className = 'kv-wheel'; w.textContent = dy > 0 ? '▲' : '▼'; msEl.appendChild(w); setTimeout(() => w.remove(), 520); }
+    function onMouseDown(b) {
+      let btn = b || 'left';
+      if (cfg['display.sideButtonInvert']) {
+        if (btn === 'x1') btn = 'x2';
+        else if (btn === 'x2') btn = 'x1';
+      }
+      const r = document.createElement('div');
+      r.className = 'kv-ripple kv-ripple-' + btn;
+      msEl.appendChild(r);
+      setTimeout(() => r.remove(), 650);
+    }
+    function onWheel(dy) {
+      const invert = !!cfg['display.wheelInvert'];
+      let up = dy > 0;
+      if (invert) up = !up;
+      const w = document.createElement('div');
+      w.className = 'kv-wheel';
+      w.textContent = up ? '▲' : '▼';
+      msEl.appendChild(w);
+      setTimeout(() => w.remove(), 520);
+    }
     return {
       onKey: (m) => onKey(m.k, m.e === 'down'),
       onMouseDown: (m) => onMouseDown(m.b), onMouseUp: () => {}, onWheel: (m) => onWheel(m.dy), onMouseMove: () => {},
@@ -245,18 +268,26 @@
       if (m.e === 'down') el.classList.add('active');
       else el.classList.remove('active');
     }
+    function resolveMouseButton(raw) {
+      let b = raw || 'left';
+      if (cfg['display.sideButtonInvert']) {
+        if (b === 'x1') b = 'x2';
+        else if (b === 'x2') b = 'x1';
+      }
+      return b;
+    }
     function onMouseDown(m) {
-      const b = m.b || 'left';
+      const b = resolveMouseButton(m.b);
       if (b === 'left' && mouseL) mouseL.classList.add('active');
       else if (b === 'right' && mouseR) mouseR.classList.add('active');
       else if (b === 'middle' && mouseWheel) mouseWheel.classList.add('active');
       else if (b === 'x1' && mouseSide1) mouseSide1.classList.add('active');
       else if (b === 'x2' && mouseSide2) mouseSide2.classList.add('active');
-      const bText = b === 'x1' ? '侧键 (后退)' : b === 'x2' ? '侧键 (前进)' : b === 'left' ? '左键' : b === 'right' ? '右键' : b === 'middle' ? '中键' : b;
+      const bText = b === 'x1' ? '侧键 (后退/下)' : b === 'x2' ? '侧键 (前进/上)' : b === 'left' ? '左键' : b === 'right' ? '右键' : b === 'middle' ? '中键' : b;
       flashLabel(bText);
     }
     function onMouseUp(m) {
-      const b = m.b || 'left';
+      const b = resolveMouseButton(m.b);
       if (b === 'left' && mouseL) mouseL.classList.remove('active');
       else if (b === 'right' && mouseR) mouseR.classList.remove('active');
       else if (b === 'middle' && mouseWheel) mouseWheel.classList.remove('active');
@@ -264,9 +295,17 @@
       else if (b === 'x2' && mouseSide2) mouseSide2.classList.remove('active');
     }
     function onWheel(m) {
-      const up = m.dy > 0;
-      if (up && mouseWheelUp) mouseWheelUp.classList.add('active');
-      if (!up && mouseWheelDown) mouseWheelDown.classList.add('active');
+      const invert = !!cfg['display.wheelInvert'];
+      let up = m.dy > 0;
+      if (invert) up = !up;
+      if (up && mouseWheelUp) {
+        mouseWheelUp.classList.add('active');
+        if (mouseWheelDown) mouseWheelDown.classList.remove('active');
+      }
+      if (!up && mouseWheelDown) {
+        mouseWheelDown.classList.add('active');
+        if (mouseWheelUp) mouseWheelUp.classList.remove('active');
+      }
       flashLabel(up ? '滚轮 向上 ▲' : '滚轮 向下 ▼');
       clearTimeout(onWheel._t);
       onWheel._t = setTimeout(() => {
@@ -598,7 +637,7 @@
 
   // ============ init ============
   function start() {
-    fetch('/config').then((r) => r.json()).then((c) => {
+    fetch('/config?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((c) => {
       cfg = c || {};
       const t = currentTheme || c['overlay.theme'] || 'real';
       applyTheme(t);

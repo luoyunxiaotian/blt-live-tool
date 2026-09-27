@@ -446,6 +446,16 @@
                 new KeyOption { Value = "recent", Label = "流式按键模式 recent（按键气泡序列）" },
             },
         },
+        new KeyRow
+        {
+            Key = "display.wheelInvert", Label = "滚轮方向反转 display.wheelInvert", Kind = "bool",
+            Tip = "若向上滚动滚轮却亮起下方图标，可开启此开关反转方向",
+        },
+        new KeyRow
+        {
+            Key = "display.sideButtonInvert", Label = "鼠标侧键对调 display.sideButtonInvert", Kind = "bool",
+            Tip = "将鼠标侧键 X1（后退/下）与 X2（前进/上）前后映射对调",
+        },
     };
 
     private async Task LoadConfig()

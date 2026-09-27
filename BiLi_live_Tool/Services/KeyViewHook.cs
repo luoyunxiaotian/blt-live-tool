@@ -431,9 +431,10 @@ public sealed class KeyViewHook
             {
                 var s = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
                 var delta = (short)((s.mouseData >> 16) & 0xFFFF);
+                int norm = delta > 0 ? Math.Max(1, delta / 120) : Math.Min(-1, delta / 120);
                 int dx = 0, dy = 0;
-                if (msg == WmMouseHWheel) dx = delta / 120;
-                else dy = delta / 120;
+                if (msg == WmMouseHWheel) dx = norm;
+                else dy = norm;
                 EmitWheel(dx, dy, s.pt.x, s.pt.y, now, "hook");
                 break;
             }
@@ -564,8 +565,18 @@ public sealed class KeyViewHook
                     if ((flags & 0x0080) != 0) EmitMs("up", "x1", pos.x, pos.y, now, "raw");
                     if ((flags & 0x0100) != 0) EmitMs("down", "x2", pos.x, pos.y, now, "raw");
                     if ((flags & 0x0200) != 0) EmitMs("up", "x2", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0400) != 0) EmitWheel(0, (short)ms.usButtonData / 120, pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0800) != 0) EmitWheel((short)ms.usButtonData / 120, 0, pos.x, pos.y, now, "raw");
+                    if ((flags & 0x0400) != 0)
+                    {
+                        var rawDelta = (short)ms.usButtonData;
+                        int dy = rawDelta > 0 ? Math.Max(1, rawDelta / 120) : Math.Min(-1, rawDelta / 120);
+                        EmitWheel(0, dy, pos.x, pos.y, now, "raw");
+                    }
+                    if ((flags & 0x0800) != 0)
+                    {
+                        var rawDelta = (short)ms.usButtonData;
+                        int dx = rawDelta > 0 ? Math.Max(1, rawDelta / 120) : Math.Min(-1, rawDelta / 120);
+                        EmitWheel(dx, 0, pos.x, pos.y, now, "raw");
+                    }
                 }
                 // 鼠标**移动**故意不在这里处理：WM_INPUT 的移动是 500~1000Hz 的洪流，
                 // 解析它会拖垮采集线程；位置变化交给 20ms 的轮询那一路（够用且便宜）。

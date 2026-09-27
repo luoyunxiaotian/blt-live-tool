@@ -13,5 +13,7 @@
   "display.maxRecentKeys": 6,
   "display.kbLayout": "full",
   "display.gpLayout": "xbox",
-  "display.renderMode": "auto"
+  "display.renderMode": "auto",
+  "display.wheelInvert": false,
+  "display.sideButtonInvert": false
 }

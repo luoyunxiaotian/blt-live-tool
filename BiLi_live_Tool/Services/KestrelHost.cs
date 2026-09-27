@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 
@@ -264,7 +265,18 @@ public sealed class KestrelHost
             return Results.Json(_keyview.Config.GetAll(), JsonWeb);
         });
 
-        app.UseStaticFiles();
+        Action<StaticFileResponseContext> disableCache = ctx =>
+        {
+            var headers = ctx.Context.Response.Headers;
+            headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+            headers.Pragma = "no-cache";
+            headers.Expires = "0";
+        };
+
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            OnPrepareResponse = disableCache
+        });
 
         // Original root-level overlay URLs keep working after migration.
         foreach (var dir in new[] { "alert", "lyrics", "widgets", "keyview", "sounds", "skins", "lower-thirds", "now-playing" })
@@ -275,6 +287,7 @@ public sealed class KestrelHost
                 {
                     FileProvider = new PhysicalFileProvider(full),
                     RequestPath = "/" + dir,
+                    OnPrepareResponse = disableCache
                 });
         }
 

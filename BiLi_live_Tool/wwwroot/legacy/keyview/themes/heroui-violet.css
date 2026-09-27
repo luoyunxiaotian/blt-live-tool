@@ -183,7 +183,7 @@
   color: #ffffff;
   box-shadow: 0 0 24px var(--kv-violet-glow), 0 0 45px rgba(168, 85, 247, 0.8), 0 4px 14px rgba(0, 0, 0, 0.4);
 }
-.kv-ripple {
-  border-color: var(--kv-violet);
+.kv-ripple, .kv-ripple-left, .kv-ripple-right {
+  border-color: var(--kv-violet) !important;
   box-shadow: 0 0 14px var(--kv-violet-glow);
 }

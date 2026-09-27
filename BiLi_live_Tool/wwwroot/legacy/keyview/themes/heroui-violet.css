@@ -73,12 +73,12 @@
               color var(--kv-anim-t) ease;
 }
 .kv-real-key.active {
-  background: radial-gradient(ellipse at center, #c084fc 0%, #8b3fd9 52%, #6018a8 100%);
-  border-color: #f3e8ff;
+  background: linear-gradient(135deg, #7828c8 0%, #9353d3 40%, #f31260 100%);
+  border-color: #c084fc;
   color: #ffffff;
   transform: translateY(2px) scale(0.97);
-  box-shadow: 0 0 24px rgba(168, 85, 247, 0.95), 0 0 45px rgba(147, 83, 211, 0.8), 0 0 65px rgba(243, 18, 96, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.7);
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.85), 0 1px 4px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 0 22px var(--kv-violet-glow), 0 0 38px rgba(243, 18, 96, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.55);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8), 0 0 8px rgba(255, 255, 255, 0.8);
 }
 .kv-real-spacer { width: 24px; flex: 0 0 auto; }
 
@@ -107,7 +107,7 @@
 .kv-mouse-outline { fill: none; stroke: var(--kv-line-strong); stroke-width: 1.5; }
 .kv-mouse-sep { stroke: var(--kv-line); stroke-width: 1; }
 
-.kv-mouse-l.active, .kv-mouse-r.active { fill: var(--kv-violet); filter: drop-shadow(0 0 14px var(--kv-violet-glow)); }
+.kv-mouse-l.active, .kv-mouse-r.active { fill: var(--kv-violet); filter: drop-shadow(0 0 12px var(--kv-violet-glow)) drop-shadow(0 0 18px rgba(243, 18, 96, 0.5)); }
 .kv-mouse-wheel.active { fill: var(--kv-violet-light); filter: drop-shadow(0 0 10px var(--kv-violet-glow)); }
 .kv-mouse-wheel-half { fill: transparent; transition: fill var(--kv-anim-t) ease; }
 .kv-mouse-wheel-up.active, .kv-mouse-wheel-down.active { fill: var(--kv-violet-light); filter: drop-shadow(0 0 10px var(--kv-violet-glow)); }
@@ -178,12 +178,12 @@
   font-weight: 700;
 }
 .kv-key-down {
-  background: radial-gradient(ellipse at center, #c084fc 0%, #8b3fd9 52%, #6018a8 100%);
-  border-color: #f3e8ff;
+  background: linear-gradient(135deg, #7828c8 0%, #9353d3 40%, #f31260 100%);
+  border-color: #c084fc;
   color: #ffffff;
-  box-shadow: 0 0 24px var(--kv-violet-glow), 0 0 45px rgba(168, 85, 247, 0.8), 0 4px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 22px var(--kv-violet-glow), 0 0 38px rgba(243, 18, 96, 0.65), 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 .kv-ripple, .kv-ripple-left, .kv-ripple-right {
   border-color: var(--kv-violet) !important;
-  box-shadow: 0 0 14px var(--kv-violet-glow);
+  box-shadow: 0 0 14px var(--kv-violet-glow), 0 0 24px rgba(243, 18, 96, 0.5);
 }

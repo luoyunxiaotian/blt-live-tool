@@ -218,6 +218,7 @@ public sealed class DanmuClient
             catch (Exception ex)
             {
                 // Hard error stops retrying (same as bili.js); the user clicks connect again.
+                ServiceLog.Error("直播", $"直播连接异常: {ex.Message}");
                 if (!ct.IsCancellationRequested) Status("error", error: ex.Message);
                 return;
             }
@@ -228,6 +229,7 @@ public sealed class DanmuClient
     {
         if (info.Hosts.Count == 0)
         {
+            ServiceLog.Error("直播", "获取到 0 个可用弹幕服务器节点");
             Status("error", error: "没有可用弹幕服务器");
             return CloseReason.Exhausted;
         }
@@ -238,6 +240,7 @@ public sealed class DanmuClient
             if (reason != CloseReason.Stale && reason != CloseReason.ConnectFail) return reason;
             // Stale / connect failure → rotate to next host.
         }
+        ServiceLog.Warn("直播", $"所有 {info.Hosts.Count} 个弹幕服务器节点尝试完毕均不可用，稍后重试");
         return CloseReason.Exhausted;
     }
 
@@ -266,13 +269,14 @@ public sealed class DanmuClient
             opened = true;
 
             // Auth: use DedeUserID from cookie as uid when present, else anonymous 0.
-            var authUid = 0;
+            long authUid = 0;
             var m = DedeUserIdRegex.Match(cookie ?? "");
-            if (m.Success) int.TryParse(m.Groups[1].Value, out authUid);
+            if (m.Success) long.TryParse(m.Groups[1].Value, out authUid);
             var auth = JsonSerializer.Serialize(new { uid = authUid, roomid = realRoomId, protover = 3, platform = "web", type = 2, key = info.Token });
             var authBytes = BuildPacket(7, Encoding.UTF8.GetBytes(auth));
             await ws.SendAsync(authBytes, WebSocketMessageType.Binary, true, ct);
             Status("connected", realRoomId.ToString(), uid: uid.ToString());
+            ServiceLog.Info("直播", $"已成功连接弹幕服务器 {host.Host}:{port} (Auth UID: {authUid})");
 
             var lastDataTicks = Environment.TickCount64;
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -339,8 +343,9 @@ public sealed class DanmuClient
         {
             return CloseReason.Cancelled;
         }
-        catch
+        catch (Exception ex)
         {
+            ServiceLog.Warn("直播", $"弹幕节点 {host.Host}:{port} 连接异常: {ex.Message}");
             return opened ? CloseReason.Dropped : CloseReason.ConnectFail;
         }
         finally

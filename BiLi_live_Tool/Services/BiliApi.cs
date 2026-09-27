@@ -140,19 +140,29 @@ public static partial class BiliApi
 
     public static async Task<DanmuInfo> GetDanmuInfoAsync(long realRoomId, string? cookie, CancellationToken ct)
     {
-        var url = $"https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?id={realRoomId}";
+        var url = $"https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?id={realRoomId}&type=0";
         // Try WBI-signed URL first; fall back to unsigned on key fetch failure (same as bili.js).
         try
         {
-            var qs = await EncWbiAsync(new Dictionary<string, string> { ["id"] = realRoomId.ToString() }, ct);
+            var qs = await EncWbiAsync(new Dictionary<string, string> { ["id"] = realRoomId.ToString(), ["type"] = "0" }, ct);
             url = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + qs;
         }
         catch (OperationCanceledException) { throw; }
-        catch { /* fall back to unsigned */ }
+        catch (Exception ex)
+        {
+            ServiceLog.Warn("B站API", $"WBI签名失败({ex.Message})，降级无签名重试");
+        }
 
         var j = await FetchJsonAsync(url, cookie, ct);
-        if (j.ValueKind != JsonValueKind.Object || GetLong(j, "code") != 0 || !j.TryGetProperty("data", out var d) || d.ValueKind != JsonValueKind.Object)
-            throw new Exception("获取弹幕服务器失败: " + ApiError(j));
+        var code = GetLong(j, "code");
+        if (j.ValueKind != JsonValueKind.Object || code != 0 || !j.TryGetProperty("data", out var d) || d.ValueKind != JsonValueKind.Object)
+        {
+            var errStr = ApiError(j);
+            if (code == -352)
+                errStr += " (触发B站-352风控，建议重新登录或检查网络)";
+            ServiceLog.Error("B站API", $"获取弹幕服务器失败: {errStr}");
+            throw new Exception("获取弹幕服务器失败: " + errStr);
+        }
 
         var token = GetStr(d, "token");
         var hosts = new List<DanmuHost>();

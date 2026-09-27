@@ -24,7 +24,11 @@
     if (typeof gpInstances !== 'undefined') gpInstances.clear();
     fetch('themes.manifest.json').then((r) => r.json()).then((manifest) => {
       const info = (manifest.themes || []).find((x) => x.id === currentTheme);
-      const mode = (info && info.render) || 'recent';
+      let mode = (info && info.render) || 'recent';
+      const forceMode = cfg['display.renderMode'] || cfg['overlay.renderMode'];
+      if (forceMode && forceMode !== 'auto') {
+        mode = forceMode;
+      }
       if (mode === 'layout') renderer = createLayoutRenderer();
       else if (mode === 'heatmap') renderer = createHeatmapRenderer();
       else if (mode === 'trail') renderer = createTrailRenderer();
@@ -32,16 +36,24 @@
       if (info && info.devices && info.devices.length === 1 && info.devices[0] === 'gp') ensureGp(0);
       applyConfig(cfg);
     }).catch(() => {
-      renderer = createRecentRenderer();
+      let mode = 'recent';
+      const forceMode = cfg['display.renderMode'] || cfg['overlay.renderMode'];
+      if (forceMode && forceMode !== 'auto') mode = forceMode;
+      if (mode === 'layout') renderer = createLayoutRenderer();
+      else if (mode === 'heatmap') renderer = createHeatmapRenderer();
+      else renderer = createRecentRenderer();
       applyConfig(cfg);
     });
   }
 
   function applyConfig(full) {
     const oldGpLayout = cfg['display.gpLayout'];
+    const oldRenderMode = cfg['display.renderMode'] || cfg['overlay.renderMode'];
     cfg = full || cfg;
     const newTheme = cfg['overlay.theme'];
     if (newTheme && newTheme !== currentTheme) { applyTheme(newTheme); rebuildRenderer(); return; }
+    const newRenderMode = cfg['display.renderMode'] || cfg['overlay.renderMode'];
+    if (oldRenderMode !== newRenderMode) { rebuildRenderer(); return; }
     if (oldGpLayout !== cfg['display.gpLayout'] && gpInstances.size > 0) {
       gpEl.innerHTML = ''; gpInstances.clear();
       const info = gpEl.closest('#kv').getAttribute('data-theme');
@@ -108,7 +120,7 @@
     }
     function trim() { while (keyItems.size > maxRecentKeys) { const k = keyItems.keys().next().value; const it = keyItems.get(k); it.el.remove(); keyItems.delete(k); } }
     function onMouseDown(b) { const r = document.createElement('div'); r.className = 'kv-ripple kv-ripple-' + (b || 'left'); msEl.appendChild(r); setTimeout(() => r.remove(), 650); }
-    function onWheel(dy) { const w = document.createElement('div'); w.className = 'kv-wheel'; w.textContent = dy < 0 ? '▲' : '▼'; msEl.appendChild(w); setTimeout(() => w.remove(), 520); }
+    function onWheel(dy) { const w = document.createElement('div'); w.className = 'kv-wheel'; w.textContent = dy > 0 ? '▲' : '▼'; msEl.appendChild(w); setTimeout(() => w.remove(), 520); }
     return {
       onKey: (m) => onKey(m.k, m.e === 'down'),
       onMouseDown: (m) => onMouseDown(m.b), onMouseUp: () => {}, onWheel: (m) => onWheel(m.dy), onMouseMove: () => {},
@@ -205,8 +217,8 @@
         '<line class="kv-mouse-sep" x1="36" y1="6" x2="36" y2="44"/>' +
         '<line class="kv-mouse-sep" x1="6" y1="46" x2="66" y2="46"/>' +
         '<path class="kv-mouse-outline" d="M36,4 Q4,4 4,46 L4,86 Q4,100 36,100 Q68,100 68,86 L68,46 Q68,4 36,4 Z"/>' +
-        '<rect class="kv-mouse-side kv-mouse-side-1" x="-8" y="28" width="7" height="11" rx="2"/>' +
-        '<rect class="kv-mouse-side kv-mouse-side-2" x="-8" y="42" width="7" height="11" rx="2"/>' +
+        '<rect class="kv-mouse-side kv-mouse-side-2" x="-2" y="27" width="6" height="13" rx="2"/>' +
+        '<rect class="kv-mouse-side kv-mouse-side-1" x="-2" y="44" width="6" height="13" rx="2"/>' +
         '<g class="kv-mouse-dir"><polygon class="kv-mouse-dir-arrow" points="0,-11 7,3 -7,3"/></g>';
       wrap.appendChild(svg);
       const lab = document.createElement('div');
@@ -240,7 +252,8 @@
       else if (b === 'middle' && mouseWheel) mouseWheel.classList.add('active');
       else if (b === 'x1' && mouseSide1) mouseSide1.classList.add('active');
       else if (b === 'x2' && mouseSide2) mouseSide2.classList.add('active');
-      flashLabel(b);
+      const bText = b === 'x1' ? '侧键 (后退)' : b === 'x2' ? '侧键 (前进)' : b === 'left' ? '左键' : b === 'right' ? '右键' : b === 'middle' ? '中键' : b;
+      flashLabel(bText);
     }
     function onMouseUp(m) {
       const b = m.b || 'left';
@@ -251,10 +264,10 @@
       else if (b === 'x2' && mouseSide2) mouseSide2.classList.remove('active');
     }
     function onWheel(m) {
-      const up = m.dy < 0;
+      const up = m.dy > 0;
       if (up && mouseWheelUp) mouseWheelUp.classList.add('active');
       if (!up && mouseWheelDown) mouseWheelDown.classList.add('active');
-      flashLabel(up ? 'Wheel ▲' : 'Wheel ▼');
+      flashLabel(up ? '滚轮 向上 ▲' : '滚轮 向下 ▼');
       clearTimeout(onWheel._t);
       onWheel._t = setTimeout(() => {
         if (mouseWheelUp) mouseWheelUp.classList.remove('active');
@@ -391,7 +404,7 @@
     function onWheel(m) {
       const w = document.createElement('div');
       w.className = 'kv-wheel';
-      w.textContent = m.dy < 0 ? '▲' : '▼';
+      w.textContent = m.dy > 0 ? '▲' : '▼';
       msEl.appendChild(w);
       setTimeout(() => w.remove(), 520);
     }
@@ -585,22 +598,18 @@
 
   // ============ init ============
   function start() {
-    if (currentTheme) {
-      applyTheme(currentTheme);
+    fetch('/config').then((r) => r.json()).then((c) => {
+      cfg = c || {};
+      const t = currentTheme || c['overlay.theme'] || 'real';
+      applyTheme(t);
       rebuildRenderer();
       connect();
-    } else {
-      fetch('/config').then((r) => r.json()).then((c) => {
-        cfg = c;
-        applyTheme(c['overlay.theme'] || 'glass');
-        rebuildRenderer();
-        connect();
-      }).catch(() => {
-        applyTheme('glass');
-        rebuildRenderer();
-        connect();
-      });
-    }
+    }).catch(() => {
+      const t = currentTheme || 'real';
+      applyTheme(t);
+      rebuildRenderer();
+      connect();
+    });
   }
   start();
 })();

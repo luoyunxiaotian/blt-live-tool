@@ -12,7 +12,7 @@
   --kv-line-strong: rgba(168, 85, 247, 0.55);
   --kv-fg: #f4efff;
   --kv-fg-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-  --kv-tint: rgba(21, 16, 38, 0.75);
+  --kv-tint: rgba(22, 14, 42, 0.38);
   --kv-anim-t: calc(65ms / var(--kv-anim-speed, 1));
 }
 
@@ -51,7 +51,9 @@
   min-width: var(--kv-key-w);
   border-radius: 9px;
   background: var(--kv-tint);
-  border: 1px solid var(--kv-line);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(168, 85, 247, 0.28);
   color: var(--kv-fg);
   text-shadow: var(--kv-fg-shadow);
   display: flex;
@@ -63,7 +65,7 @@
   letter-spacing: 0.3px;
   user-select: none;
   box-sizing: border-box;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(168, 85, 247, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(168, 85, 247, 0.2);
   transition: transform var(--kv-anim-t) cubic-bezier(0.4, 0, 0.2, 1),
               background var(--kv-anim-t) ease,
               border-color var(--kv-anim-t) ease,
@@ -71,12 +73,12 @@
               color var(--kv-anim-t) ease;
 }
 .kv-real-key.active {
-  background: linear-gradient(135deg, #7828c8, #9353d3 65%, #f31260);
-  border-color: #c084fc;
+  background: radial-gradient(ellipse at center, #c084fc 0%, #8b3fd9 52%, #6018a8 100%);
+  border-color: #f3e8ff;
   color: #ffffff;
   transform: translateY(2px) scale(0.97);
-  box-shadow: 0 0 20px var(--kv-violet-glow), 0 0 36px rgba(243, 18, 96, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.95), 0 0 45px rgba(147, 83, 211, 0.8), 0 0 65px rgba(243, 18, 96, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.7);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.85), 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 .kv-real-spacer { width: 24px; flex: 0 0 auto; }
 
@@ -100,20 +102,18 @@
   transition: transform var(--kv-anim-t) ease;
   filter: drop-shadow(0 2px 10px rgba(120, 40, 200, 0.35));
 }
-.kv-mouse-part { transition: fill var(--kv-anim-t) ease; fill: var(--kv-tint); }
+.kv-mouse-part { transition: fill var(--kv-anim-t) ease; fill: var(--kv-tint); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .kv-mouse-wheel { transition: fill var(--kv-anim-t) ease; fill: rgba(168, 85, 247, 0.25); }
 .kv-mouse-outline { fill: none; stroke: var(--kv-line-strong); stroke-width: 1.5; }
 .kv-mouse-sep { stroke: var(--kv-line); stroke-width: 1; }
 
-.kv-mouse-l.active { fill: var(--kv-violet); filter: drop-shadow(0 0 10px var(--kv-violet-glow)); }
-.kv-mouse-r.active { fill: var(--kv-pink); filter: drop-shadow(0 0 10px rgba(243, 18, 96, 0.85)); }
-.kv-mouse-wheel.active { fill: var(--kv-violet-light); filter: drop-shadow(0 0 8px var(--kv-violet-glow)); }
+.kv-mouse-l.active, .kv-mouse-r.active { fill: var(--kv-violet); filter: drop-shadow(0 0 14px var(--kv-violet-glow)); }
+.kv-mouse-wheel.active { fill: var(--kv-violet-light); filter: drop-shadow(0 0 10px var(--kv-violet-glow)); }
 .kv-mouse-wheel-half { fill: transparent; transition: fill var(--kv-anim-t) ease; }
-.kv-mouse-wheel-up.active { fill: var(--kv-violet); filter: drop-shadow(0 0 6px var(--kv-violet-glow)); }
-.kv-mouse-wheel-down.active { fill: var(--kv-pink); filter: drop-shadow(0 0 6px rgba(243, 18, 96, 0.8)); }
+.kv-mouse-wheel-up.active, .kv-mouse-wheel-down.active { fill: var(--kv-violet-light); filter: drop-shadow(0 0 10px var(--kv-violet-glow)); }
 
-.kv-mouse-side { fill: var(--kv-tint); stroke: var(--kv-line); stroke-width: 1; transition: fill var(--kv-anim-t) ease, stroke var(--kv-anim-t) ease; }
-.kv-mouse-side.active { fill: var(--kv-violet); stroke: var(--kv-violet-light); filter: drop-shadow(0 0 8px var(--kv-violet-glow)); }
+.kv-mouse-side { fill: var(--kv-tint); stroke: var(--kv-line-strong); stroke-width: 1.2; transition: fill var(--kv-anim-t) ease, stroke var(--kv-anim-t) ease; }
+.kv-mouse-side.active { fill: var(--kv-violet); stroke: var(--kv-violet-light); filter: drop-shadow(0 0 12px var(--kv-violet-glow)); }
 
 .kv-mouse-dir { opacity: 0; transition: opacity calc(100ms / var(--kv-anim-speed, 1)) ease; }
 .kv-mouse-dir.active { opacity: 1; }
@@ -168,20 +168,20 @@
 /* ---- Standard Flow Keys (HeroUI Violet fallback) ---- */
 .kv-key {
   border-radius: 12px;
-  background: rgba(21, 16, 38, 0.85);
+  background: rgba(22, 14, 42, 0.45);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(168, 85, 247, 0.25);
+  border: 1px solid rgba(168, 85, 247, 0.3);
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(168, 85, 247, 0.2);
   color: var(--kv-fg);
   font-family: -apple-system, "Segoe UI", sans-serif;
   font-weight: 700;
 }
 .kv-key-down {
-  background: linear-gradient(135deg, #7828c8, #9353d3 65%, #f31260);
-  border-color: #c084fc;
+  background: radial-gradient(ellipse at center, #c084fc 0%, #8b3fd9 52%, #6018a8 100%);
+  border-color: #f3e8ff;
   color: #ffffff;
-  box-shadow: 0 0 20px var(--kv-violet-glow), 0 4px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 24px var(--kv-violet-glow), 0 0 45px rgba(168, 85, 247, 0.8), 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 .kv-ripple {
   border-color: var(--kv-violet);

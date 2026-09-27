@@ -13,12 +13,19 @@
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject BiLi_live_Tool.Services.UiKit UI
+@inject DiagnosticService Diagnostics
 @implements IDisposable
 
 <div class="blt-pagehead"><h1>房间管理</h1><span class="en">ROOM MANAGE</span></div>
 
 <div class="blt-topstrip">
     <span class="seg">status: <b class="@StateClass()">@StateText()</b></span>
+    @if (Hub.LastStatus.State == "error" && !string.IsNullOrEmpty(Hub.LastStatus.Error))
+    {
+        <span class="seg" style="color:var(--red-ink);max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="@Hub.LastStatus.Error">
+            <b>@Hub.LastStatus.Error</b>
+        </span>
+    }
     @if (Hub.LastStatus.ConnectedAt > 0)
     {
         <span class="seg">uptime <b>@Uptime()</b></span>
@@ -62,6 +69,13 @@
                     <div class="s2">@StepText(3)</div>
                 </div>
             </div>
+
+            @if (Hub.LastStatus.State == "error" && !string.IsNullOrEmpty(Hub.LastStatus.Error))
+            {
+                <div class="blt-hint" style="color:var(--red-ink);margin:10px 0 0;font-weight:600">
+                    ★ 连接失败：@Hub.LastStatus.Error
+                </div>
+            }
 
             <div style="display:flex;gap:26px;margin-top:14px;flex-wrap:wrap">
                 <span class="blt-switch @_autoConnectClass" @onclick="ToggleAutoConnect"
@@ -536,6 +550,58 @@
                 <button class="blt-btn" @onclick="SimFollow">模拟关注</button>
                 <button class="blt-btn" @onclick="SimWelcome">模拟进房</button>
             </div>
+        </div>
+    </div>
+
+    @* 🛠️ 问题排查与反馈日志卡片 (DIAGNOSTICS & LOG EXPORT) *@
+    <div class="blt-panel" style="grid-column: 1 / -1;">
+        <div class="blt-panel-head">
+            <span class="t"><BltIcon Emoji="🛠️" /> 问题排查与反馈日志</span>
+            <span class="en">DIAGNOSTICS & LOG EXPORT</span>
+            <span class="right">
+                <span>连不上直播间或遇到异常时导出日志</span>
+            </span>
+        </div>
+        <div class="blt-panel-body">
+            <p class="blt-hint" style="margin-top:0">
+                如果遇到直播间无法连接、提示错误、WS 异常等情况，可点击下方按钮一键生成脱敏诊断日志，并将日志文件发送给开发者排障。<br />
+                日志包含：运行环境（.NET/系统/内存）、直播间状态、B站接口实时探测、内部微服务状态及最近运行日志。已自动对个人 Cookie/Token 执行掩码脱敏。
+            </p>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <button class="blt-btn primary" @onclick="ExportDiagnosticLog" disabled="@_isExportingLog"
+                        data-tip="在桌面生成完整的排障诊断日志文件并自动在文件夹中定位">
+                    @(_isExportingLog ? "正在生成与探测…" : "📄 生成并导出日志文件")
+                </button>
+                <button class="blt-btn" @onclick="CopyDiagnosticLog" disabled="@_isExportingLog"
+                        data-tip="将全量脱敏诊断日志直接复制到剪贴板，方便通过QQ或微信发送">
+                    📋 复制日志文本
+                </button>
+                @if (!string.IsNullOrEmpty(_lastExportedPath))
+                {
+                    <button class="blt-btn amber" @onclick="OpenExportedFolder"
+                            data-tip="在文件资源管理器中打开刚刚保存的日志文件">
+                        📁 打开文件位置
+                    </button>
+                }
+                <button class="blt-btn" @onclick="ToggleLogPreview"
+                        data-tip="在下方直接展开查看即将导出的诊断报告内容">
+                    @(_showLogPreview ? "收起日志预览" : "👁 预览日志内容")
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_diagnosticNote))
+            {
+                <div class="blt-hint" style="color:var(--green-ink);margin:10px 0 0;font-weight:600">
+                    @_diagnosticNote
+                </div>
+            }
+
+            @if (_showLogPreview && !string.IsNullOrEmpty(_previewLogContent))
+            {
+                <div style="margin-top:12px;background:var(--bg-2);border:1px solid var(--line);border-radius:6px;padding:12px;max-height:300px;overflow-y:auto;font-family:Consolas, Monaco, monospace;font-size:12px;white-space:pre-wrap;color:var(--ink-2);line-height:1.5">
+                    @_previewLogContent
+                </div>
+            }
         </div>
     </div>
 </div>
@@ -1911,6 +1977,87 @@
         "gifts_merged" => $"聚合：{string.Join("、", (ev.Gifts ?? new()).Select(g => $"{g.GiftName}×{g.Num}"))}",
         _ => "",
     };
+
+    // ---- 🛠️ 诊断与排障日志导出 ----
+    private bool _isExportingLog;
+    private string _diagnosticNote = "";
+    private string _lastExportedPath = "";
+    private bool _showLogPreview;
+    private string _previewLogContent = "";
+
+    private async Task ExportDiagnosticLog()
+    {
+        _isExportingLog = true;
+        _diagnosticNote = "正在采集系统运行环境与现场网络探测…";
+        StateHasChanged();
+        try
+        {
+            var savedPath = await Diagnostics.ExportToFileAsync();
+            _lastExportedPath = savedPath;
+            _diagnosticNote = $"✓ 诊断日志已保存至：{savedPath}（已自动脱敏）";
+            _previewLogContent = await Diagnostics.GenerateReportAsync();
+            DiagnosticService.OpenFolderAndSelect(savedPath);
+        }
+        catch (Exception ex)
+        {
+            _diagnosticNote = "导出失败: " + ex.Message;
+        }
+        finally
+        {
+            _isExportingLog = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CopyDiagnosticLog()
+    {
+        _isExportingLog = true;
+        _diagnosticNote = "正在生成诊断日志…";
+        StateHasChanged();
+        try
+        {
+            var text = await Diagnostics.GenerateReportAsync();
+            _previewLogContent = text;
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            _diagnosticNote = "✓ 诊断日志已复制到剪贴板！可直接粘贴发送给开发者。";
+        }
+        catch (Exception ex)
+        {
+            _diagnosticNote = "复制失败: " + ex.Message;
+        }
+        finally
+        {
+            _isExportingLog = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenExportedFolder()
+    {
+        if (!string.IsNullOrEmpty(_lastExportedPath))
+        {
+            DiagnosticService.OpenFolderAndSelect(_lastExportedPath);
+        }
+    }
+
+    private async Task ToggleLogPreview()
+    {
+        _showLogPreview = !_showLogPreview;
+        if (_showLogPreview && string.IsNullOrEmpty(_previewLogContent))
+        {
+            _isExportingLog = true;
+            StateHasChanged();
+            try
+            {
+                _previewLogContent = await Diagnostics.GenerateReportAsync();
+            }
+            finally
+            {
+                _isExportingLog = false;
+                StateHasChanged();
+            }
+        }
+    }
 
     public void Dispose()
     {

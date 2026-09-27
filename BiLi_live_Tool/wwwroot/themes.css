@@ -5,6 +5,7 @@
 
 /* A 暗夜霓虹 · 深紫黑 + 玻璃拟态 + 粉紫青渐变 */
 html[data-theme="neon"]{
+  color-scheme:dark;
   --bg:#0a0614; --bg-2:rgba(255,255,255,.03); --panel:rgba(255,255,255,.045);
   --panel-2:rgba(255,255,255,.07); --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.16);
   --ink:#f4efff; --ink-2:rgba(233,224,255,.62); --ink-3:rgba(226,215,255,.38);
@@ -114,6 +115,7 @@ html[data-theme="brutal"] .blt-pagehead h1{text-transform:uppercase;letter-spaci
 
 /* G 电竞 HUD · 近黑网格底 + 切角面板 + 警示红 */
 html[data-theme="hud"]{
+  color-scheme:dark;
   --bg:#05070b; --bg-2:#080c12; --panel:#0a0f16; --panel-2:#101823;
   --line:#1b2735; --line-2:#22303f;
   --ink:#dfe7f2; --ink-2:#7c8ba1; --ink-3:#6b7280;
@@ -157,6 +159,7 @@ html[data-theme="editorial"] .blt-foot{letter-spacing:1px}
 
 /* ── V 经典默认（旧版默认皮肤，Bin/public/style.css：石墨黑 + B站粉）──────── */
 html[data-theme="classic"]{
+  color-scheme:dark;
   --bg:#0e0f13; --bg-2:#0a0b0e; --panel:#17181d; --panel-2:#1e2026;
   --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
   --ink:rgba(255,255,255,.92); --ink-2:rgba(255,255,255,.68); --ink-3:rgba(255,255,255,.56);
@@ -186,6 +189,7 @@ html[data-theme="classic"] .blt-panel{box-shadow:var(--shadow)}
 
 /* ✦ HeroUI 极黑 (HeroUI Onyx / Default Dark) · 纯黑底 + Zinc-900 卡片 + 电光皇家蓝 */
 html[data-theme="heroui-dark"]{
+  color-scheme:dark;
   --bg:#000000;
   --bg-2:#09090b;
   --panel:#18181b;
@@ -214,6 +218,7 @@ html[data-theme="heroui-dark"]{
 
 /* ✦ HeroUI 幻夜紫晶 (HeroUI Cyber Violet) · 午夜紫夜底 + 幻紫卡片 + 魅影霓虹紫 */
 html[data-theme="heroui-violet"]{
+  color-scheme:dark;
   --bg:#080511;
   --bg-2:#0f0a1f;
   --panel:#16102a;
@@ -240,8 +245,38 @@ html[data-theme="heroui-violet"]{
   --shadow:0 12px 34px -4px rgba(8,5,20,.75), 0 0 0 1px rgba(168,85,247,.22);
 }
 
+/* ✦ HeroUI 曜石黑金 (HeroUI Obsidian Gold) · 极夜曜石黑 + 琥珀半透卡片 + 奢华香槟金 */
+html[data-theme="heroui-gold"]{
+  color-scheme:dark;
+  --bg:#070503;
+  --bg-2:#100d07;
+  --panel:#17130a;
+  --panel-2:#241d10;
+  --line:rgba(251,191,36,.18);
+  --line-2:rgba(251,191,36,.28);
+  --ink:#fffbeb;
+  --ink-2:#fde68a;
+  --ink-3:#fbbf24;
+  --amber:#f59e0b;
+  --amber-ink:#fbbf24;
+  --amber-dim:rgba(245,158,11,.18);
+  --green:#10b981;
+  --green-ink:#34d399;
+  --green-dim:rgba(16,185,129,.14);
+  --red:#f43f5e;
+  --red-ink:#fb7185;
+  --red-dim:rgba(244,63,94,.16);
+  --blue:#d97706;
+  --blue-ink:#fbbf24;
+  --blue-dim:rgba(217,119,6,.18);
+  --r:16px;
+  --accent-ink:#1a1202;
+  --shadow:0 12px 34px -4px rgba(7,5,3,.75), 0 0 0 1px rgba(251,191,36,.22);
+}
+
 /* ✦ HeroUI 翡翠极光 (HeroUI Mint Emerald) · 深林暗夜 + 墨翠微光 + 荧光薄荷绿 */
 html[data-theme="heroui-emerald"]{
+  color-scheme:dark;
   --bg:#040d09;
   --bg-2:#081a12;
   --panel:#0e261b;
@@ -582,6 +617,19 @@ html[data-theme^="heroui-"] .blt-input:focus {
   border-color: var(--amber) !important;
   outline: none !important;
   box-shadow: 0 0 0 3.5px var(--amber-dim) !important;
+}
+html[data-theme^="heroui-"] select.blt-input optgroup {
+  background: var(--panel-2) !important;
+  color: var(--amber-ink, var(--ink)) !important;
+  font-weight: 700 !important;
+}
+html[data-theme^="heroui-"] select.blt-input option {
+  background: var(--panel) !important;
+  color: var(--ink) !important;
+}
+html[data-theme^="heroui-"] select.blt-input option:checked {
+  background: var(--amber-dim) !important;
+  color: var(--amber-ink) !important;
 }
 html[data-theme^="heroui-"] label.blt-label {
   font-size: 11px !important;

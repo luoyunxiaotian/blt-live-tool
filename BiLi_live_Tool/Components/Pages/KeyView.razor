@@ -434,6 +434,18 @@
                 new KeyOption { Value = "nintendo", Label = "Nintendo nintendo" },
             },
         },
+        new KeyRow
+        {
+            Key = "display.renderMode", Label = "呈现模式 display.renderMode", Kind = "select",
+            Tip = "控制浮层呈现为实体键鼠还是热力图（避免OBS因缓存混淆）",
+            Options = new List<KeyOption>
+            {
+                new KeyOption { Value = "auto", Label = "跟随主题 auto（默认）" },
+                new KeyOption { Value = "layout", Label = "真实键鼠模式 layout（实体键鼠）" },
+                new KeyOption { Value = "heatmap", Label = "按键热力图 heatmap（KPS热力分布）" },
+                new KeyOption { Value = "recent", Label = "流式按键模式 recent（按键气泡序列）" },
+            },
+        },
     };
 
     private async Task LoadConfig()
@@ -676,6 +688,10 @@
         new ThemeInfo { Id = "mc-minerals", Name = "我的世界矿石方块", Preview = "铜矿/钻石/绿宝石三色矿石+等轴3D侧厚+下砸暴击闪烁", Render = "layout", Devices = { "kb", "ms", "gp" } },
         new ThemeInfo { Id = "retro-typewriter", Name = "复古波普打字机", Preview = "明黄纯圆纽扣键帽+绿色机械悬空轴柱+冲压下沉", Render = "layout", Devices = { "kb", "ms", "gp" } },
         new ThemeInfo { Id = "heroui-dark", Name = "HeroUI 极黑晶核", Preview = "HeroUI 极黑暗夜+电光蓝科技发光", Render = "layout", Devices = { "kb", "ms", "gp" } },
+        new ThemeInfo { Id = "heroui-violet", Name = "HeroUI 幻夜紫晶", Preview = "深邃紫黑晶莹质感+赛博霓虹粉紫流光", Render = "layout", Devices = { "kb", "ms", "gp" } },
+        new ThemeInfo { Id = "heroui-gold", Name = "HeroUI 曜石黑金", Preview = "黑金半透明晶核+奢华琥珀金流光", Render = "layout", Devices = { "kb", "ms", "gp" } },
+        new ThemeInfo { Id = "heroui-emerald", Name = "HeroUI 翡翠极光", Preview = "黑曜石底色+清新翡翠薄荷流光发光", Render = "layout", Devices = { "kb", "ms", "gp" } },
+        new ThemeInfo { Id = "heroui-light", Name = "HeroUI 陶瓷白晶", Preview = "纯净高透白晶瓷感+皇家电光蓝点缀", Render = "layout", Devices = { "kb", "ms", "gp" } },
         new ThemeInfo { Id = "real", Name = "写实键盘鼠标", Preview = "完整键盘+鼠标图，按键/点击/滚轮高亮动画", Render = "layout", Devices = { "kb", "ms" } },
         new ThemeInfo
         {

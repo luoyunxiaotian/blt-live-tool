@@ -47,6 +47,7 @@ namespace BiLi_live_Tool
             builder.Services.AddSingleton<CleanupService>();
             builder.Services.AddSingleton<BiLi_live_Tool.Services.SystemMedia.SystemMediaService>();
             builder.Services.AddSingleton<BiLi_live_Tool.Services.LowerThirds.LowerThirdsService>();
+            builder.Services.AddSingleton<DiagnosticService>();
             builder.Services.AddSingleton<KestrelHost>();
 
 #if DEBUG

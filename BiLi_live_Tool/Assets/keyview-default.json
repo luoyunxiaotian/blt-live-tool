@@ -12,5 +12,6 @@
   "display.animSpeed": 1.0,
   "display.maxRecentKeys": 6,
   "display.kbLayout": "full",
-  "display.gpLayout": "xbox"
+  "display.gpLayout": "xbox",
+  "display.renderMode": "auto"
 }

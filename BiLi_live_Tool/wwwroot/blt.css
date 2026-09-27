@@ -246,15 +246,17 @@ label.blt-label{display:block;font-size:12px;color:var(--ink-2);letter-spacing:.
 .blt-navgroup.folded .blt-chev svg{transform:rotate(-90deg)}
 .blt-navfold.hidden{display:none}
 
-/* ===== 原生控件（select 弹层/日期/下拉箭头随主题；修白底白字） ===== */
+/* ===== 原生控件（select 弹层/日期/下拉箭头随主题；修白底白字与暗色下看不清） ===== */
 select.blt-input{appearance:none;-webkit-appearance:none;padding-right:28px;
   background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 50%),
                    linear-gradient(135deg,var(--ink-2) 50%,transparent 50%);
   background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;
-  background-size:5px 5px,5px 5px;background-repeat:no-repeat}
-/* opaque background: --panel is translucent in neon/vibrancy, which made the
-   native popup render light-gray text on light-gray (unreadable) */
-select.blt-input option{background:var(--bg);color:var(--ink)}
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+  color:var(--ink);background-color:var(--bg-2)}
+/* 弹层下拉框选项与分组标头高对比度适配：修复暗色主题下 optgroup/option 同底色无法看清 */
+select.blt-input optgroup{background-color:var(--bg-2, #18181b);color:var(--amber-ink, var(--ink));font-weight:700;font-style:normal;padding:4px 6px}
+select.blt-input option{background-color:var(--bg, #09090b);color:var(--ink, #ecedee);padding:6px 10px}
+select.blt-input option:checked{background-color:var(--amber-dim, rgba(0,111,238,.25));color:var(--amber-ink, var(--ink))}
 textarea.blt-input{resize:vertical;min-height:46px;line-height:1.5}
 input.blt-input[type=checkbox]{width:auto}
 .blt-input::placeholder{color:var(--ink-3)}

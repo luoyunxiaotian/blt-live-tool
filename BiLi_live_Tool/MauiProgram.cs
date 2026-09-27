@@ -9,6 +9,8 @@ namespace BiLi_live_Tool
 
         public static MauiApp CreateMauiApp()
         {
+            CrashTrap.Initialize();
+            ServiceLog.Info("系统", $"直播小帮手启动中... (v{KestrelHost.VersionText})");
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()

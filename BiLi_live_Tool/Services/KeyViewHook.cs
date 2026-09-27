@@ -103,19 +103,36 @@ public sealed class KeyViewHook
 
     private static string KeyName(int vk) => VkNames.TryGetValue(vk, out var n) ? n : "K" + vk;
 
+    private readonly struct InputFrame
+    {
+        public readonly string Fingerprint;
+        public readonly string Json;
+        public readonly string Src;
+
+        public InputFrame(string fingerprint, string json, string src)
+        {
+            Fingerprint = fingerprint;
+            Json = json;
+            Src = src;
+        }
+    }
+
     private Thread? _thread;
     private uint _threadId;
     private IntPtr _kbHook;
     private IntPtr _msHook;
-    private readonly Channel<string> _queue = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
+    private readonly Channel<InputFrame> _queue = Channel.CreateBounded<InputFrame>(new BoundedChannelOptions(500)
     {
         SingleReader = true,
+        FullMode = BoundedChannelFullMode.DropOldest
     });
 
     private Timer? _watch;
     private long _lastEventTicks;
     private long _events;
     private int _reinstalls;
+    private int _consecutiveHookReinstalls;
+    private long _lastReinstallTicks;
 
     // ---- Raw Input（第二路采集）----
     // 低级钩子会被挡在门外（前台窗口完整性更高、游戏/反外挂的输入链），而 Raw Input 的
@@ -126,6 +143,8 @@ public sealed class KeyViewHook
     private WndProc? _wndProcKeepAlive;
     private Thread? _rawThread;
     private uint _rawThreadId;
+    private IntPtr _rawBuf = IntPtr.Zero;
+    private const int RawBufSize = 256;
     private long _hookHits;
     private long _rawHits;
     private long _hookKbHits;
@@ -145,7 +164,6 @@ public sealed class KeyViewHook
     private int _lastPollX = int.MinValue;
     private int _lastPollY = int.MinValue;
     private const int PollIntervalMs = 20;
-    private readonly Dictionary<string, long> _recentFrames = new();
     private const int DedupMs = 35;          // 同一事件两路都会到，指纹相同则在窗口内只发一次
 
     /// <summary>低级钩子收到的事件数（诊断：游戏里这个数不涨、raw 涨 → 钩子被挡了）。</summary>
@@ -230,12 +248,20 @@ public sealed class KeyViewHook
             if (msg.message == WmReinstall)
             {
                 // 只在本线程重挂：低级钩子的回调固定在安装它的线程上执行
-                UninstallHooks();
-                InstallHooks();
-                Interlocked.Increment(ref _reinstalls);
-                Interlocked.Exchange(ref _lastEventTicks, Environment.TickCount64);   // 重新计时，避免连环重挂
-                Interlocked.Exchange(ref _lastHookHitTicks, Environment.TickCount64);
-                ServiceLog.Info("键鼠", "输入钩子被系统摘掉，已重挂（第 " + _reinstalls + " 次）");
+                try
+                {
+                    UninstallHooks();
+                    InstallHooks();
+                    Interlocked.Increment(ref _reinstalls);
+                    _lastReinstallTicks = Environment.TickCount64;
+                    Interlocked.Exchange(ref _lastEventTicks, Environment.TickCount64);   // 重新计时，避免连环重挂
+                    Interlocked.Exchange(ref _lastHookHitTicks, Environment.TickCount64);
+                    ServiceLog.Info("键鼠", "输入钩子被系统摘掉，已重挂（第 " + _reinstalls + " 次）");
+                }
+                catch (Exception ex)
+                {
+                    ServiceLog.Warn("键鼠", "重挂钩子异常：" + ex.Message);
+                }
                 continue;
             }
             _ = TranslateMessage(ref msg);
@@ -280,6 +306,7 @@ public sealed class KeyViewHook
         try
         {
             _rawThreadId = GetCurrentThreadId();
+            _rawBuf = Marshal.AllocHGlobal(RawBufSize);
             _wndProcKeepAlive = RawWndProc;
             // 用内建 STATIC 类建一个消息窗口（HWND_MESSAGE），再把窗口过程换掉：
             // 比注册自定义窗口类少一半代码，也不依赖 RegisterClassEx 的样式细节。
@@ -309,8 +336,22 @@ public sealed class KeyViewHook
             off[1].usUsagePage = 0x01; off[1].usUsage = 0x02;
             for (var i = 0; i < off.Length; i++) off[i].dwFlags = RidevRemove;
             RegisterRawInputDevices(off, (uint)off.Length, (uint)Marshal.SizeOf<RAWINPUTDEVICE>());
+
+            if (_rawWnd != IntPtr.Zero)
+            {
+                DestroyWindow(_rawWnd);
+                _rawWnd = IntPtr.Zero;
+            }
         }
         catch { /* 采集线程异常不影响主流程 */ }
+        finally
+        {
+            if (_rawBuf != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(_rawBuf);
+                _rawBuf = IntPtr.Zero;
+            }
+        }
     }
 
     private void InstallHooks()
@@ -345,29 +386,61 @@ public sealed class KeyViewHook
         var threadId = _threadId;
         if (threadId == 0) return;
 
-        // 按路看护：别的路在收、而**钩子这一路**已经 3 秒没动静 → 钩子被摘了 → 重挂。
-        // （只看"整体有没有事件"是不够的：Raw/轮询会一直喂事件，钩子死了也发现不了。）
         var now = Environment.TickCount64;
+
+        // 至少间隔 15 秒才允许尝试下一次重挂，严防连环重挂风暴引发系统卡顿
+        if (now - _lastReinstallTicks < 15000) return;
+
         var hookLast = Interlocked.Read(ref _lastHookHitTicks);
         var otherLast = Interlocked.Read(ref _lastOtherHitTicks);
-        if (otherLast != 0 && now - otherLast <= MissGraceMs
-            && (hookLast == 0 || otherLast > hookLast + MissGraceMs))
+        var overallLast = Interlocked.Read(ref _lastEventTicks);
+
+        // 若钩子通道近期有活跃事件，自动重置熔断计数器
+        if (hookLast != 0 && now - hookLast <= MissGraceMs)
         {
-            PostThreadMessage(threadId, WmReinstall, IntPtr.Zero, IntPtr.Zero);
+            _consecutiveHookReinstalls = 0;
             return;
         }
 
-        var last = Interlocked.Read(ref _lastEventTicks);
-        if (last == 0) return;                       // 还没有任何事件，无从判断
-        if (Environment.TickCount64 - last <= MissGraceMs) return;   // 我们也在收，正常
+        // 智能熔断：连续重挂 3 次且底层钩子依然无事件，说明前台环境（全屏游戏/高权限进程/反作弊）阻断了底层钩子。
+        // 此时 RawInput 与轮询通道已在正常采集，进入 60 秒降频退避，避免无意义的频繁卸挂造成系统键鼠卡顿。
+        if (_consecutiveHookReinstalls >= 3)
+        {
+            if (now - _lastReinstallTicks < 60000) return;
+        }
 
-        var li = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
-        if (!GetLastInputInfo(ref li)) return;
-        // dwTime 与 Environment.TickCount 同为 32 位 tick：用无符号差值规避 ~49.7 天回绕
-        var sinceInputMs = unchecked((uint)(Environment.TickCount - (int)li.dwTime));
-        if (sinceInputMs > InputFreshMs) return;     // 最近没人动键鼠 → 不能说明钩子坏了
+        // 触发条件 1：全通道均无事件，但 Windows 系统记录显示最近确有用户输入（说明整个采集链路可能已挂）
+        if (overallLast != 0 && now - overallLast > MissGraceMs)
+        {
+            var li = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+            if (GetLastInputInfo(ref li))
+            {
+                var sinceInputMs = unchecked((uint)(Environment.TickCount - (int)li.dwTime));
+                if (sinceInputMs <= InputFreshMs)
+                {
+                    TriggerReinstall(threadId, "全通道静默但系统检测到键鼠活动");
+                    return;
+                }
+            }
+        }
 
+        // 触发条件 2：备用通道（Raw/轮询）持续活跃，但底层钩子通道持续 15 秒以上完全静默（钩子单路脱落）
+        if (otherLast != 0 && now - otherLast <= MissGraceMs
+            && (hookLast == 0 || otherLast > hookLast + 15000))
+        {
+            TriggerReinstall(threadId, "底层钩子单路静默（备用通道正常）");
+        }
+    }
+
+    private void TriggerReinstall(uint threadId, string reason)
+    {
+        _lastReinstallTicks = Environment.TickCount64;
+        _consecutiveHookReinstalls++;
         PostThreadMessage(threadId, WmReinstall, IntPtr.Zero, IntPtr.Zero);
+        if (_consecutiveHookReinstalls >= 3)
+        {
+            ServiceLog.Info("键鼠", $"底层钩子重挂已达 {_consecutiveHookReinstalls} 次（原因: {reason}），进入智能熔断保护（降频重挂，由备用通道平滑接管）");
+        }
     }
 
     private static IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam)
@@ -455,24 +528,45 @@ public sealed class KeyViewHook
         if (src == "raw") Interlocked.Increment(ref _rawKbHits);
         else if (src == "poll") Interlocked.Increment(ref _pollKbHits);
         else Interlocked.Increment(ref _hookKbHits);
-        EmitDedup($"kb|{vk}|{e}", $"{{\"t\":\"kb\",\"e\":\"{e}\",\"k\":\"{KeyName(vk)}\",\"code\":{vk},\"ts\":{ts}}}", src);
+        EnqueueFrame($"kb|{vk}|{e}", $"{{\"t\":\"kb\",\"e\":\"{e}\",\"k\":\"{KeyName(vk)}\",\"code\":{vk},\"ts\":{ts}}}", src);
     }
 
     private void EmitMs(string e, string button, int x, int y, long ts, string src)
-        => EmitDedup($"ms|{button}|{e}|{x}|{y}", $"{{\"t\":\"ms\",\"e\":\"{e}\",\"b\":\"{button}\",\"x\":{x},\"y\":{y},\"ts\":{ts}}}", src);
+        => EnqueueFrame($"ms|{button}|{e}|{x}|{y}", $"{{\"t\":\"ms\",\"e\":\"{e}\",\"b\":\"{button}\",\"x\":{x},\"y\":{y},\"ts\":{ts}}}", src);
 
     private void EmitWheel(int dx, int dy, int x, int y, long ts, string src)
-        => EmitDedup($"ms|wheel|{dx}|{dy}", $"{{\"t\":\"ms\",\"e\":\"wheel\",\"dx\":{dx},\"dy\":{dy},\"x\":{x},\"y\":{y},\"ts\":{ts}}}", src);
+        => EnqueueFrame($"ms|wheel|{dx}|{dy}", $"{{\"t\":\"ms\",\"e\":\"wheel\",\"dx\":{dx},\"dy\":{dy},\"x\":{x},\"y\":{y},\"ts\":{ts}}}", src);
 
     // 移动帧两路的坐标可能差一像素（一条取钩子结构、一条取 GetCursorPos），按坐标去重去不干净，
     // 于是只用固定指纹：16ms 节流内谁先到算谁的，另一路被丢掉。
     private void EmitMove(int x, int y, long ts, string src)
-        => EmitDedup("ms|move", $"{{\"t\":\"ms\",\"e\":\"move\",\"x\":{x},\"y\":{y},\"ts\":{ts}}}", src);
+        => EnqueueFrame("ms|move", $"{{\"t\":\"ms\",\"e\":\"move\",\"x\":{x},\"y\":{y},\"ts\":{ts}}}", src);
 
-    /// <summary>
-    /// 两路（低级钩子 / Raw Input）在正常情况下都会收到同一个事件：按指纹在短窗口内去重，
-    /// 保证浮层不会把一次按键画成两次；同时分别计数，便于判断哪条路在当前环境下有效。
-    /// </summary>
+    private void EnqueueFrame(string fingerprint, string json, string src)
+    {
+        var now = Environment.TickCount64;
+        Interlocked.Exchange(ref _lastEventTicks, now);
+        Interlocked.Increment(ref _events);
+
+        switch (src)
+        {
+            case "raw":
+                Interlocked.Increment(ref _rawHits);
+                Interlocked.Exchange(ref _lastOtherHitTicks, now);
+                break;
+            case "poll":
+                Interlocked.Increment(ref _pollHits);
+                Interlocked.Exchange(ref _lastOtherHitTicks, now);
+                break;
+            default:
+                Interlocked.Increment(ref _hookHits);
+                Interlocked.Exchange(ref _lastHookHitTicks, now);
+                break;
+        }
+
+        _queue.Writer.TryWrite(new InputFrame(fingerprint, json, src));
+    }
+
     /// <summary>
     /// 轮询采集：每 20ms 读一次全键盘的异步状态与光标位置，状态变化才发帧（与另两路同指纹去重）。
     /// 它不依赖钩子、也不依赖消息投递，只读内核的按键状态，是"游戏里两条消息路都被挡"的兜底。
@@ -529,61 +623,53 @@ public sealed class KeyViewHook
 
     private void HandleRawInput(IntPtr hRaw)
     {
+        if (_rawBuf == IntPtr.Zero) return;
         var headerSize = (uint)Marshal.SizeOf<RAWINPUTHEADER>();
-        uint size = 0;
-        if (GetRawInputData(hRaw, RidInput, IntPtr.Zero, ref size, headerSize) != 0 || size == 0 || size > 256) return;
-        var buf = Marshal.AllocHGlobal((int)size);
-        try
-        {
-            if (GetRawInputData(hRaw, RidInput, buf, ref size, headerSize) != size) return;
-            var head = Marshal.PtrToStructure<RAWINPUTHEADER>(buf);
-            var payload = buf + Marshal.SizeOf<RAWINPUTHEADER>();
-            var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        uint size = RawBufSize;
+        var res = GetRawInputData(hRaw, RidInput, _rawBuf, ref size, headerSize);
+        if (res == unchecked((uint)-1) || res == 0) return;
 
-            if (head.dwType == RimTypeKeyboard)
+        var head = Marshal.PtrToStructure<RAWINPUTHEADER>(_rawBuf);
+        var payload = _rawBuf + Marshal.SizeOf<RAWINPUTHEADER>();
+        var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+        if (head.dwType == RimTypeKeyboard)
+        {
+            var kb = Marshal.PtrToStructure<RAWKEYBOARD>(payload);
+            if (kb.VKey == 0xFF || kb.VKey == 0) return;      // 占位按键（Pause/PrintScreen 等）
+            EmitKb((kb.Flags & 1) != 0 ? "up" : "down", kb.VKey, now, "raw");
+        }
+        else if (head.dwType == RimTypeMouse)
+        {
+            var ms = Marshal.PtrToStructure<RAWMOUSE>(payload);
+            var flags = ms.usButtonFlags;
+            if (flags != 0)
             {
-                var kb = Marshal.PtrToStructure<RAWKEYBOARD>(payload);
-                if (kb.VKey == 0xFF || kb.VKey == 0) return;      // 占位按键（Pause/PrintScreen 等）
-                EmitKb((kb.Flags & 1) != 0 ? "up" : "down", kb.VKey, now, "raw");
-            }
-            else if (head.dwType == RimTypeMouse)
-            {
-                var ms = Marshal.PtrToStructure<RAWMOUSE>(payload);
-                var x = ms.lLastX;   // 相对坐标只用于"有没有动"的判断
-                var y = ms.lLastY;
-                var flags = ms.usButtonFlags;
-                if (flags != 0)
+                var pos = CursorPos();
+                if ((flags & 0x0001) != 0) EmitMs("down", "left", pos.x, pos.y, now, "raw");
+                if ((flags & 0x0002) != 0) EmitMs("up", "left", pos.x, pos.y, now, "raw");
+                if ((flags & 0x0004) != 0) EmitMs("down", "right", pos.x, pos.y, now, "raw");
+                if ((flags & 0x0008) != 0) EmitMs("up", "right", pos.x, pos.y, now, "raw");
+                if ((flags & 0x0010) != 0) EmitMs("down", "middle", pos.x, pos.y, now, "raw");
+                if ((flags & 0x0020) != 0) EmitMs("up", "middle", pos.x, pos.y, now, "raw");
+                if ((flags & 0x0040) != 0) EmitMs("down", "x1", pos.x, pos.y, now, "raw");
+                if ((flags & 0x0080) != 0) EmitMs("up", "x1", pos.x, pos.y, now, "raw");
+                if ((flags & 0x0100) != 0) EmitMs("down", "x2", pos.x, pos.y, now, "raw");
+                if ((flags & 0x0200) != 0) EmitMs("up", "x2", pos.x, pos.y, now, "raw");
+                if ((flags & 0x0400) != 0)
                 {
-                    var pos = CursorPos();
-                    if ((flags & 0x0001) != 0) EmitMs("down", "left", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0002) != 0) EmitMs("up", "left", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0004) != 0) EmitMs("down", "right", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0008) != 0) EmitMs("up", "right", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0010) != 0) EmitMs("down", "middle", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0020) != 0) EmitMs("up", "middle", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0040) != 0) EmitMs("down", "x1", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0080) != 0) EmitMs("up", "x1", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0100) != 0) EmitMs("down", "x2", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0200) != 0) EmitMs("up", "x2", pos.x, pos.y, now, "raw");
-                    if ((flags & 0x0400) != 0)
-                    {
-                        var rawDelta = (short)ms.usButtonData;
-                        int dy = rawDelta > 0 ? Math.Max(1, rawDelta / 120) : Math.Min(-1, rawDelta / 120);
-                        EmitWheel(0, dy, pos.x, pos.y, now, "raw");
-                    }
-                    if ((flags & 0x0800) != 0)
-                    {
-                        var rawDelta = (short)ms.usButtonData;
-                        int dx = rawDelta > 0 ? Math.Max(1, rawDelta / 120) : Math.Min(-1, rawDelta / 120);
-                        EmitWheel(dx, 0, pos.x, pos.y, now, "raw");
-                    }
+                    var rawDelta = (short)ms.usButtonData;
+                    int dy = rawDelta > 0 ? Math.Max(1, rawDelta / 120) : Math.Min(-1, rawDelta / 120);
+                    EmitWheel(0, dy, pos.x, pos.y, now, "raw");
                 }
-                // 鼠标**移动**故意不在这里处理：WM_INPUT 的移动是 500~1000Hz 的洪流，
-                // 解析它会拖垮采集线程；位置变化交给 20ms 的轮询那一路（够用且便宜）。
-                _ = x + y;
+                if ((flags & 0x0800) != 0)
+                {
+                    var rawDelta = (short)ms.usButtonData;
+                    int dx = rawDelta > 0 ? Math.Max(1, rawDelta / 120) : Math.Min(-1, rawDelta / 120);
+                    EmitWheel(dx, 0, pos.x, pos.y, now, "raw");
+                }
             }
         }
-        finally { Marshal.FreeHGlobal(buf); }
     }
 
     private static POINT CursorPos()
@@ -591,39 +677,18 @@ public sealed class KeyViewHook
         return GetCursorPos(out var p) ? p : default;
     }
 
-    private void EmitDedup(string fingerprint, string json, string src)
-    {
-        switch (src)
-        {
-            case "raw": Interlocked.Increment(ref _rawHits); break;
-            case "poll": Interlocked.Increment(ref _pollHits); break;
-            default: Interlocked.Increment(ref _hookHits); break;
-        }
-
-        var now = Environment.TickCount64;
-        if (src == "hook") Interlocked.Exchange(ref _lastHookHitTicks, now);
-        else Interlocked.Exchange(ref _lastOtherHitTicks, now);
-        lock (_recentFrames)
-        {
-            if (_recentFrames.TryGetValue(fingerprint, out var last) && now - last < DedupMs) return;
-            if (_recentFrames.Count > 128) _recentFrames.Clear();
-            _recentFrames[fingerprint] = now;
-        }
-        Emit(json);
-    }
-
-    private void Emit(string json)
-    {
-        Interlocked.Exchange(ref _lastEventTicks, Environment.TickCount64);
-        Interlocked.Increment(ref _events);
-        _queue.Writer.TryWrite(json);
-    }
-
     private async Task DrainAsync()
     {
-        await foreach (var json in _queue.Reader.ReadAllAsync())
+        var recentFrames = new Dictionary<string, long>(256);
+        await foreach (var frame in _queue.Reader.ReadAllAsync())
         {
-            try { OnEventJson?.Invoke(json); }
+            var now = Environment.TickCount64;
+            if (recentFrames.TryGetValue(frame.Fingerprint, out var last) && now - last < DedupMs)
+                continue;
+            if (recentFrames.Count > 256) recentFrames.Clear();
+            recentFrames[frame.Fingerprint] = now;
+
+            try { OnEventJson?.Invoke(frame.Json); }
             catch { }
         }
     }
@@ -740,16 +805,17 @@ public sealed class KeyViewHook
         public uint ExtraInformation;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Explicit, Size = 24)]
     private struct RAWMOUSE
     {
-        public ushort usFlags;
-        public ushort usButtonFlags;
-        public ushort usButtonData;
-        public uint ulRawButtons;
-        public int lLastX;
-        public int lLastY;
-        public uint ulExtraInformation;
+        [FieldOffset(0)] public ushort usFlags;
+        [FieldOffset(4)] public uint ulButtons;
+        [FieldOffset(4)] public ushort usButtonFlags;
+        [FieldOffset(6)] public ushort usButtonData;
+        [FieldOffset(8)] public uint ulRawButtons;
+        [FieldOffset(12)] public int lLastX;
+        [FieldOffset(16)] public int lLastY;
+        [FieldOffset(20)] public uint ulExtraInformation;
     }
 
     private const int GwlWndProc = -4;

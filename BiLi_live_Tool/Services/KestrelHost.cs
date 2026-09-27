@@ -49,6 +49,7 @@ public sealed class KestrelHost
     private readonly LowerThirds.LowerThirdsService _lowerThirds;
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
     private readonly ConcurrentDictionary<Guid, WebSocket> _keyviewClients = new();
+    private static readonly ConcurrentDictionary<WebSocket, SemaphoreSlim> _wsLocks = new();
     private readonly HttpClient _proxy = new() { Timeout = TimeSpan.FromSeconds(180) };
     private readonly Random _rand = new();
     private WebApplication? _app;
@@ -229,6 +230,7 @@ public sealed class KestrelHost
                 var ws = await ctx.WebSockets.AcceptWebSocketAsync();
                 var id = Guid.NewGuid();
                 _keyviewClients[id] = ws;
+                _wsLocks[ws] = new SemaphoreSlim(1, 1);
                 try
                 {
                     // On connect: push the merged config ({t:'cfg',full}), same
@@ -251,6 +253,7 @@ public sealed class KestrelHost
                 finally
                 {
                     _keyviewClients.TryRemove(id, out _);
+                    if (_wsLocks.TryRemove(ws, out var sem)) { try { sem.Dispose(); } catch { } }
                     try { ws.Dispose(); } catch { }
                 }
                 return;
@@ -1636,6 +1639,7 @@ public sealed class KestrelHost
             var ws = await ctx.WebSockets.AcceptWebSocketAsync();
             var id = Guid.NewGuid();
             _clients[id] = ws;
+            _wsLocks[ws] = new SemaphoreSlim(1, 1);
             try
             {
                 var buf = new byte[4096];
@@ -1649,6 +1653,7 @@ public sealed class KestrelHost
             finally
             {
                 _clients.TryRemove(id, out _);
+                if (_wsLocks.TryRemove(ws, out var sem)) { try { sem.Dispose(); } catch { } }
                 try { ws.Dispose(); } catch { }
             }
         });
@@ -1818,11 +1823,12 @@ public sealed class KestrelHost
 
     private void BroadcastJson(string json)
     {
+        var bytes = Encoding.UTF8.GetBytes(json);
         foreach (var kv in _clients)
         {
             var ws = kv.Value;
             if (ws.State != WebSocketState.Open) continue;
-            _ = SendSafeAsync(ws, json);
+            _ = SendSafeAsync(ws, bytes);
         }
     }
 
@@ -1853,34 +1859,44 @@ public sealed class KestrelHost
 
     private void BroadcastKeyViewJson(string json)
     {
+        var bytes = Encoding.UTF8.GetBytes(json);
         foreach (var kv in _keyviewClients)
         {
             var ws = kv.Value;
             if (ws.State != WebSocketState.Open) continue;
-            _ = SendSafeAsync(ws, json);
+            _ = SendSafeAsync(ws, bytes);
         }
     }
 
     private static async Task SendKeyView(WebSocket ws, string json)
     {
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(json)),
-                WebSocketMessageType.Text, true, cts.Token);
-        }
-        catch { }
+        await SendSafeAsync(ws, json);
     }
 
     private static async Task SendSafeAsync(WebSocket ws, string json)
     {
+        var bytes = Encoding.UTF8.GetBytes(json);
+        await SendSafeAsync(ws, bytes);
+    }
+
+    private static async Task SendSafeAsync(WebSocket ws, byte[] bytes)
+    {
+        if (ws.State != WebSocketState.Open) return;
+        if (!_wsLocks.TryGetValue(ws, out var sem)) return;
+
+        // 500ms 超时防止卡滞客户端导致发送任务积压
+        if (!await sem.WaitAsync(500)) return;
         try
         {
+            if (ws.State != WebSocketState.Open) return;
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(json)),
-                WebSocketMessageType.Text, true, cts.Token);
+            await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cts.Token);
         }
         catch { }
+        finally
+        {
+            try { sem.Release(); } catch { }
+        }
     }
 
     public async Task StopAsync()
@@ -1897,6 +1913,17 @@ public sealed class KestrelHost
             catch { }
         }
         _clients.Clear();
+        foreach (var kv in _keyviewClients)
+        {
+            try { await kv.Value.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None); }
+            catch { }
+        }
+        _keyviewClients.Clear();
+        foreach (var kv in _wsLocks)
+        {
+            try { kv.Value.Dispose(); } catch { }
+        }
+        _wsLocks.Clear();
         if (_app != null)
         {
             try

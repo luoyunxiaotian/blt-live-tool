@@ -140,16 +140,87 @@ public sealed class DiagnosticService
         }
         sb.AppendLine();
 
-        // ---- 六、服务运行日志（最近 300 条） ----
-        sb.AppendLine("【六、服务运行日志 (最近条目)】");
+        // ---- 六、服务运行日志（当前会话） ----
+        sb.AppendLine("【六、服务运行日志 (当前会话最近条目)】");
         var (logs, total) = ServiceLog.Snapshot(300);
-        sb.AppendLine($"日志记录总计: {total} 条，提取最近 {logs.Count} 条:");
+        sb.AppendLine($"当前会话日志: 内存记录 {total} 条，呈现最近 {logs.Count} 条:");
         sb.AppendLine("--------------------------------------------------------------------------------");
         foreach (var l in logs)
         {
             sb.AppendLine($"[{l.Time}] [{l.Level.ToUpper(),-5}] [{l.Src}] {l.Msg}");
         }
         sb.AppendLine("--------------------------------------------------------------------------------");
+        sb.AppendLine();
+
+        // ---- 七、历史崩溃与未捕获异常黑匣子记录 ----
+        sb.AppendLine("【七、历史崩溃与未捕获异常黑匣子记录 (Crash Trap)】");
+        try
+        {
+            var crashLog = CrashTrap.LatestCrashFile;
+            if (File.Exists(crashLog))
+            {
+                var crashInfo = new FileInfo(crashLog);
+                sb.AppendLine($"🚨 检测到最近发生过严重崩溃记录！");
+                sb.AppendLine($"崩溃日志路径: {crashLog}");
+                sb.AppendLine($"最后写入时间: {crashInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss}");
+                sb.AppendLine($"日志文件大小: {crashInfo.Length} 字节");
+                sb.AppendLine("---------------------------- [崩溃日志内容摘录] ----------------------------");
+                sb.AppendLine(File.ReadAllText(crashLog, Encoding.UTF8));
+                sb.AppendLine("----------------------------------------------------------------------------");
+            }
+            else
+            {
+                sb.AppendLine("✅ 无未处理崩溃或闪退异常记录 (系统运行记录正常)。");
+            }
+
+            // 列出历史归档的 crash 列表
+            var logDir = CrashTrap.LogDir;
+            if (Directory.Exists(logDir))
+            {
+                var di = new DirectoryInfo(logDir);
+                var archiveCrashes = di.GetFiles("crash-*.log");
+                if (archiveCrashes.Length > 0)
+                {
+                    sb.AppendLine($"累计历史崩溃归档数: {archiveCrashes.Length} 个");
+                    foreach (var cf in archiveCrashes)
+                    {
+                        sb.AppendLine($"  - {cf.Name} ({cf.Length} 字节, {cf.LastWriteTime:yyyy-MM-dd HH:mm:ss})");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine($"[读取崩溃黑匣子时出现异常]: {ex.Message}");
+        }
+        sb.AppendLine();
+
+        // ---- 八、持久化磁盘日志文件状态 ----
+        sb.AppendLine("【八、持久化磁盘日志文件状态 (Disk Logs)】");
+        try
+        {
+            var logDir = ServiceLog.LogDir;
+            if (Directory.Exists(logDir))
+            {
+                var di = new DirectoryInfo(logDir);
+                var logFiles = di.GetFiles("app-*.log");
+                sb.AppendLine($"持久化日志目录: {logDir}");
+                sb.AppendLine($"有效日志文件数: {logFiles.Length} 个");
+                foreach (var lf in logFiles)
+                {
+                    sb.AppendLine($"  - {lf.Name} ({lf.Length / 1024.0:F1} KB, 最后修改: {lf.LastWriteTime:yyyy-MM-dd HH:mm:ss})");
+                }
+            }
+            else
+            {
+                sb.AppendLine($"日志目录尚未创建或为空: {logDir}");
+            }
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine($"[检查持久化日志状态时出现异常]: {ex.Message}");
+        }
+
         sb.AppendLine("================================ [报告结束] ================================");
 
         return sb.ToString();

@@ -1,0 +1,354 @@
+/* Theme: majsoul (雀魂麻将) — Inspired by Mahjong Soul Riichi Mahjong Aesthetic.
+   Features: Bone-white porcelain tile faces, Japanese matcha-green tile backs & 3D extrusion,
+   traditional Japanese calligraphy engraving, Riichi 1000-point stick spacebar,
+   tile-strike impact animation with gold & cinnabar red aura. */
+
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 44px;
+  --kv-key-gap: 6px;
+
+  /* Mahjong Soul Palette */
+  --ms-mat-bg: radial-gradient(ellipse at 50% 60%, #1e3352 0%, #14233a 70%, #0d1726 100%);
+  --ms-mat-border: #c5a059;
+
+  /* Porcelain Ivory Bone Tile */
+  --ms-tile-top: #fefcf9;
+  --ms-tile-mid: #f5eee0;
+  --ms-tile-bot: #eae0cc;
+  --ms-tile-border: #dcd2bd;
+
+  /* Japanese Matcha Green Tile Back & 3D Extrusion */
+  --ms-green-side: #7fa364;
+  --ms-green-dark: #52713a;
+
+  /* Traditional Inks */
+  --ms-ink-black: #1b1f26;
+  --ms-vermilion: #c0392b;
+  --ms-vermilion-glow: rgba(192, 57, 43, 0.85);
+  --ms-bamboo-green: #1e824c;
+  --ms-gold-glow: rgba(229, 192, 93, 0.95);
+
+  --ms-anim-t: calc(55ms / var(--kv-anim-speed, 1));
+  --ms-snap: cubic-bezier(0.2, 0.85, 0.3, 1.15);
+}
+
+#kv {
+  bottom: 18px;
+  gap: 14px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 16px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- Realistic Keyboard (Mahjong Soul Tatami Felt Mat + Floating Tiles) ---- */
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 12px 14px;
+  background: var(--ms-mat-bg);
+  border: 2px solid var(--ms-mat-border);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 24px rgba(10, 18, 30, 0.85),
+    inset 0 1px 0 rgba(229, 192, 93, 0.35),
+    0 8px 0 #0a121e,
+    0 12px 28px rgba(0, 0, 0, 0.7);
+}
+.kv-real-row {
+  display: flex;
+  gap: var(--kv-key-gap);
+}
+
+/* Base Mahjong Soul Bone Porcelain Tile */
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  border-radius: 5px;
+  background: linear-gradient(180deg, var(--ms-tile-top) 0%, var(--ms-tile-mid) 70%, var(--ms-tile-bot) 100%);
+  border: 1px solid var(--ms-tile-border);
+  color: var(--ms-ink-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13.5px;
+  font-weight: 900;
+  font-family: "Songti SC", "Source Han Serif SC", "STKaiti", "楷体", "Noto Serif CJK SC", "SimSun", serif;
+  letter-spacing: 0.2px;
+  user-select: none;
+  box-sizing: border-box;
+  /* Porcelain surface gloss + 3D Matcha Green Back Extrusion */
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 2px rgba(180, 160, 130, 0.25),
+    0 4.5px 0 var(--ms-green-side),
+    0 6.5px 0 var(--ms-green-dark),
+    0 9px 16px rgba(10, 18, 30, 0.55);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85),
+    0 -1px 0 rgba(0, 0, 0, 0.15);
+  transition: transform var(--ms-anim-t) var(--ms-snap),
+              box-shadow var(--ms-anim-t) ease,
+              color var(--ms-anim-t) ease,
+              filter var(--ms-anim-t) ease;
+}
+
+/* Mahjong Tile Strike Action (切牌打出): Downward slam with gold & cinnabar aura */
+.kv-real-key.active {
+  transform: translateY(4.5px);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 1),
+    0 1px 0 var(--ms-green-side),
+    0 1.5px 0 var(--ms-green-dark),
+    0 0 20px var(--ms-gold-glow),
+    0 0 35px var(--ms-vermilion-glow);
+  color: var(--ms-vermilion);
+  text-shadow:
+    0 0 8px var(--ms-vermilion-glow),
+    0 1px 0 rgba(255, 255, 255, 0.9);
+  filter: brightness(1.08) contrast(1.05);
+}
+
+.kv-real-spacer {
+  width: 24px;
+  flex: 0 0 auto;
+}
+
+/* ---- Spacebar: The Iconic 1000-Point Riichi Stick (1000点 立直棒) ---- */
+.kv-real-key[data-code="32"] {
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #fdfbf7 0%, #f4eee2 100%);
+  box-shadow:
+    inset 0 1px 1.5px rgba(255, 255, 255, 1),
+    0 4px 0 var(--ms-green-side),
+    0 6px 0 var(--ms-green-dark),
+    0 8px 14px rgba(10, 18, 30, 0.5);
+}
+.kv-real-key[data-code="32"]::before {
+  content: '⚪  1000点 · 立直  ⚪';
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--ms-vermilion);
+  letter-spacing: 2px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.kv-real-key[data-code="32"].active::before {
+  color: #ff3838;
+  text-shadow: 0 0 10px rgba(255, 56, 56, 0.9);
+}
+
+/* ---- Enter: Mahjong Ron / Tsumo [和] (和牌) ---- */
+.kv-real-key[data-code="13"] {
+  color: var(--ms-vermilion);
+  font-size: 13px;
+}
+.kv-real-key[data-code="13"]::after {
+  content: ' 和';
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--ms-vermilion);
+}
+
+/* ---- Esc: East Round Indicator [東] ---- */
+.kv-real-key[data-code="27"] {
+  font-size: 12px;
+}
+.kv-real-key[data-code="27"]::after {
+  content: '·東';
+  font-size: 11px;
+  color: var(--ms-vermilion);
+}
+
+/* ---- Tab / Caps / Shift / Ctrl: Honor Tiles Wind & Dragons ---- */
+.kv-real-key[data-code="9"] { font-size: 12px; } /* Tab */
+.kv-real-key[data-code="20"] { font-size: 11.5px; } /* Caps */
+.kv-real-key[data-code="160"],
+.kv-real-key[data-code="161"] { font-size: 12px; } /* Shift */
+.kv-real-key[data-code="162"],
+.kv-real-key[data-code="163"] { font-size: 11.5px; } /* Ctrl */
+
+/* ---- Mahjong Soul Porcelain Mouse ---- */
+.kv-real-mouse-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.kv-real-mouse {
+  width: 96px;
+  height: 116px;
+  transition: transform calc(60ms / var(--kv-anim-speed)) var(--ms-snap);
+  filter: drop-shadow(0 4.5px 0 var(--ms-green-dark)) drop-shadow(0 8px 18px rgba(10, 18, 30, 0.65));
+}
+.kv-mouse-part {
+  fill: var(--ms-tile-mid);
+  stroke: var(--ms-tile-border);
+  stroke-width: 1.5;
+  transition: fill var(--ms-anim-t) ease;
+}
+.kv-mouse-outline {
+  fill: none;
+  stroke: var(--ms-mat-border);
+  stroke-width: 2.2;
+}
+.kv-mouse-sep {
+  stroke: var(--ms-green-side);
+  stroke-width: 1.5;
+}
+.kv-mouse-wheel {
+  fill: #fdfbf7;
+  stroke: var(--ms-vermilion);
+  stroke-width: 1.5;
+  transition: fill var(--ms-anim-t) ease;
+}
+.kv-mouse-wheel-half {
+  fill: transparent;
+  transition: fill var(--ms-anim-t) ease;
+}
+
+/* Mouse Cinnabar Red & Gold Aura on Click */
+.kv-mouse-l.active {
+  fill: var(--ms-vermilion) !important;
+  filter: drop-shadow(0 0 10px var(--ms-gold-glow));
+}
+.kv-mouse-r.active {
+  fill: var(--ms-vermilion) !important;
+  filter: drop-shadow(0 0 10px var(--ms-gold-glow));
+}
+.kv-mouse-wheel.active {
+  fill: var(--ms-vermilion) !important;
+  filter: drop-shadow(0 0 8px var(--ms-gold-glow));
+}
+.kv-mouse-wheel-up.active {
+  fill: var(--ms-vermilion) !important;
+  filter: drop-shadow(0 0 8px var(--ms-gold-glow));
+}
+.kv-mouse-wheel-down.active {
+  fill: var(--ms-vermilion) !important;
+  filter: drop-shadow(0 0 8px var(--ms-gold-glow));
+}
+.kv-mouse-side {
+  fill: var(--ms-green-side);
+  stroke: var(--ms-green-dark);
+  stroke-width: 1.5;
+  transition: fill var(--ms-anim-t) ease;
+}
+.kv-mouse-side.active {
+  fill: var(--ms-vermilion) !important;
+  filter: drop-shadow(0 0 8px var(--ms-gold-glow));
+}
+.kv-mouse-dir {
+  opacity: 0;
+  transition: opacity calc(80ms / var(--kv-anim-speed)) ease;
+}
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow {
+  fill: var(--ms-vermilion);
+  filter: drop-shadow(0 0 6px var(--ms-gold-glow));
+}
+
+/* Mouse Text Label (Ivory Mahjong Soul Card) */
+.kv-mouse-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, var(--ms-tile-top) 0%, var(--ms-tile-mid) 100%);
+  border: 1.5px solid var(--ms-mat-border);
+  box-shadow:
+    0 2px 0 var(--ms-green-side),
+    0 4px 8px rgba(0, 0, 0, 0.4);
+  font-size: 11.5px;
+  font-weight: 900;
+  color: var(--ms-vermilion);
+  font-family: "Songti SC", "Source Han Serif SC", "STKaiti", "楷体", serif;
+  letter-spacing: 0.5px;
+  min-height: 14px;
+}
+
+/* ---- Mahjong Soul Gamepad ---- */
+.kv-gp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 2px solid var(--ms-mat-border);
+  border-radius: 10px;
+  background: var(--ms-mat-bg);
+  box-shadow:
+    inset 0 0 20px rgba(10, 18, 30, 0.8),
+    0 8px 0 #0a121e,
+    0 12px 28px rgba(0, 0, 0, 0.7);
+}
+.kv-gp-svg {
+  width: 190px;
+  height: auto;
+  filter: drop-shadow(0 4.5px 0 var(--ms-green-dark));
+}
+.kv-gp-body {
+  fill: #19273f;
+  stroke: var(--ms-mat-border);
+  stroke-width: 2;
+}
+.kv-gp-dpad {
+  fill: var(--ms-green-side);
+  stroke: var(--ms-green-dark);
+  stroke-width: 1.5;
+}
+.kv-gp-dpad-btn {
+  fill: #19273f;
+  transition: fill var(--ms-anim-t) ease;
+}
+.kv-gp-dpad-btn.active {
+  fill: var(--ms-vermilion) !important;
+  filter: drop-shadow(0 0 8px var(--ms-gold-glow));
+}
+.kv-gp-face-btn {
+  fill: var(--ms-tile-mid);
+  stroke: var(--ms-tile-border);
+  stroke-width: 1.5;
+  transition: fill var(--ms-anim-t) ease;
+}
+.kv-gp-face-btn.active {
+  fill: var(--ms-vermilion) !important;
+  filter: drop-shadow(0 0 8px var(--ms-gold-glow));
+}
+.kv-gp-face-text {
+  fill: var(--ms-ink-black);
+  font-family: "Songti SC", "STKaiti", "楷体", serif;
+  font-size: 11px;
+  font-weight: 900;
+}
+.kv-gp-shoulder-btn {
+  fill: var(--ms-green-side);
+  stroke: var(--ms-green-dark);
+  stroke-width: 1.5;
+}
+.kv-gp-shoulder-btn.active {
+  fill: var(--ms-vermilion) !important;
+  filter: drop-shadow(0 0 8px var(--ms-gold-glow));
+}
+.kv-gp-stick-base {
+  fill: #141f33;
+  stroke: var(--ms-mat-border);
+  stroke-width: 1.5;
+}
+.kv-gp-stick-cap {
+  fill: var(--ms-tile-mid);
+  stroke: var(--ms-green-side);
+  stroke-width: 1.5;
+}
+.kv-gp-stick-cap.active {
+  fill: var(--ms-vermilion);
+  filter: drop-shadow(0 0 8px var(--ms-gold-glow));
+}

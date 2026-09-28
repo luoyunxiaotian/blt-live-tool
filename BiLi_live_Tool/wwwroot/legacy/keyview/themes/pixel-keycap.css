@@ -1,0 +1,314 @@
+/* Theme: pixel-keycap (暗夜像素键帽) — Inspired by Retro Pixel Art Mechanical Keycaps.
+   Features: Charcoal slate 3D isometric pixel keycaps, crisp white font,
+   electric ice-blue LED backlighting on press, 4px mechanical bottom-out extrusion. */
+
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 38px;
+  --kv-key-gap: 5px;
+
+  /* Palette */
+  --pk-bg: #14171e;
+  --pk-panel-bg: rgba(20, 23, 30, 0.92);
+  --pk-cap-top: #2c3240;
+  --pk-cap-face: #222631;
+  --pk-cap-edge-hl: #4e576d;
+  --pk-cap-edge-sh: #151820;
+  --pk-cap-skirt: #181b23;
+  --pk-cap-skirt-dark: #0d0f14;
+
+  /* Inactive chalk white font */
+  --pk-text-idle: #e6edf5;
+  /* Active ice-blue LED glow */
+  --pk-text-active: #76b3ff;
+  --pk-glow: rgba(118, 179, 255, 0.85);
+
+  --pk-anim-t: calc(40ms / var(--kv-anim-speed, 1));
+}
+
+#kv {
+  bottom: 18px;
+  gap: 14px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 16px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- Realistic Keyboard (Pixel Keycaps) ---- */
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 10px 12px;
+  background: var(--pk-panel-bg);
+  border: 2px solid #333a4a;
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 0 #0d0f14,
+    0 8px 24px rgba(0, 0, 0, 0.65);
+}
+.kv-real-row {
+  display: flex;
+  gap: var(--kv-key-gap);
+}
+
+/* Base Pixel Keycap */
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--pk-cap-top) 0%, var(--pk-cap-face) 100%);
+  border: 1px solid var(--pk-cap-edge-sh);
+  color: var(--pk-text-idle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  font-family: "Press Start 2P", "Fusion Pixel", "Minecraft", "Consolas", "Courier New", monospace;
+  letter-spacing: -0.2px;
+  user-select: none;
+  box-sizing: border-box;
+  image-rendering: pixelated;
+  /* 3D Isometric Pixel Skirt */
+  box-shadow:
+    inset 1.5px 1.5px 0 var(--pk-cap-edge-hl),
+    inset -1.5px -1.5px 0 var(--pk-cap-edge-sh),
+    0 4px 0 var(--pk-cap-skirt),
+    0 6px 0 var(--pk-cap-skirt-dark),
+    0 8px 12px rgba(0, 0, 0, 0.55);
+  text-shadow: 1px 1px 0 #0c0e12;
+  transition: transform var(--pk-anim-t) step-end,
+              box-shadow var(--pk-anim-t) step-end,
+              color var(--pk-anim-t) step-end,
+              background var(--pk-anim-t) step-end;
+}
+
+/* Mechanical Key Bottom-Out Compression */
+.kv-real-key.active {
+  transform: translateY(4px);
+  background: linear-gradient(180deg, #24354c 0%, #192638 100%);
+  color: var(--pk-text-active);
+  text-shadow:
+    0 0 6px var(--pk-glow),
+    1px 1px 0 #0a111a;
+  box-shadow:
+    inset 1.5px 1.5px 0 #3c5473,
+    inset -1.5px -1.5px 0 #111a26,
+    0 1px 0 var(--pk-cap-skirt),
+    0 2px 0 var(--pk-cap-skirt-dark),
+    0 0 16px var(--pk-glow);
+  filter: brightness(1.2);
+}
+
+.kv-real-spacer {
+  width: 24px;
+  flex: 0 0 auto;
+}
+
+/* Spacebar Key */
+.kv-real-key[data-code="32"] {
+  background: linear-gradient(180deg, var(--pk-cap-top) 0%, var(--pk-cap-face) 100%);
+}
+.kv-real-key[data-code="32"]::before {
+  content: '▪▪▪ SPACE ▪▪▪';
+  font-size: 10px;
+  letter-spacing: 1px;
+  opacity: 0.85;
+}
+.kv-real-key[data-code="32"].active::before {
+  color: var(--pk-text-active);
+  opacity: 1;
+}
+
+/* Modifiers / Enter / Esc styling */
+.kv-real-key[data-code="13"] { /* Enter */
+  font-size: 10.5px;
+}
+.kv-real-key[data-code="27"] { /* Esc */
+  font-size: 10.5px;
+}
+
+/* ---- Pixel Art Mouse ---- */
+.kv-real-mouse-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.kv-real-mouse {
+  width: 96px;
+  height: 116px;
+  transition: transform calc(60ms / var(--kv-anim-speed)) step-end;
+  filter: drop-shadow(0 4px 0 var(--pk-cap-skirt-dark)) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
+}
+.kv-mouse-part {
+  fill: var(--pk-cap-face);
+  stroke: #333a4a;
+  stroke-width: 1.5;
+  transition: fill var(--pk-anim-t) step-end;
+}
+.kv-mouse-outline {
+  fill: none;
+  stroke: var(--pk-cap-edge-hl);
+  stroke-width: 2;
+}
+.kv-mouse-sep {
+  stroke: var(--pk-cap-edge-sh);
+  stroke-width: 1.5;
+}
+.kv-mouse-wheel {
+  fill: #181b23;
+  stroke: #333a4a;
+  stroke-width: 1.5;
+  transition: fill var(--pk-anim-t) step-end;
+}
+.kv-mouse-wheel-half {
+  fill: transparent;
+  transition: fill var(--pk-anim-t) step-end;
+}
+
+/* Mouse Active Ice-Blue LED Glow */
+.kv-mouse-l.active {
+  fill: var(--pk-text-active) !important;
+  filter: drop-shadow(0 0 8px var(--pk-glow));
+}
+.kv-mouse-r.active {
+  fill: var(--pk-text-active) !important;
+  filter: drop-shadow(0 0 8px var(--pk-glow));
+}
+.kv-mouse-wheel.active {
+  fill: var(--pk-text-active) !important;
+  filter: drop-shadow(0 0 8px var(--pk-glow));
+}
+.kv-mouse-wheel-up.active {
+  fill: var(--pk-text-active) !important;
+  filter: drop-shadow(0 0 8px var(--pk-glow));
+}
+.kv-mouse-wheel-down.active {
+  fill: var(--pk-text-active) !important;
+  filter: drop-shadow(0 0 8px var(--pk-glow));
+}
+.kv-mouse-side {
+  fill: var(--pk-cap-skirt);
+  stroke: #333a4a;
+  stroke-width: 1.5;
+  transition: fill var(--pk-anim-t) step-end;
+}
+.kv-mouse-side.active {
+  fill: var(--pk-text-active) !important;
+  filter: drop-shadow(0 0 8px var(--pk-glow));
+}
+.kv-mouse-dir {
+  opacity: 0;
+  transition: opacity calc(80ms / var(--kv-anim-speed)) step-end;
+}
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow {
+  fill: var(--pk-text-active);
+  filter: drop-shadow(0 0 6px var(--pk-glow));
+}
+
+/* Mouse Text Label */
+.kv-mouse-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 4px;
+  background: var(--pk-cap-skirt);
+  border: 1.5px solid #333a4a;
+  box-shadow: 0 2px 0 var(--pk-cap-skirt-dark);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pk-text-active);
+  font-family: "Press Start 2P", "Fusion Pixel", "Minecraft", "Consolas", monospace;
+  letter-spacing: 0;
+  text-shadow: 0 0 4px var(--pk-glow);
+  min-height: 14px;
+}
+
+/* ---- Pixel Gamepad ---- */
+.kv-gp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 2px solid #333a4a;
+  border-radius: 6px;
+  background: var(--pk-panel-bg);
+  box-shadow:
+    0 4px 0 #0d0f14,
+    0 8px 24px rgba(0, 0, 0, 0.65);
+}
+.kv-gp-svg {
+  width: 190px;
+  height: auto;
+  filter: drop-shadow(0 4px 0 var(--pk-cap-skirt-dark));
+}
+.kv-gp-body {
+  fill: var(--pk-cap-face);
+  stroke: #333a4a;
+  stroke-width: 2;
+}
+.kv-gp-dpad {
+  fill: #181b23;
+  stroke: #333a4a;
+  stroke-width: 1.5;
+}
+.kv-gp-dpad-btn {
+  fill: var(--pk-cap-face);
+  transition: fill var(--pk-anim-t) step-end;
+}
+.kv-gp-dpad-btn.active {
+  fill: var(--pk-text-active) !important;
+  filter: drop-shadow(0 0 8px var(--pk-glow));
+}
+.kv-gp-face-btn {
+  fill: var(--pk-cap-top);
+  stroke: #333a4a;
+  stroke-width: 1.5;
+  transition: fill var(--pk-anim-t) step-end;
+}
+.kv-gp-face-btn.active {
+  fill: var(--pk-text-active) !important;
+  filter: drop-shadow(0 0 8px var(--pk-glow));
+}
+.kv-gp-face-text {
+  fill: var(--pk-text-idle);
+  font-family: "Press Start 2P", "Minecraft", monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+.kv-gp-shoulder-btn {
+  fill: var(--pk-cap-skirt);
+  stroke: #333a4a;
+  stroke-width: 1.5;
+}
+.kv-gp-shoulder-btn.active {
+  fill: var(--pk-text-active) !important;
+  filter: drop-shadow(0 0 8px var(--pk-glow));
+}
+.kv-gp-stick-base {
+  fill: #181b23;
+  stroke: #333a4a;
+  stroke-width: 1.5;
+}
+.kv-gp-stick-cap {
+  fill: var(--pk-cap-top);
+  stroke: #4e576d;
+  stroke-width: 1.5;
+}
+.kv-gp-stick-cap.active {
+  fill: var(--pk-text-active);
+  filter: drop-shadow(0 0 8px var(--pk-glow));
+}

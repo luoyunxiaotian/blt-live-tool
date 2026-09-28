@@ -15,5 +15,6 @@
   "display.gpLayout": "xbox",
   "display.renderMode": "auto",
   "display.wheelInvert": false,
-  "display.sideButtonInvert": false
+  "display.sideButtonInvert": false,
+  "display.mouseLabel": true
 }

@@ -456,6 +456,11 @@
             Key = "display.sideButtonInvert", Label = "鼠标侧键对调 display.sideButtonInvert", Kind = "bool",
             Tip = "将鼠标侧键 X1（后退/下）与 X2（前进/上）前后映射对调",
         },
+        new KeyRow
+        {
+            Key = "display.mouseLabel", Label = "鼠标按键文字提示 display.mouseLabel", Kind = "bool",
+            Tip = "开启或关闭鼠标下方显示的按键与滚轮文字信息（如左键、右键、滚轮等）",
+        },
     };
 
     private async Task LoadConfig()

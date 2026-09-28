@@ -24,7 +24,7 @@
     if (typeof gpInstances !== 'undefined') gpInstances.clear();
     const isKnownLayoutTheme = currentTheme && (
       currentTheme.startsWith('heroui-') ||
-      ['mc-minerals', 'retro-typewriter', 'real', 'glass'].includes(currentTheme)
+      ['mc-minerals', 'retro-typewriter', 'pixel-keycap', 'majsoul', 'real', 'glass'].includes(currentTheme)
     );
     fetch('themes.manifest.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((manifest) => {
       const info = (manifest.themes || []).find((x) => x.id === currentTheme);
@@ -246,6 +246,7 @@
       wrap.appendChild(svg);
       const lab = document.createElement('div');
       lab.className = 'kv-mouse-label';
+      if (cfg['display.mouseLabel'] === false) lab.style.display = 'none';
       wrap.appendChild(lab);
       msEl.appendChild(wrap);
       mouseSvg = svg; mouseLabel = lab;
@@ -328,6 +329,12 @@
     }
     function flashLabel(text) {
       if (!mouseLabel) return;
+      if (cfg['display.mouseLabel'] === false) {
+        mouseLabel.textContent = '';
+        mouseLabel.style.display = 'none';
+        return;
+      }
+      mouseLabel.style.display = '';
       mouseLabel.textContent = text;
       clearTimeout(flashLabel._t);
       flashLabel._t = setTimeout(() => { if (mouseLabel) mouseLabel.textContent = ''; }, 500);
@@ -340,8 +347,17 @@
       applyConfig: (c) => {
         const nl = c['display.kbLayout'] || 'full';
         if (nl !== currentLayout && KB_LAYOUTS[nl]) { currentLayout = nl; buildKeyboard(KB_LAYOUTS[nl]); }
+        if (mouseLabel) {
+          if (c['display.mouseLabel'] === false) {
+            mouseLabel.style.display = 'none';
+            mouseLabel.textContent = '';
+          } else {
+            mouseLabel.style.display = '';
+          }
+        }
       },
     };
+
   }
 
   // ============ heatmap renderer (key frequency heat coloring) ============

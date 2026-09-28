@@ -1,5 +1,7 @@
 {
   "themes": [
+    { "id": "pixel-keycap", "name": "暗夜像素键帽", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/pixel-keycap.css", "preview": "暗黑像素立体键帽+冰蓝背光发光+机械冲压下沉", "render": "layout", "params": [] },
+    { "id": "majsoul", "name": "雀魂日麻", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/majsoul.css", "preview": "日麻雀魂骨瓷牌面+抹茶绿牌背+立直棒空格+胡牌和切牌打击", "render": "layout", "params": [] },
     { "id": "anya-macaron", "name": "阿尼亚软萌奶糖", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/anya-macaron.css", "preview": "MOA软萌球帽+粉绿黄奶糖色+棋盘格+3D立体下沉", "render": "layout", "params": [] },
     { "id": "mc-minerals", "name": "我的世界矿石方块", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/mc-minerals.css", "preview": "铜矿/钻石/绿宝石三色矿石+等轴3D侧厚+下砸暴击闪烁", "render": "layout", "params": [] },
     { "id": "retro-typewriter", "name": "复古波普打字机", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/retro-typewriter.css", "preview": "明黄纯圆纽扣键帽+绿色机械悬空轴柱+冲压下沉", "render": "layout", "params": [] },

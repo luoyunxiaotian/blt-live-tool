@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 
@@ -80,9 +81,22 @@ public static class TtsProcessGuard
     {
         try
         {
-            using var client = new TcpClient();
-            var task = client.ConnectAsync("127.0.0.1", port);
-            return task.Wait(400) && client.Connected;
+            using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            socket.Blocking = false;
+            try
+            {
+                socket.Connect(IPAddress.Loopback, port);
+                return true;
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock || ex.SocketErrorCode == SocketError.InProgress)
+            {
+                // 非阻塞连接进行中：等待可写状态（300ms 超时）
+                return socket.Poll(300_000, SelectMode.SelectWrite);
+            }
+            catch
+            {
+                return false;
+            }
         }
         catch
         {

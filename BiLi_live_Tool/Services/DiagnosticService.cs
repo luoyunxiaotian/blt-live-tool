@@ -156,16 +156,19 @@ public sealed class DiagnosticService
         sb.AppendLine("【七、历史崩溃与未捕获异常黑匣子记录 (Crash Trap)】");
         try
         {
-            var crashLog = CrashTrap.LatestCrashFile;
-            if (File.Exists(crashLog))
+            var fatalLog = CrashTrap.FatalCrashFile;
+            var latestLog = CrashTrap.LatestCrashFile;
+            var primaryLog = File.Exists(fatalLog) ? fatalLog : latestLog;
+
+            if (File.Exists(primaryLog))
             {
-                var crashInfo = new FileInfo(crashLog);
-                sb.AppendLine($"🚨 检测到最近发生过严重崩溃记录！");
-                sb.AppendLine($"崩溃日志路径: {crashLog}");
+                var crashInfo = new FileInfo(primaryLog);
+                sb.AppendLine($"🚨 检测到严重崩溃/异常黑匣子记录！");
+                sb.AppendLine($"崩溃日志路径: {primaryLog}");
                 sb.AppendLine($"最后写入时间: {crashInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss}");
                 sb.AppendLine($"日志文件大小: {crashInfo.Length} 字节");
                 sb.AppendLine("---------------------------- [崩溃日志内容摘录] ----------------------------");
-                sb.AppendLine(File.ReadAllText(crashLog, Encoding.UTF8));
+                sb.AppendLine(File.ReadAllText(primaryLog, Encoding.UTF8));
                 sb.AppendLine("----------------------------------------------------------------------------");
             }
             else
@@ -185,6 +188,22 @@ public sealed class DiagnosticService
                     foreach (var cf in archiveCrashes)
                     {
                         sb.AppendLine($"  - {cf.Name} ({cf.Length} 字节, {cf.LastWriteTime:yyyy-MM-dd HH:mm:ss})");
+                    }
+
+                    // 🚨 智能历史大崩溃回溯：若历史归档中存在包含丰富上下文（>3000字节）的崩溃日志且非当前已展示的文件，
+                    // 自动展开最近的一份，绝不让重启后的轻量警告日志掩盖真实的崩溃现场！
+                    var majorCrash = archiveCrashes
+                        .Where(f => f.Length > 3000 && !string.Equals(f.FullName, primaryLog, StringComparison.OrdinalIgnoreCase))
+                        .OrderByDescending(f => f.LastWriteTime)
+                        .FirstOrDefault();
+
+                    if (majorCrash != null)
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine($"🔍 自动回溯：检出历史重大崩溃归档现场 [{majorCrash.Name}]（{majorCrash.Length} 字节），为您展开回溯分析：");
+                        sb.AppendLine("---------------------------- [历史重大崩溃现场回溯摘录] ----------------------------");
+                        sb.AppendLine(File.ReadAllText(majorCrash.FullName, Encoding.UTF8));
+                        sb.AppendLine("------------------------------------------------------------------------------------");
                     }
                 }
             }
@@ -209,6 +228,35 @@ public sealed class DiagnosticService
                 foreach (var lf in logFiles)
                 {
                     sb.AppendLine($"  - {lf.Name} ({lf.Length / 1024.0:F1} KB, 最后修改: {lf.LastWriteTime:yyyy-MM-dd HH:mm:ss})");
+                }
+
+                if (logFiles.Length > 0)
+                {
+                    var latestLogFile = logFiles.OrderByDescending(f => f.LastWriteTime).First();
+                    sb.AppendLine();
+                    sb.AppendLine($"📄 自动提取磁盘持久化日志尾部 [{latestLogFile.Name}]（最后 50 行，用于排查卡死或重启前的现场业务）:");
+                    sb.AppendLine("--------------------------------------------------------------------------------");
+                    try
+                    {
+                        using var fs = new FileStream(latestLogFile.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        using var sr = new StreamReader(fs, Encoding.UTF8);
+                        var allLines = new List<string>();
+                        string? line;
+                        while ((line = sr.ReadLine()) != null)
+                        {
+                            allLines.Add(line);
+                        }
+                        var tail = allLines.TakeLast(50);
+                        foreach (var l in tail)
+                        {
+                            sb.AppendLine(l);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"[提取持久化日志尾部失败]: {ex.Message}");
+                    }
+                    sb.AppendLine("--------------------------------------------------------------------------------");
                 }
             }
             else

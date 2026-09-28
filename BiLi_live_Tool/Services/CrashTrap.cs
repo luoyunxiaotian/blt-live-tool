@@ -19,6 +19,7 @@ public static class CrashTrap
 
     public static string LogDir => Path.Combine(AppConfig.DataDir, "logs");
     public static string LatestCrashFile => Path.Combine(LogDir, "crash.log");
+    public static string FatalCrashFile => Path.Combine(LogDir, "crash-fatal.log");
 
     public static void Initialize()
     {
@@ -114,7 +115,13 @@ public static class CrashTrap
                 // 1. 同步覆盖写入最新 crash.log（方便一键提取）
                 File.WriteAllText(LatestCrashFile, content, Encoding.UTF8);
 
-                // 2. 同时生成一份带时间戳的历史归档文件（防止下次启动覆盖）
+                // 2. 若属于致命进程终结异常，单独留存份 crash-fatal.log，防止被重启时的非致命警告覆盖
+                if (isTerminating)
+                {
+                    File.WriteAllText(FatalCrashFile, content, Encoding.UTF8);
+                }
+
+                // 3. 同时生成一份带时间戳的历史归档文件（防止下次启动覆盖）
                 var archiveFile = Path.Combine(LogDir, $"crash-{now:yyyyMMdd-HHmmss}.log");
                 File.WriteAllText(archiveFile, content, Encoding.UTF8);
 

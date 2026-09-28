@@ -133,6 +133,7 @@ public sealed class KeyViewHook
     private int _reinstalls;
     private int _consecutiveHookReinstalls;
     private long _lastReinstallTicks;
+    private int _emergencyTripped;
 
     // ---- Raw Input（第二路采集）----
     // 低级钩子会被挡在门外（前台窗口完整性更高、游戏/反外挂的输入链），而 Raw Input 的
@@ -252,6 +253,7 @@ public sealed class KeyViewHook
                 {
                     UninstallHooks();
                     InstallHooks();
+                    Interlocked.Exchange(ref _emergencyTripped, 0);
                     Interlocked.Increment(ref _reinstalls);
                     _lastReinstallTicks = Environment.TickCount64;
                     Interlocked.Exchange(ref _lastEventTicks, Environment.TickCount64);   // 重新计时，避免连环重挂
@@ -391,6 +393,9 @@ public sealed class KeyViewHook
         // 至少间隔 15 秒才允许尝试下一次重挂，严防连环重挂风暴引发系统卡顿
         if (now - _lastReinstallTicks < 15000) return;
 
+        // 若触发了毫秒级紧急熔断，至少静默 60 秒才允许重挂底层钩子，优先确保物理键鼠畅通
+        if (Volatile.Read(ref _emergencyTripped) != 0 && now - _lastReinstallTicks < 60000) return;
+
         var hookLast = Interlocked.Read(ref _lastHookHitTicks);
         var otherLast = Interlocked.Read(ref _lastOtherHitTicks);
         var overallLast = Interlocked.Read(ref _lastEventTicks);
@@ -448,11 +453,44 @@ public sealed class KeyViewHook
         var inst = _active;
         if (nCode >= 0 && inst != null)
         {
+            var msg = (uint)wParam;
+            // 🚨 终极安全防线：鼠标移动（WM_MOUSEMOVE）在高回报率游戏鼠标（1000~8000Hz）下
+            // 会产生极高频的系统拦截。绝对不能在 LL 钩子内同步处理任何 WM_MOUSEMOVE！
+            // 收到即光速返回 CallNextHookEx，将鼠标移动拦截开销降至 0 纳秒！
+            // 鼠标位置完全由非阻塞的 RawInput 与安全平滑的 GetCursorPos 独立采集，
+            // 彻底杜绝因主程序短暂 GC 或调度卡顿导致全系统物理键鼠卡死、游戏人物死亡的严重问题！
+            if (msg == WmMouseMove)
+            {
+                return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+            }
+
+            var start = Environment.TickCount64;
             Interlocked.Increment(ref inst._hookCalls);
-            try { inst.Handle((uint)wParam, lParam); }
+            try { inst.Handle(msg, lParam); }
             catch { /* never let the hook throw */ }
+
+            // 🚨 紧急毫秒级自毁熔断（Emergency Circuit Breaker）：
+            // 若钩子执行耗时超过 3ms（说明系统负载过高、GC 停顿或线程调度迟滞），
+            // 立即主动触发熔断卸载钩子，宁可键鼠浮层暂停，绝不允许阻滞用户的物理鼠标键盘！
+            if (Environment.TickCount64 - start > 3)
+            {
+                inst.EmergencyTrip();
+            }
         }
         return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+    }
+
+    public void EmergencyTrip()
+    {
+        if (Interlocked.Exchange(ref _emergencyTripped, 1) == 0)
+        {
+            try
+            {
+                UninstallHooks();
+                ServiceLog.Warn("键鼠", "警告：底层输入钩子响应耗时超阈值（>3ms），为保护主播游戏操作及系统流畅已触发紧急自毁熔断并卸载钩子，平滑由 RawInput/异步轮询接管！");
+            }
+            catch { }
+        }
     }
 
     private long _lastMoveTicks;
@@ -576,6 +614,30 @@ public sealed class KeyViewHook
         try
         {
             var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+            // 1. 平滑鼠标位置采集（每 20ms 一次轻量 GetCursorPos，供悬浮窗 60fps 平滑移动）
+            var cur = CursorPos();
+            if (cur.x != _lastPollX || cur.y != _lastPollY)
+            {
+                _lastPollX = cur.x;
+                _lastPollY = cur.y;
+                var t = Environment.TickCount64;
+                if (t - _lastMoveTicks >= 16)
+                {
+                    _lastMoveTicks = t;
+                    EmitMove(cur.x, cur.y, now, "poll");
+                }
+            }
+
+            // 2. 智能节能降载：若底层钩子或 RawInput 正常工作且近期（2 秒内）有按键活跃，
+            // 绝不执行 255 次 GetAsyncKeyState 扫描！将系统调用负载降低 99.6%，杜绝争抢 CPU 时间片！
+            var nowTicks = Environment.TickCount64;
+            var lastEvent = Interlocked.Read(ref _lastEventTicks);
+            if (lastEvent != 0 && nowTicks - lastEvent < 2000 && (_kbHook != IntPtr.Zero || _rawWnd != IntPtr.Zero))
+            {
+                return;
+            }
+
             for (var vk = 1; vk < 256; vk++)
             {
                 var down = (GetAsyncKeyState(vk) & 0x8000) != 0;
@@ -592,19 +654,6 @@ public sealed class KeyViewHook
                 _mouseDown[i] = down;
                 var p = CursorPos();
                 EmitMs(down ? "down" : "up", buttons[i].Item2, p.x, p.y, now, "poll");
-            }
-
-            var cur = CursorPos();
-            if (cur.x != _lastPollX || cur.y != _lastPollY)
-            {
-                _lastPollX = cur.x;
-                _lastPollY = cur.y;
-                var t = Environment.TickCount64;
-                if (t - _lastMoveTicks >= 16)
-                {
-                    _lastMoveTicks = t;
-                    EmitMove(cur.x, cur.y, now, "poll");
-                }
             }
         }
         catch { /* 轮询异常绝不能让进程挂掉 */ }

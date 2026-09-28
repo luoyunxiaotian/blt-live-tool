@@ -1881,22 +1881,26 @@ public sealed class KestrelHost
 
     private static async Task SendSafeAsync(WebSocket ws, byte[] bytes)
     {
-        if (ws.State != WebSocketState.Open) return;
-        if (!_wsLocks.TryGetValue(ws, out var sem)) return;
-
-        // 500ms 超时防止卡滞客户端导致发送任务积压
-        if (!await sem.WaitAsync(500)) return;
         try
         {
             if (ws.State != WebSocketState.Open) return;
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cts.Token);
+            if (!_wsLocks.TryGetValue(ws, out var sem)) return;
+
+            // 500ms 超时防止卡滞客户端导致发送任务积压
+            if (!await sem.WaitAsync(500)) return;
+            try
+            {
+                if (ws.State != WebSocketState.Open) return;
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cts.Token);
+            }
+            catch { }
+            finally
+            {
+                try { sem.Release(); } catch { }
+            }
         }
         catch { }
-        finally
-        {
-            try { sem.Release(); } catch { }
-        }
     }
 
     public async Task StopAsync()

@@ -69,7 +69,7 @@
                         <input class="blt-input mono" type="number" step="0.5" min="0" @bind="_welcomeRate" @bind:after="SaveWelcomeSoon" />
                     </div>
                 </div>
-                <div class="blt-hint">下限为 0 表示不过滤；大于 0 时，等级 ≤ 该值的用户不欢迎</div>
+                <div class="blt-hint">下限为 0 表示不过滤；设为 N 时，等级 ≥ 该值的观众才发送欢迎（低于该值则过滤）</div>
 
                 <div style="margin-top:12px">
                     <label class="blt-label">texts · 欢迎语池（每行一条 · @PoolCount(_welcomeTexts) 条）</label>

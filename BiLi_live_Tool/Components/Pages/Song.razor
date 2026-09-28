@@ -433,18 +433,44 @@
         <div class="blt-panel">
             <div class="blt-panel-head">
                 <span class="t"><BltIcon Emoji="📜" /> OBS 歌词浮层</span><span class="en">OBS OVERLAY</span>
-                <span class="right"><span>OBS 浏览器源</span></span>
+                <span class="right"><span>OBS 浏览器源 · 参数即时联动</span></span>
             </div>
             <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;margin-bottom:14px">
+                    <div>
+                        <label class="blt-label">歌词字号 (@(_lrcFontSize)px)</label>
+                        <input class="blt-input mono" type="number" min="12" max="36" step="1" @bind="_lrcFontSize" @bind:after="SaveLyricsOverlaySoon" />
+                    </div>
+                    <div>
+                        <label class="blt-label">背景透明度 (@(_lrcBgAlpha)%)</label>
+                        <input class="blt-input" type="range" min="0" max="100" step="5" @bind="_lrcBgAlpha" @bind:after="SaveLyricsOverlaySoon" style="height:32px;cursor:pointer" />
+                    </div>
+                    <div>
+                        <label class="blt-label">背景颜色</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="color" class="blt-input" style="width:40px;padding:2px;cursor:pointer;height:32px" @bind="_lrcBgColor" @bind:after="SaveLyricsOverlaySoon" />
+                            <input class="blt-input mono" style="font-size:11.5px;flex:1" @bind="_lrcBgColor" @bind:after="SaveLyricsOverlaySoon" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">歌词高亮颜色</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="color" class="blt-input" style="width:40px;padding:2px;cursor:pointer;height:32px" @bind="_lrcActiveColor" @bind:after="SaveLyricsOverlaySoon" />
+                            <input class="blt-input mono" style="font-size:11.5px;flex:1" @bind="_lrcActiveColor" @bind:after="SaveLyricsOverlaySoon" />
+                        </div>
+                    </div>
+                </div>
+
                 <div class="blt-kv">
                     <span class="k">浮层地址</span>
                     <span class="v"><span class="mono" style="font-size:11.5px">@OverlayUrl</span></span>
                 </div>
-                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-                    <button class="blt-btn" @onclick="CopyOverlayUrl">复制地址</button>
-                    <button class="blt-btn" @onclick="OpenOverlay">在浏览器里预览</button>
+                <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                    <button class="blt-btn" @onclick="CopyOverlayUrl">复制定制地址</button>
+                    <button class="blt-btn primary" @onclick="OpenOverlay">在浏览器里预览</button>
+                    <button class="blt-btn" @onclick="ResetLyricsOverlay">恢复默认外观</button>
                 </div>
-                <div class="blt-hint" style="margin-top:8px">
+                <div class="blt-hint" style="margin-top:10px">
                     OBS：来源 → 浏览器 → 粘贴上面的地址，建议竖屏比例（如 420×760）。<br/>
                     💡 <b>现已全面支持 Now Playing 外部播放器！</b>不管是程序内点歌，还是在电脑上使用网易云音乐、QQ音乐、酷狗、Spotify 等外部播放器放歌，均会自动抓取歌词并同步高亮滚动（优先程序内点歌，停止时自动切换外部音乐）。
                 </div>
@@ -639,13 +665,43 @@
     private bool _dedupEnabled = true;
     private string _dedupMin = "5";
 
+    // ---------- OBS 歌词浮层外观定制 ----------
+    private int _lrcFontSize = 18;
+    private int _lrcBgAlpha = 75;
+    private string _lrcBgColor = "#0c0d12";
+    private string _lrcActiveColor = "#ffffff";
+
+    private string GetLyricsOverlayUrl()
+    {
+        var sb = new StringBuilder($"http://127.0.0.1:{Api.Port}/lyrics/overlay.html?");
+        sb.Append($"fontSize={_lrcFontSize}");
+        sb.Append($"&bgAlpha={_lrcBgAlpha}");
+        sb.Append($"&bgColor={Uri.EscapeDataString(_lrcBgColor.TrimStart('#'))}");
+        sb.Append($"&activeColor={Uri.EscapeDataString(_lrcActiveColor.TrimStart('#'))}");
+        return sb.ToString();
+    }
+
+    /// <summary>OBS 歌词浮层地址：带实时定制参数。</summary>
+    private string OverlayUrl => GetLyricsOverlayUrl();
+
+    private void SaveLyricsOverlaySoon()
+    {
+        SaveSoon("song-lyrics-overlay", 200);
+        StateHasChanged();
+    }
+
+    private void ResetLyricsOverlay()
+    {
+        _lrcFontSize = 18;
+        _lrcBgAlpha = 75;
+        _lrcBgColor = "#0c0d12";
+        _lrcActiveColor = "#ffffff";
+        SaveLyricsOverlaySoon();
+    }
+
     // ---------- 平台登录（应用内登录 → 自动抓 Cookie） ----------
     private string _musicLoginMsg = "";
     private bool _musicLoginBusy;
-
-    /// <summary>OBS 歌词浮层地址（原版 lyrics/overlay.html 的等价路径）。</summary>
-    /// <summary>OBS 歌词浮层地址：必须带真实端口（Nav.BaseUri 在 Blazor Hybrid 下是 http://localhost/，没有端口）。</summary>
-    private string OverlayUrl => "http://127.0.0.1:" + Api.Port + "/lyrics/overlay.html";
 
     /// <summary>应用内登录：打开平台登录窗 → 轮询捕获结果 → 成功后回填并保存 Cookie。</summary>
     private async Task LoginPlatform(string platform)
@@ -1313,6 +1369,13 @@
         _maxDaily = Jl(sr, "maxDaily").ToString();
         _dedupEnabled = Jb(sr, "dedupEnabled", true);
         _dedupMin = Math.Max(0, (long)Math.Round(Jl(sr, "dedupMs", 300000) / 60000.0)).ToString();
+        if (sr["lyricsOverlay"] is JsonObject lo)
+        {
+            if (lo["fontSize"]?.GetValue<int?>() is int fs && fs >= 10 && fs <= 60) _lrcFontSize = fs;
+            if (lo["bgAlpha"]?.GetValue<int?>() is int ba && ba >= 0 && ba <= 100) _lrcBgAlpha = ba;
+            if (lo["bgColor"]?.GetValue<string?>() is string bg && bg.Length > 0) _lrcBgColor = bg.StartsWith("#") ? bg : "#" + bg;
+            if (lo["activeColor"]?.GetValue<string?>() is string ac && ac.Length > 0) _lrcActiveColor = ac.StartsWith("#") ? ac : "#" + ac;
+        }
     }
 
     // ---------- view model builders (closures live in code, not in markup) ----------
@@ -1606,6 +1669,12 @@
             sr["maxDaily"] = JsonValue.Create(ParseLong(_maxDaily));
             sr["dedupEnabled"] = JsonValue.Create(_dedupEnabled);
             sr["dedupMs"] = JsonValue.Create(ParseLong(_dedupMin, 5) * 60000L);
+            var lo = sr["lyricsOverlay"] as JsonObject ?? new JsonObject();
+            sr["lyricsOverlay"] = lo;
+            lo["fontSize"] = _lrcFontSize;
+            lo["bgAlpha"] = _lrcBgAlpha;
+            lo["bgColor"] = _lrcBgColor;
+            lo["activeColor"] = _lrcActiveColor;
             var resp = await PostJson("/api/config", doc);
             ApplySettings((resp as JsonObject)?["songRequest"] as JsonObject);
             _saveMsg = "";

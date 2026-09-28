@@ -1038,29 +1038,63 @@ public static class BiliNormalize
             switch (el.ValueKind)
             {
                 case JsonValueKind.Object:
+                    // 1. 直查常见勋章/荣誉字段 (兼容 B站 INTERACT_WORD / DANMU_MSG / ENTRY_EFFECT 各种变体)
+                    if (el.TryGetProperty("medal_level", out var ml) && ml.ValueKind == JsonValueKind.Number)
+                    {
+                        var v = ml.GetInt32();
+                        if (v > medal) medal = v;
+                    }
+                    if (el.TryGetProperty("fans_medal", out var fm) && fm.ValueKind == JsonValueKind.Object)
+                    {
+                        if (fm.TryGetProperty("medal_level", out var fml) && fml.ValueKind == JsonValueKind.Number && fml.GetInt32() > medal) medal = fml.GetInt32();
+                        else if (fm.TryGetProperty("level", out var fl) && fl.ValueKind == JsonValueKind.Number && fl.GetInt32() > medal) medal = fl.GetInt32();
+                    }
+
+                    // 进房财富/荣誉等级 (contribution_info.grade / wealth_level / honor_level)
+                    if (el.TryGetProperty("contribution_info", out var ci) && ci.ValueKind == JsonValueKind.Object)
+                    {
+                        if (ci.TryGetProperty("grade", out var cg) && cg.ValueKind == JsonValueKind.Number && cg.GetInt32() > honor) honor = cg.GetInt32();
+                        else if (ci.TryGetProperty("level", out var cl) && cl.ValueKind == JsonValueKind.Number && cl.GetInt32() > honor) honor = cl.GetInt32();
+                    }
+                    if (el.TryGetProperty("wealth_level", out var wl) && wl.ValueKind == JsonValueKind.Number && wl.GetInt32() > honor)
+                        honor = wl.GetInt32();
+                    if (el.TryGetProperty("honor_level", out var hl) && hl.ValueKind == JsonValueKind.Number && hl.GetInt32() > honor)
+                        honor = hl.GetInt32();
+                    if (el.TryGetProperty("honor_info", out var hi))
+                    {
+                        if (hi.ValueKind == JsonValueKind.Number && hi.GetInt32() > honor) honor = hi.GetInt32();
+                        else if (hi.ValueKind == JsonValueKind.Object)
+                        {
+                            if (hi.TryGetProperty("honor_level", out var hlv) && hlv.ValueKind == JsonValueKind.Number && hlv.GetInt32() > honor) honor = hlv.GetInt32();
+                            else if (hi.TryGetProperty("grade", out var hg) && hg.ValueKind == JsonValueKind.Number && hg.GetInt32() > honor) honor = hg.GetInt32();
+                        }
+                    }
+
+                    // 2. 原版深层枚举备选匹配
                     var hasMedal = false;
                     var hasHonor = false;
                     foreach (var p in el.EnumerateObject())
                     {
                         if (p.Name is "medal" or "fans_medal" or "fan_medal" or "fans_medal_name" or "medal_name") hasMedal = true;
-                        if (p.Name is "honor" or "honour" or "honor_rank" or "honor_level" or "guard_level") hasHonor = true;
+                        if (p.Name is "honor" or "honour" or "honor_rank" or "honor_level" or "guard_level" or "contribution" or "contribution_info") hasHonor = true;
                     }
                     if (hasMedal)
                     {
                         var lv = 0;
                         if (el.TryGetProperty("level", out var lvl) && lvl.ValueKind == JsonValueKind.Number) lv = lvl.GetInt32();
                         else if (el.TryGetProperty("medal", out var medalEl) && medalEl.ValueKind == JsonValueKind.Object
-                                 && medalEl.TryGetProperty("level", out var ml) && ml.ValueKind == JsonValueKind.Number) lv = ml.GetInt32();
+                                 && medalEl.TryGetProperty("level", out var ml2) && ml2.ValueKind == JsonValueKind.Number) lv = ml2.GetInt32();
                         if (lv > medal) medal = lv;
                     }
                     if (hasHonor)
                     {
                         var lv = 0;
                         if (el.TryGetProperty("level", out var lvl) && lvl.ValueKind == JsonValueKind.Number) lv = lvl.GetInt32();
+                        else if (el.TryGetProperty("grade", out var grd) && grd.ValueKind == JsonValueKind.Number) lv = grd.GetInt32();
                         else if (el.TryGetProperty("honor", out var honorEl))
                         {
                             if (honorEl.ValueKind == JsonValueKind.Number) lv = honorEl.GetInt32();
-                            else if (honorEl.ValueKind == JsonValueKind.Object && honorEl.TryGetProperty("level", out var hl) && hl.ValueKind == JsonValueKind.Number) lv = hl.GetInt32();
+                            else if (honorEl.ValueKind == JsonValueKind.Object && honorEl.TryGetProperty("level", out var hl2) && hl2.ValueKind == JsonValueKind.Number) lv = hl2.GetInt32();
                         }
                         else if (el.TryGetProperty("guard_level", out var gl) && gl.ValueKind == JsonValueKind.Number) lv = gl.GetInt32();
                         if (lv > honor) honor = lv;

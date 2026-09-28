@@ -304,21 +304,34 @@
       "sayUid": false,
       "minMedal": 0,
       "minHonor": 0,
-      "volume": 1
+      "volume": 1,
+      "texts": [
+        "{uname}说：{msg}",
+        "{uname}：{msg}"
+      ]
     },
     "gift": {
       "enabled": true,
       "sayUid": false,
       "minMedal": 0,
       "minHonor": 0,
-      "volume": 1
+      "volume": 1,
+      "texts": [
+        "感谢{uname}送出的{num}个{giftName}",
+        "多谢{uname}老板的{giftName}",
+        "谢谢{uname}投喂的{giftName}"
+      ]
     },
     "superchat": {
       "enabled": true,
       "sayUid": false,
       "minMedal": 0,
       "minHonor": 0,
-      "volume": 1
+      "volume": 1,
+      "texts": [
+        "醒目留言，{uname}说：{msg}",
+        "收到一条醒目留言，来自{uname}：{msg}"
+      ]
     },
     "welcome": {
       "enabled": true,
@@ -330,6 +343,10 @@
         "欢迎 {uname} 进入直播间",
         "{uname} 来啦，欢迎欢迎",
         "欢迎 {uname} 的到来"
+      ],
+      "guardTexts": [
+        "欢迎尊贵的{guardName} {uname} 进入直播间！",
+        "全体起立，欢迎{guardName} {uname}！"
       ]
     }
   },
@@ -343,6 +360,12 @@
     "honorLevelMin": 0,
     "guardOnly": false,
     "maxDaily": 0,
+    "lyricsOverlay": {
+      "fontSize": 18,
+      "bgAlpha": 75,
+      "bgColor": "#0c0d12",
+      "activeColor": "#ffffff"
+    },
     "blacklist": [
       {
         "type": "song",

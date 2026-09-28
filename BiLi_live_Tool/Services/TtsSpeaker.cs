@@ -43,6 +43,7 @@ public sealed class TtsSpeaker
         public long MinMedal, MinHonor;
         public double Volume = 1;
         public List<string> Texts = new();
+        public List<string> GuardTexts = new();
     }
 
     private sealed class TonePreset
@@ -169,13 +170,22 @@ public sealed class TtsSpeaker
         switch (typeKey)
         {
             case "danmu":
-                return uname.Length > 0 ? uname + "说：" + ev.Msg : "说：" + ev.Msg;
+            {
+                var pool = (tc?.Texts != null && tc.Texts.Count > 0)
+                    ? tc.Texts
+                    : new List<string> { "{uname}说：{msg}", "{uname}：{msg}" };
+                var tpl = pool[Random.Shared.Next(pool.Count)];
+                return FormatDanmu(tpl, uname, ev.Msg);
+            }
 
             case "gift":
             {
+                var gname = string.IsNullOrEmpty(ev.GiftName) ? "礼物" : ev.GiftName;
+                var num = Math.Max(1, ev.Num);
+                var numTxt = num > 1 ? NumToCn(num) + "个" : "一个";
+                var summary = gname + (num > 1 ? numTxt : "");
                 if (ev.Type == "gifts_merged")
                 {
-                    // 汇总事件：小花花五个、牛哇牛哇七个
                     var parts = (ev.Gifts ?? new List<GiftItem>())
                         .Select(g =>
                         {
@@ -185,29 +195,130 @@ public sealed class TtsSpeaker
                         })
                         .Where(s => s.Length > 0)
                         .ToList();
-                    if (parts.Count == 0) return "";
-                    var body = string.Join("、", parts);
-                    return uname.Length > 0 ? uname + "送出" + body : "送出" + body;
+                    if (parts.Count > 0) summary = string.Join("、", parts);
                 }
-                var gname = string.IsNullOrEmpty(ev.GiftName) ? "礼物" : ev.GiftName;
-                var numTxt = ev.Num > 1 ? NumToCn(ev.Num) + "个" : "";
-                return uname.Length > 0 ? uname + "送出" + gname + numTxt : "送出" + gname + numTxt;
+
+                var pool = (tc?.Texts != null && tc.Texts.Count > 0)
+                    ? tc.Texts
+                    : new List<string>
+                    {
+                        "感谢{uname}送出的{num}个{giftName}",
+                        "多谢{uname}老板的{giftName}",
+                        "谢谢{uname}投喂的{giftName}"
+                    };
+                var tpl = pool[Random.Shared.Next(pool.Count)];
+                return FormatGift(tpl, uname, gname, num, numTxt, summary);
             }
 
             case "superchat":
-                return "醒目留言 " + (uname.Length > 0 ? uname + "：" : "") + ev.Msg;
+            {
+                var priceStr = ev.Price > 0 ? ev.Price.ToString() : "";
+                var pool = (tc?.Texts != null && tc.Texts.Count > 0)
+                    ? tc.Texts
+                    : new List<string>
+                    {
+                        "醒目留言，{uname}说：{msg}",
+                        "收到一条醒目留言，来自{uname}：{msg}"
+                    };
+                var tpl = pool[Random.Shared.Next(pool.Count)];
+                return FormatSc(tpl, uname, ev.Msg, priceStr);
+            }
 
             case "welcome":
             {
-                if (uname.Length == 0) return "";
+                var isGuard = ev.IsGuard || ev.GuardLevel >= 1 || ev.Type == "guard";
+                var guardName = ev.GuardLevel switch
+                {
+                    1 => "总督",
+                    2 => "提督",
+                    3 => "舰长",
+                    _ => isGuard ? "舰长" : ""
+                };
+
+                if (isGuard && tc?.GuardTexts != null && tc.GuardTexts.Count > 0)
+                {
+                    var gtpl = tc.GuardTexts[Random.Shared.Next(tc.GuardTexts.Count)];
+                    return FormatWelcome(gtpl, uname, guardName);
+                }
+
                 var pool = (tc?.Texts != null && tc.Texts.Count > 0)
                     ? tc.Texts
                     : new List<string> { "欢迎 {uname} 进入直播间", "{uname} 来啦，欢迎欢迎", "欢迎 {uname} 的到来" };
                 var tpl = pool[Random.Shared.Next(pool.Count)];
-                return tpl.Replace("{uname}", uname);
+                return FormatWelcome(tpl, uname, guardName);
             }
         }
         return "";
+    }
+
+    private static string FormatDanmu(string tpl, string uname, string msg)
+    {
+        var res = tpl;
+        if (uname.Length > 0)
+        {
+            res = res.Replace("{uname}", uname);
+        }
+        else
+        {
+            res = res.Replace("{uname}说：", "说：")
+                     .Replace("{uname}说:", "说:")
+                     .Replace("{uname}：", "")
+                     .Replace("{uname}:", "")
+                     .Replace("{uname}", "");
+        }
+        res = res.Replace("{msg}", msg);
+        return res.Trim();
+    }
+
+    private static string FormatGift(string tpl, string uname, string giftName, int num, string numTxt, string summary)
+    {
+        var res = tpl;
+        if (uname.Length > 0)
+        {
+            res = res.Replace("{uname}", uname);
+        }
+        else
+        {
+            res = res.Replace("感谢{uname}", "感谢")
+                     .Replace("谢谢{uname}", "谢谢")
+                     .Replace("多谢{uname}", "多谢")
+                     .Replace("{uname}", "");
+        }
+        res = res.Replace("{giftSummary}", summary)
+                 .Replace("{giftName}", giftName)
+                 .Replace("{num}", numTxt)
+                 .Replace("{count}", num.ToString());
+        return res.Trim();
+    }
+
+    private static string FormatSc(string tpl, string uname, string msg, string price)
+    {
+        var res = tpl;
+        if (uname.Length > 0)
+        {
+            res = res.Replace("{uname}", uname);
+        }
+        else
+        {
+            res = res.Replace("{uname}说：", "说：")
+                     .Replace("{uname}说:", "说:")
+                     .Replace("{uname}：", "")
+                     .Replace("{uname}:", "")
+                     .Replace("来自{uname}：", "")
+                     .Replace("来自{uname}:", "")
+                     .Replace("{uname}", "");
+        }
+        res = res.Replace("{msg}", msg)
+                 .Replace("{price}", price.Length > 0 ? price + "元" : "");
+        return res.Trim();
+    }
+
+    private static string FormatWelcome(string tpl, string uname, string guardName)
+    {
+        var name = uname.Length > 0 ? uname : "观众";
+        return tpl.Replace("{uname}", name)
+                  .Replace("{guardName}", guardName.Length > 0 ? guardName : "舰长")
+                  .Trim();
     }
 
     private void Enqueue(Settings cfg, string text, string typeKey, LiveEvent ev)
@@ -504,6 +615,8 @@ public sealed class TtsSpeaker
             tc.Volume = Num(o, "volume", 1);
             if (o.TryGetPropertyValue("texts", out var texts) && texts is JsonArray arr)
                 tc.Texts = arr.Where(x => x != null).Select(x => x!.GetValue<string>() ?? "").Where(s => s.Length > 0).ToList();
+            if (o.TryGetPropertyValue("guardTexts", out var guardTexts) && guardTexts is JsonArray garr)
+                tc.GuardTexts = garr.Where(x => x != null).Select(x => x!.GetValue<string>() ?? "").Where(s => s.Length > 0).ToList();
         }
         return tc;
     }

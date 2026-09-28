@@ -248,9 +248,9 @@ public sealed class AutoDanmu
             if (texts.Count == 0) texts = new List<string> { "欢迎 {uname} 来到直播间～" };
             if (guardTexts.Count == 0) guardTexts = new List<string> { "欢迎 {uname} 舰长光临直播间！" };
         }
-        // Original semantics: min > 0 filters users at or below that level.
-        if (honorMin > 0 && ev.HonorLevel <= honorMin) return;
-        if (medalMin > 0 && ev.MedalLevel <= medalMin) return;
+        // 下限判定：min > 0 时，仅当用户等级严格小于下限才过滤（即等级 >= min 的用户正常欢迎）
+        if (honorMin > 0 && ev.HonorLevel < honorMin) return;
+        if (medalMin > 0 && ev.MedalLevel < medalMin) return;
         lock (_lock)
         {
             var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();

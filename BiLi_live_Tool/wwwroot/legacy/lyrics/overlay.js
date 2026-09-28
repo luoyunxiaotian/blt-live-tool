@@ -14,6 +14,65 @@
  * 诊断：地址后加 ?debug=1 显示实时状态。
  */
 (function () {
+  // 自定义样式参数解析（fontSize, bgAlpha, bgColor, activeColor, textColor）
+  (function applyCustomStyle() {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const root = document.documentElement;
+
+      const fs = p.get('fontSize') || p.get('font_size');
+      if (fs) {
+        const num = parseInt(fs, 10);
+        if (!isNaN(num) && num >= 10 && num <= 60) {
+          root.style.setProperty('--lrc-font-size', num + 'px');
+        }
+      }
+
+      const bgAlpha = p.get('bgAlpha') || p.get('opacity');
+      if (bgAlpha != null && bgAlpha !== '') {
+        let num = parseFloat(bgAlpha);
+        if (!isNaN(num)) {
+          if (num > 1) num = num / 100;
+          num = Math.max(0, Math.min(1, num));
+          root.style.setProperty('--lrc-bg-alpha', String(num));
+          root.style.setProperty('--lrc-bg-alpha-top', String(Math.min(1, +(num * 1.35).toFixed(2))));
+        }
+      }
+
+      const bgColor = p.get('bgColor') || p.get('bg');
+      if (bgColor) {
+        const hex = bgColor.replace(/^#/, '');
+        if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+          const r = parseInt(hex.slice(0, 2), 16);
+          const g = parseInt(hex.slice(2, 4), 16);
+          const b = parseInt(hex.slice(4, 6), 16);
+          root.style.setProperty('--lrc-bg-rgb', `${r}, ${g}, ${b}`);
+        }
+      }
+
+      const actColor = p.get('activeColor') || p.get('color');
+      if (actColor) {
+        const col = actColor.startsWith('#') ? actColor : '#' + actColor;
+        root.style.setProperty('--lrc-active-color', col);
+        const hex = actColor.replace(/^#/, '');
+        if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+          const r = parseInt(hex.slice(0, 2), 16);
+          const g = parseInt(hex.slice(2, 4), 16);
+          const b = parseInt(hex.slice(4, 6), 16);
+          root.style.setProperty('--lrc-glow', `rgba(${r}, ${g}, ${b}, 0.45)`);
+        }
+      }
+
+      const txtColor = p.get('textColor');
+      if (txtColor) {
+        const col = txtColor.startsWith('#') ? txtColor : '#' + txtColor;
+        root.style.setProperty('--lrc-text-color', col);
+      }
+    } catch (e) {
+      console.warn('Failed to apply lyrics custom style:', e);
+    }
+  })();
+
   const $ = (s) => document.getElementById(s);
   const stage = $('ly-stage'), nameEl = $('ly-name'), artistEl = $('ly-artist'), reqEl = $('ly-req'),
     timeEl = $('ly-time'), track = $('ly-track'), viewport = $('ly-viewport'), barEl = $('ly-bar'), statusEl = $('ly-status');

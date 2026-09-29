@@ -34,8 +34,8 @@
         <ApplicationId>com.companyname.bili_live_tool</ApplicationId>
 
         <!-- Versions -->
-        <ApplicationDisplayVersion>0.1.15</ApplicationDisplayVersion>
-        <ApplicationVersion>12</ApplicationVersion>
+        <ApplicationDisplayVersion>0.1.16</ApplicationDisplayVersion>
+        <ApplicationVersion>13</ApplicationVersion>
 
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
         <WindowsPackageType>None</WindowsPackageType>
@@ -62,7 +62,6 @@
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
         <!-- Embedded ASP.NET Core (Kestrel) hosts the local API/WS server for OBS overlays -->
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
-        <PackageReference Include="CSCore" Version="1.2.1.2" />
     </ItemGroup>
 
     <ItemGroup>

@@ -11,7 +11,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using BiLi_live_Tool.Services;
-using CSCore.CoreAudioAPI;
 using Windows.Media.Control;
 
 namespace BiLi_live_Tool.Services.SystemMedia;
@@ -21,9 +20,6 @@ public class SystemMediaService : IDisposable
     private readonly object _lock = new();
     private GlobalSystemMediaTransportControlsSessionManager? _smtcManager;
     private GlobalSystemMediaTransportControlsSession? _currentSession;
-    private AudioSessionManager2? _audioSessionManager;
-    private MMDeviceEnumerator? _deviceEnumerator;
-    private MMNotificationClient? _notificationClient;
     private Timer? _pollTimer;
 
     private readonly EventHub _hub;
@@ -143,7 +139,6 @@ public class SystemMediaService : IDisposable
             try
             {
                 await InitSmtcAsync();
-                InitWasapi();
             }
             catch (Exception ex)
             {
@@ -169,40 +164,6 @@ public class SystemMediaService : IDisposable
         catch (Exception ex)
         {
             Debug.WriteLine($"[SystemMediaService] SMTC Init failed: {ex.Message}");
-        }
-    }
-
-    private void InitWasapi()
-    {
-        try
-        {
-            _deviceEnumerator = new MMDeviceEnumerator();
-            using var defaultDevice = _deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-            if (defaultDevice != null)
-            {
-                _audioSessionManager = AudioSessionManager2.FromMMDevice(defaultDevice);
-            }
-
-            _notificationClient = new MMNotificationClient(_deviceEnumerator);
-            _notificationClient.DefaultDeviceChanged += (s, e) =>
-            {
-                lock (_lock)
-                {
-                    try
-                    {
-                        using var newDev = _deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                        if (newDev != null)
-                        {
-                            _audioSessionManager = AudioSessionManager2.FromMMDevice(newDev);
-                        }
-                    }
-                    catch { }
-                }
-            };
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"[SystemMediaService] WASAPI Init failed: {ex.Message}");
         }
     }
 
@@ -1007,40 +968,7 @@ public class SystemMediaService : IDisposable
 
     private float SampleProcessVolume(string[] processNames)
     {
-        lock (_lock)
-        {
-            if (_audioSessionManager == null) return 0f;
-
-            try
-            {
-                using var sessionEnumerator = _audioSessionManager.GetSessionEnumerator();
-                if (sessionEnumerator == null) return 0f;
-
-                float maxPeak = 0f;
-                foreach (AudioSessionControl session in sessionEnumerator)
-                {
-                    if (session == null) continue;
-
-                    using var sessionControl = session.QueryInterface<AudioSessionControl2>();
-                    if (sessionControl?.Process == null) continue;
-
-                    string proc = sessionControl.Process.ProcessName;
-                    if (processNames.Any(p => proc.Contains(p, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        using var meter = session.QueryInterface<AudioMeterInformation>();
-                        if (meter != null)
-                        {
-                            maxPeak = Math.Max(maxPeak, meter.PeakValue);
-                        }
-                    }
-                }
-                return maxPeak;
-            }
-            catch
-            {
-                return 0f;
-            }
-        }
+        return WasapiProcessMeter.SamplePeakVolume(processNames);
     }
 
     private string CleanAppId(string? appId)
@@ -1073,9 +1001,6 @@ public class SystemMediaService : IDisposable
     public void Dispose()
     {
         _pollTimer?.Dispose();
-        _notificationClient?.Dispose();
-        _deviceEnumerator?.Dispose();
-        _audioSessionManager?.Dispose();
     }
 }
 #else

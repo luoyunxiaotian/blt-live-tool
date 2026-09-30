@@ -1,5 +1,12 @@
 {
   "themes": [
+    { "id": "flame-gold", "name": "炽焰电竞 · 黄金战皇", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/flame-gold.css", "preview": "黄金金属包边+熔岩赤焰按压爆燃+黄金电竞鼠标", "render": "layout", "params": [] },
+    { "id": "void-crystal", "name": "虚空魔晶 · 幻夜领主", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/void-crystal.css", "preview": "深渊紫晶切割+电光青能量核心闪耀+幽能魔晶鼠标", "render": "layout", "params": [] },
+    { "id": "metal-titan", "name": "泰坦重工 · 钛金拉丝", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/metal-titan.css", "preview": "纯净拉丝金属方键+琥珀指示灯点亮+钛合金鼠标", "render": "layout", "params": [] },
+    { "id": "cyber-violet", "name": "暗夜极客 · 赛博晶核", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/cyber-violet.css", "preview": "紫晶切割键帽+电光青科技发光+脉冲赛博鼠标", "render": "layout", "params": [] },
+    { "id": "frost-crystal", "name": "凛冬誓约 · 冰凌晶格", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/frost-crystal.css", "preview": "极地冰凌切割键帽+极光幽蓝折射+冰魄水晶鼠标", "render": "layout", "params": [] },
+    { "id": "capsule-matrix", "name": "矩阵胶囊 · 缤纷像素", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/capsule-matrix.css", "preview": "15色饱满圆润胶囊药丸键帽+功能分区撞色+胶囊鼠标", "render": "layout", "params": [] },
+    { "id": "pixel-obsidian", "name": "曜石像素 · 机械切角", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/pixel-obsidian.css", "preview": "方键/中长键/长条空格三阶精密像素键帽+机械下沉冲压+曜石像素鼠标", "render": "layout", "params": [] },
     { "id": "pixel-keycap", "name": "暗夜像素键帽", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/pixel-keycap.css", "preview": "暗黑像素立体键帽+冰蓝背光发光+机械冲压下沉", "render": "layout", "params": [] },
     { "id": "majsoul", "name": "雀魂日麻", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/majsoul.css", "preview": "日麻雀魂骨瓷牌面+抹茶绿牌背+立直棒空格+胡牌和切牌打击", "render": "layout", "params": [] },
     { "id": "anya-macaron", "name": "阿尼亚软萌奶糖", "type": "original", "devices": ["kb", "ms", "gp"], "css": "themes/anya-macaron.css", "preview": "MOA软萌球帽+粉绿黄奶糖色+棋盘格+3D立体下沉", "render": "layout", "params": [] },

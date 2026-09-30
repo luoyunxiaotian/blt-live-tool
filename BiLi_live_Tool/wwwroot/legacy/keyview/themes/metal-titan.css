@@ -1,0 +1,190 @@
+/* Theme: metal-titan (泰坦重工 · 钛金拉丝)
+   Crafted from authentic heavy industrial brushed steel vector buttons.
+   - Dual-state tactile feedback: dark brushed gunmetal to glowing amber LED ignition
+   - Precision chamfered rim highlights with tactile depression punch
+   - Titanium alloy mouse with glowing orange wheel and laser telemetry accents
+*/
+
+:root {
+  --kv-key-w: 40px;
+  --kv-key-h: 40px;
+  --kv-key-gap: 3px;
+
+  --mt-bg-idle: #17181a;
+  --mt-rim: #525559;
+  --mt-rim-hl: #8a9096;
+  --mt-led-amber: #ff9f1c;
+  --mt-led-glow: rgba(255, 159, 28, 0.85);
+
+  --mt-text-idle: #d6dadf;
+  --mt-text-active: #ffe8cc;
+  --mt-anim-t: calc(40ms / var(--kv-anim-speed, 1));
+}
+
+#kv {
+  bottom: 18px;
+  gap: 16px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 18px;
+}
+.kv-section:empty { display: none; }
+
+.kv-section-kb,
+.kv-section-ms,
+.kv-real-mouse-wrap {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 4px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.kv-real-row {
+  display: flex;
+  gap: var(--kv-key-gap);
+}
+
+/* Base 1U Metal Keycap */
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url('./metal-titan/key-1u.svg');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: none !important;
+  border-radius: 5px !important;
+  color: var(--mt-text-idle);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "Segoe UI", -apple-system, "Microsoft YaHei", sans-serif;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 2px #000;
+  user-select: none;
+  cursor: default;
+  transition: transform var(--mt-anim-t) cubic-bezier(0.2, 0, 0.1, 1),
+              filter var(--mt-anim-t) ease-out,
+              color var(--mt-anim-t) ease-out;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.6));
+}
+
+/* Mid-length keys (Tab, Caps, Shift, Enter, Backspace) */
+.kv-real-key[data-w="1.25"],
+.kv-real-key[data-w="1.5"],
+.kv-real-key[data-w="1.75"],
+.kv-real-key[data-w="2"],
+.kv-real-key[data-w="2.25"],
+.kv-real-key[data-w="2.75"] {
+  background-image: url('./metal-titan/key-2u.svg');
+}
+
+/* Spacebar */
+.kv-real-key[data-w="6.25"],
+.kv-real-key[data-w="6"] {
+  background-image: url('./metal-titan/key-space.svg');
+}
+
+/* Active Pressed State */
+.kv-real-key.active {
+  transform: translateY(2.5px) scale(0.97);
+  background-image: url('./metal-titan/key-1u-active.svg');
+  color: var(--mt-text-active);
+  filter: drop-shadow(0 0 10px var(--mt-led-glow)) brightness(1.15);
+}
+
+.kv-real-key[data-w="1.25"].active,
+.kv-real-key[data-w="1.5"].active,
+.kv-real-key[data-w="1.75"].active,
+.kv-real-key[data-w="2"].active,
+.kv-real-key[data-w="2.25"].active,
+.kv-real-key[data-w="2.75"].active {
+  background-image: url('./metal-titan/key-2u-active.svg');
+}
+
+.kv-real-key[data-w="6.25"].active,
+.kv-real-key[data-w="6"].active {
+  background-image: url('./metal-titan/key-space-active.svg');
+}
+
+/* Titan Heavy Industrial Mouse */
+.kv-real-mouse {
+  width: 78px;
+  height: 122px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.6));
+}
+.kv-real-mouse .kv-mouse-outline {
+  fill: none !important;
+  stroke: #8a9096;
+  stroke-width: 1.8;
+}
+.kv-real-mouse .kv-mouse-sep {
+  stroke: #525559;
+  stroke-width: 1.2;
+}
+.kv-real-mouse .kv-mouse-l,
+.kv-real-mouse .kv-mouse-r {
+  fill: #3e444d !important;
+  stroke: #8a9096;
+  stroke-width: 1.2;
+  transition: all var(--mt-anim-t);
+}
+.kv-real-mouse .kv-mouse-l.active,
+.kv-real-mouse .kv-mouse-r.active {
+  fill: #ff9f1c !important;
+  filter: drop-shadow(0 0 12px #ff9f1c);
+}
+.kv-real-mouse .kv-mouse-wheel {
+  fill: #ff9f1c !important;
+  stroke: #ffe8cc;
+  stroke-width: 1.2;
+  transition: all var(--mt-anim-t);
+}
+.kv-real-mouse .kv-mouse-wheel.active,
+.kv-real-mouse .kv-mouse-wheel-up.active,
+.kv-real-mouse .kv-mouse-wheel-down.active {
+  fill: #ffffff !important;
+  filter: drop-shadow(0 0 10px #ff9f1c);
+}
+.kv-real-mouse .kv-mouse-side {
+  fill: #3e444d !important;
+  stroke: #8a9096;
+  stroke-width: 1.2;
+  transition: all var(--mt-anim-t);
+}
+.kv-real-mouse .kv-mouse-side.active {
+  fill: #ff9f1c !important;
+  filter: drop-shadow(0 0 6px #ff9f1c);
+}
+.kv-real-mouse .kv-mouse-dir-arrow {
+  fill: #ff9f1c;
+  filter: drop-shadow(0 0 6px #ff9f1c);
+}
+.kv-mouse-label {
+  color: #ffb703;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px #000;
+}

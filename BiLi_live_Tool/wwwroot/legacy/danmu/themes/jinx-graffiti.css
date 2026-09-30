@@ -1,0 +1,205 @@
+/* Theme: 街头涂鸦 · 狂潮电音 */
+/* 朋克电音涂鸦：尖牙喷漆环头像框、闪电喷漆底架、街头波普暗纹与闪电角标 */
+
+:root {
+  --theme-primary: #ffe600;
+  --theme-border: #ff007f;
+}
+
+#danmu-box {
+  background: rgba(18, 18, 23, 0.8) !important;
+  border: 2px solid rgba(0, 240, 255, 0.8) !important;
+  box-shadow: 0 8px 32px rgba(255, 0, 127, 0.35), inset 0 0 20px rgba(0, 240, 255, 0.2) !important;
+}
+
+#danmu-stage {
+  padding-bottom: 14px !important;
+}
+
+.danmu-item {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative !important;
+  border-radius: 14px !important;
+  border-width: var(--danmu-border-width, 1.5px) !important;
+  border-style: solid !important;
+  border-color: var(--danmu-border-color, #ff007f) !important;
+  background-color: var(--danmu-bg-color, rgba(22, 20, 30, 0.95)) !important;
+  background-image: url('./jinx-graffiti/pattern.png') !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 140px auto !important;
+  box-shadow: 0 4px 18px rgba(255, 0, 127, 0.4) !important;
+  padding: 8px 14px 8px 10px !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.danmu-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+.danmu-avatar-wrap {
+  position: relative !important;
+  overflow: visible !important;
+  flex-shrink: 0;
+}
+
+.danmu-avatar-wrap::before {
+  content: "";
+  position: absolute;
+  width: 165% !important;
+  height: 165% !important;
+  left: -32% !important;
+  top: -33% !important;
+  background: url('./jinx-graffiti/avatar-frame.png') no-repeat center !important;
+  background-size: contain !important;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.danmu-avatar {
+  border-radius: 50% !important;
+  border: 2px solid #ff007f !important;
+  position: relative;
+  z-index: 1;
+}
+
+.danmu-content {
+  position: relative !important;
+  padding-left: 12px !important;
+  z-index: 1;
+}
+
+.danmu-content::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 15%;
+  width: 4px;
+  height: 70%;
+  background: url('./jinx-graffiti/dot.png') repeat-y center;
+  background-size: contain;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.danmu-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.danmu-uname {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  background: linear-gradient(90deg, transparent 0%, rgba(40, 10, 35, 0.9) 20%, rgba(40, 10, 35, 0.9) 80%, transparent 100%) !important;
+  border-radius: 4px;
+  color: #ffe600 !important;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.danmu-uname::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: url('./jinx-graffiti/name-side.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+}
+
+.danmu-uname::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: url('./jinx-graffiti/name-side.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+}
+
+.danmu-text {
+  font-family: var(--danmu-text-font, sans-serif);
+  font-size: var(--danmu-text-size, 16px);
+  color: var(--danmu-text-color, #ffffff);
+  line-height: var(--danmu-line-height, 1.4);
+  text-shadow: var(--danmu-text-shadow, 0 1px 3px rgba(0,0,0,0.85));
+  word-break: break-all;
+}
+
+.danmu-item.is-guard .danmu-avatar-wrap::before,
+.danmu-item.guard-level-1 .danmu-avatar-wrap::before,
+.danmu-item.guard-level-2 .danmu-avatar-wrap::before,
+.danmu-item.guard-level-3 .danmu-avatar-wrap::before {
+  background-image: url('./jinx-graffiti/admin-avatar.png') !important;
+}
+
+.danmu-item.is-guard::after,
+.danmu-item.guard-level-1::after,
+.danmu-item.guard-level-2::after,
+.danmu-item.guard-level-3::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: -10px;
+  height: 40px;
+  pointer-events: none;
+  background-image: url('./jinx-graffiti/wing-left.png'), url('./jinx-graffiti/wing-right.png');
+  background-repeat: no-repeat, no-repeat;
+  background-position: left bottom, right bottom;
+  background-size: contain, contain;
+  z-index: 3;
+}
+
+.danmu-badge.guard {
+  background: linear-gradient(135deg, #ff007f, #ffe600) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.danmu-badge.medal {
+  background: rgba(0, 240, 255, 0.25) !important;
+  border-color: rgba(0, 240, 255, 0.6) !important;
+  color: #00f0ff !important;
+}
+
+.danmu-item.guard-level-1 {
+  background-color: var(--danmu-guard1-bg, rgba(35, 12, 38, 0.96)) !important;
+  border-color: var(--danmu-guard1-border, #ffe600) !important;
+}
+.danmu-item.guard-level-1 .danmu-uname {
+  color: var(--danmu-guard1-text, #00f0ff) !important;
+}
+
+.danmu-item.guard-level-2 {
+  background-color: var(--danmu-guard2-bg, rgba(35, 12, 38, 0.96)) !important;
+  border-color: var(--danmu-guard2-border, #ffe600) !important;
+}
+.danmu-item.guard-level-2 .danmu-uname {
+  color: var(--danmu-guard2-text, #00f0ff) !important;
+}
+
+.danmu-item.guard-level-3 {
+  background-color: var(--danmu-guard3-bg, rgba(35, 12, 38, 0.96)) !important;
+  border-color: var(--danmu-guard3-border, #ffe600) !important;
+}
+.danmu-item.guard-level-3 .danmu-uname {
+  color: var(--danmu-guard3-text, #00f0ff) !important;
+}

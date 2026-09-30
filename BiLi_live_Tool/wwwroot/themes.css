@@ -762,3 +762,156 @@ html[data-theme^="heroui-"] .blt-foot {
   padding: 0 16px !important;
 }
 
+/* ===========================================================================
+   新一代矢量素材主题套系 (源自桌面 SVG 顶级素材)
+   1. 赛博紫晶 (cyber-violet)
+   2. 凛冬冰魄 (frost-crystal)
+   3. 钛金重工 (titan-metal)
+   =========================================================================== */
+
+/* 1. 赛博紫晶 · 深邃紫外空间 + 霓虹紫粉光环 + 矩阵电光青 */
+html[data-theme="cyber-violet"] {
+  color-scheme: dark;
+  --bg: #090412;
+  --bg-2: rgba(255, 255, 255, 0.03);
+  --panel: rgba(22, 12, 38, 0.85);
+  --panel-2: rgba(35, 18, 58, 0.9);
+  --line: rgba(165, 64, 247, 0.25);
+  --line-2: rgba(255, 68, 254, 0.35);
+  --ink: #f2e9ff;
+  --ink-2: rgba(224, 208, 255, 0.7);
+  --ink-3: rgba(200, 175, 245, 0.42);
+  --amber: #ff44fe;
+  --amber-dim: rgba(255, 68, 254, 0.16);
+  --amber-ink: #ff66fe;
+  --green: #00f0ff;
+  --green-dim: rgba(0, 240, 255, 0.14);
+  --green-ink: #00f0ff;
+  --red: #ff007f;
+  --red-dim: rgba(255, 0, 127, 0.16);
+  --red-ink: #ff2d8d;
+  --blue: #a540f7;
+  --blue-dim: rgba(165, 64, 247, 0.16);
+  --blue-ink: #b55fff;
+  --r: 12px;
+  --accent-ink: #ffffff;
+  --shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(165, 64, 247, 0.22);
+}
+html[data-theme="cyber-violet"] .blt-side {
+  background: rgba(12, 6, 22, 0.75);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid var(--line);
+}
+html[data-theme="cyber-violet"] .blt-panel {
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55), 0 0 16px rgba(165, 64, 247, 0.12);
+}
+html[data-theme="cyber-violet"] .blt-navitem.active {
+  background: linear-gradient(135deg, rgba(165, 64, 247, 0.25), rgba(255, 68, 254, 0.18)) !important;
+  border: 1px solid rgba(255, 68, 254, 0.4) !important;
+  color: #ff66fe !important;
+}
+html[data-theme="cyber-violet"] .blt-btn.primary {
+  background: linear-gradient(135deg, #a540f7, #ff44fe) !important;
+  box-shadow: 0 4px 18px rgba(255, 68, 254, 0.45) !important;
+  border: none !important;
+}
+
+/* 2. 凛冬冰魄 · 极地冰川湛蓝 + 冰凌纯白晶格 + 极光幽蓝 */
+html[data-theme="frost-crystal"] {
+  color-scheme: dark;
+  --bg: #060e1a;
+  --bg-2: rgba(255, 255, 255, 0.035);
+  --panel: rgba(10, 24, 44, 0.82);
+  --panel-2: rgba(16, 36, 64, 0.88);
+  --line: rgba(0, 174, 239, 0.22);
+  --line-2: rgba(0, 240, 255, 0.32);
+  --ink: #eaf6ff;
+  --ink-2: rgba(201, 235, 252, 0.72);
+  --ink-3: rgba(157, 220, 249, 0.42);
+  --amber: #00aeef;
+  --amber-dim: rgba(0, 174, 239, 0.15);
+  --amber-ink: #38bdf8;
+  --green: #00f0ff;
+  --green-dim: rgba(0, 240, 255, 0.14);
+  --green-ink: #00f0ff;
+  --red: #f43f5e;
+  --red-dim: rgba(244, 63, 94, 0.15);
+  --red-ink: #fb7185;
+  --blue: #0284c7;
+  --blue-dim: rgba(2, 132, 199, 0.16);
+  --blue-ink: #38bdf8;
+  --r: 10px;
+  --accent-ink: #ffffff;
+  --shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 24px rgba(0, 174, 239, 0.18);
+}
+html[data-theme="frost-crystal"] .blt-side {
+  background: rgba(6, 14, 26, 0.8);
+  backdrop-filter: blur(22px);
+  border-right: 1px solid var(--line);
+}
+html[data-theme="frost-crystal"] .blt-panel {
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 18px rgba(0, 174, 239, 0.12);
+}
+html[data-theme="frost-crystal"] .blt-navitem.active {
+  background: linear-gradient(135deg, rgba(0, 174, 239, 0.25), rgba(0, 240, 255, 0.15)) !important;
+  border: 1px solid rgba(0, 240, 255, 0.35) !important;
+  color: #38bdf8 !important;
+}
+html[data-theme="frost-crystal"] .blt-btn.primary {
+  background: linear-gradient(135deg, #0284c7, #00f0ff) !important;
+  box-shadow: 0 4px 18px rgba(0, 174, 239, 0.45) !important;
+  border: none !important;
+}
+
+/* 3. 钛金重工 · 钛合金拉丝暗黑 + 工业安全警戒橙 + 军规战术切角 */
+html[data-theme="titan-metal"] {
+  color-scheme: dark;
+  --bg: #121417;
+  --bg-2: rgba(255, 255, 255, 0.025);
+  --panel: rgba(24, 27, 31, 0.9);
+  --panel-2: rgba(34, 38, 44, 0.95);
+  --line: rgba(75, 82, 92, 0.35);
+  --line-2: rgba(120, 130, 145, 0.45);
+  --ink: #e8eaed;
+  --ink-2: rgba(200, 206, 214, 0.68);
+  --ink-3: rgba(150, 156, 166, 0.42);
+  --amber: #ff9f1c;
+  --amber-dim: rgba(255, 159, 28, 0.15);
+  --amber-ink: #ffa726;
+  --green: #2ec4b6;
+  --green-dim: rgba(46, 196, 182, 0.14);
+  --green-ink: #2ec4b6;
+  --red: #e71d36;
+  --red-dim: rgba(231, 29, 54, 0.16);
+  --red-ink: #ef476f;
+  --blue: #ffb703;
+  --blue-dim: rgba(255, 183, 3, 0.15);
+  --blue-ink: #ffc107;
+  --r: 8px;
+  --accent-ink: #111214;
+  --shadow: 0 10px 32px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+html[data-theme="titan-metal"] .blt-side {
+  background: rgba(16, 18, 21, 0.9);
+  border-right: 1.5px solid var(--line);
+}
+html[data-theme="titan-metal"] .blt-panel {
+  border: 1.5px solid var(--line);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+html[data-theme="titan-metal"] .blt-navitem.active {
+  background: rgba(255, 159, 28, 0.18) !important;
+  border: 1px solid rgba(255, 159, 28, 0.4) !important;
+  color: #ffa726 !important;
+}
+html[data-theme="titan-metal"] .blt-btn.primary {
+  background: linear-gradient(135deg, #e68a00, #ff9f1c) !important;
+  box-shadow: 0 4px 16px rgba(255, 159, 28, 0.4) !important;
+  color: #111214 !important;
+  font-weight: 700 !important;
+  border: none !important;
+}

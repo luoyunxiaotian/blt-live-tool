@@ -1,0 +1,15 @@
+/* Theme: Classic Glass (现代极简半透明玻璃) */
+.danmu-item {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+
+.danmu-item:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.danmu-badge.guard {
+  background: linear-gradient(135deg, #ff5e7e, #e91e63);
+  box-shadow: 0 0 8px rgba(233, 30, 99, 0.4);
+}

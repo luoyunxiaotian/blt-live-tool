@@ -1,0 +1,205 @@
+/* Theme: 小猫曲奇 · 甜蜜烘焙 */
+/* 暖心烘焙咖啡屋：曲奇波浪猫耳头像框、麦穗可颂双翼底架、小猫曲奇暗纹与巧克力猫爪角标 */
+
+:root {
+  --theme-primary: #8b4513;
+  --theme-border: #dea057;
+}
+
+#danmu-box {
+  background: rgba(253, 248, 240, 0.72) !important;
+  border: 2px solid rgba(222, 160, 87, 0.85) !important;
+  box-shadow: 0 8px 30px rgba(184, 115, 51, 0.22), inset 0 0 20px rgba(255, 255, 255, 0.8) !important;
+}
+
+#danmu-stage {
+  padding-bottom: 14px !important;
+}
+
+.danmu-item {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative !important;
+  border-radius: 14px !important;
+  border-width: var(--danmu-border-width, 1.5px) !important;
+  border-style: solid !important;
+  border-color: var(--danmu-border-color, #dea057) !important;
+  background-color: var(--danmu-bg-color, rgba(255, 252, 245, 0.96)) !important;
+  background-image: url('./cat-cookies/pattern.png') !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 140px auto !important;
+  box-shadow: 0 4px 16px rgba(184, 115, 51, 0.28) !important;
+  padding: 8px 14px 8px 10px !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.danmu-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+.danmu-avatar-wrap {
+  position: relative !important;
+  overflow: visible !important;
+  flex-shrink: 0;
+}
+
+.danmu-avatar-wrap::before {
+  content: "";
+  position: absolute;
+  width: 165% !important;
+  height: 165% !important;
+  left: -32% !important;
+  top: -33% !important;
+  background: url('./cat-cookies/avatar-frame.png') no-repeat center !important;
+  background-size: contain !important;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.danmu-avatar {
+  border-radius: 50% !important;
+  border: 2px solid #dea057 !important;
+  position: relative;
+  z-index: 1;
+}
+
+.danmu-content {
+  position: relative !important;
+  padding-left: 12px !important;
+  z-index: 1;
+}
+
+.danmu-content::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 15%;
+  width: 4px;
+  height: 70%;
+  background: url('./cat-cookies/dot.png') repeat-y center;
+  background-size: contain;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.danmu-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.danmu-uname {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  background: linear-gradient(90deg, transparent 0%, rgba(250, 235, 215, 0.9) 20%, rgba(250, 235, 215, 0.9) 80%, transparent 100%) !important;
+  border-radius: 4px;
+  color: #8b4513 !important;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.danmu-uname::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: url('./cat-cookies/name-side.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+}
+
+.danmu-uname::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: url('./cat-cookies/name-side.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+}
+
+.danmu-text {
+  font-family: var(--danmu-text-font, sans-serif);
+  font-size: var(--danmu-text-size, 16px);
+  color: var(--danmu-text-color, #4a2c11);
+  line-height: var(--danmu-line-height, 1.4);
+  text-shadow: var(--danmu-text-shadow, 0 1px 3px rgba(0,0,0,0.85));
+  word-break: break-all;
+}
+
+.danmu-item.is-guard .danmu-avatar-wrap::before,
+.danmu-item.guard-level-1 .danmu-avatar-wrap::before,
+.danmu-item.guard-level-2 .danmu-avatar-wrap::before,
+.danmu-item.guard-level-3 .danmu-avatar-wrap::before {
+  background-image: url('./cat-cookies/admin-avatar.png') !important;
+}
+
+.danmu-item.is-guard::after,
+.danmu-item.guard-level-1::after,
+.danmu-item.guard-level-2::after,
+.danmu-item.guard-level-3::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: -10px;
+  height: 40px;
+  pointer-events: none;
+  background-image: url('./cat-cookies/wing-left.png'), url('./cat-cookies/wing-right.png');
+  background-repeat: no-repeat, no-repeat;
+  background-position: left bottom, right bottom;
+  background-size: contain, contain;
+  z-index: 3;
+}
+
+.danmu-badge.guard {
+  background: linear-gradient(135deg, #dea057, #8b4513) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.danmu-badge.medal {
+  background: rgba(222, 160, 87, 0.25) !important;
+  border-color: rgba(222, 160, 87, 0.6) !important;
+  color: #8b4513 !important;
+}
+
+.danmu-item.guard-level-1 {
+  background-color: var(--danmu-guard1-bg, rgba(255, 246, 230, 0.96)) !important;
+  border-color: var(--danmu-guard1-border, #ffc107) !important;
+}
+.danmu-item.guard-level-1 .danmu-uname {
+  color: var(--danmu-guard1-text, #b87333) !important;
+}
+
+.danmu-item.guard-level-2 {
+  background-color: var(--danmu-guard2-bg, rgba(255, 246, 230, 0.96)) !important;
+  border-color: var(--danmu-guard2-border, #ffc107) !important;
+}
+.danmu-item.guard-level-2 .danmu-uname {
+  color: var(--danmu-guard2-text, #b87333) !important;
+}
+
+.danmu-item.guard-level-3 {
+  background-color: var(--danmu-guard3-bg, rgba(255, 246, 230, 0.96)) !important;
+  border-color: var(--danmu-guard3-border, #ffc107) !important;
+}
+.danmu-item.guard-level-3 .danmu-uname {
+  color: var(--danmu-guard3-text, #b87333) !important;
+}

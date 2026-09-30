@@ -1,0 +1,181 @@
+/* Theme: 凛冬圣殿 · 冰凌结晶 (frost-palace) */
+/* 4K 极地冰雪主题：冰晶花环/寒霜皇冠头像框、冰魄羽翼双翼、雪花冰棱暗纹与冰川湛蓝卡片 */
+
+:root {
+  --theme-primary: #00aeef;
+  --theme-border: #00f0ff;
+}
+
+#danmu-box {
+  background: rgba(6, 16, 32, 0.78) !important;
+  border: 1.5px solid rgba(0, 174, 239, 0.75) !important;
+  box-shadow: 0 8px 32px rgba(0, 174, 239, 0.3), inset 0 0 24px rgba(0, 240, 255, 0.2) !important;
+}
+
+#danmu-stage {
+  padding-bottom: 14px !important;
+}
+
+/* 卡片通用样式：冰魄渐变 + 专属冰晶雪花暗纹 */
+.danmu-item {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: relative !important;
+  border-radius: 12px !important;
+  border-width: var(--danmu-border-width, 1.5px) !important;
+  border-style: solid !important;
+  border-color: var(--danmu-border-color, #00aeef) !important;
+  background-color: var(--danmu-bg-color, rgba(10, 26, 48, 0.92)) !important;
+  background-image: url('./frost-palace/pattern.png') !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 150px auto !important;
+  box-shadow: 0 4px 18px rgba(0, 174, 239, 0.3) !important;
+  padding: 8px 14px 8px 10px !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.danmu-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 240, 255, 0.4) !important;
+}
+
+/* 观众头像容器 */
+.danmu-avatar-wrap {
+  position: relative !important;
+  overflow: visible !important;
+  flex-shrink: 0;
+}
+
+/* 普通观众专属冰晶花环头像框 */
+.danmu-avatar-wrap::before {
+  content: "";
+  position: absolute;
+  width: 165% !important;
+  height: 165% !important;
+  left: -32% !important;
+  top: -33% !important;
+  background: url('./frost-palace/avatar-frame.png') no-repeat center !important;
+  background-size: contain !important;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* 头像本体 */
+.danmu-avatar {
+  border-radius: 50% !important;
+  border: 2px solid #00f0ff !important;
+  position: relative;
+  z-index: 1;
+}
+
+/* 头像与弹幕内容之间的专属流苏分割线 */
+.danmu-content {
+  position: relative !important;
+  padding-left: 12px !important;
+  z-index: 1;
+}
+
+.danmu-content::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 15%;
+  width: 4px;
+  height: 70%;
+  background: url('./frost-palace/dot.png') repeat-y center;
+  background-size: contain;
+  opacity: 0.8;
+}
+
+/* 昵称专属冰晶角标 */
+.danmu-uname {
+  color: #c9ebfc !important;
+  font-weight: 700 !important;
+  text-shadow: 0 0 6px rgba(0, 174, 239, 0.8) !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.danmu-uname::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background: url('./frost-palace/name-side.png') no-repeat center;
+  background-size: contain;
+  vertical-align: middle;
+}
+
+/* 弹幕内容 */
+.danmu-text {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 20, 45, 0.9) !important;
+}
+
+/* 大航海专属尊贵样式 */
+.danmu-item.is-admin .danmu-avatar-wrap::before {
+  background-image: url('./frost-palace/admin-avatar.png') !important;
+  width: 175% !important;
+  height: 175% !important;
+  left: -37% !important;
+  top: -38% !important;
+}
+
+/* 展开的冰魄羽翼双翼 */
+.danmu-item.is-admin::before {
+  content: "";
+  position: absolute;
+  left: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 25px;
+  background: url('./frost-palace/wing-left.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.9;
+}
+
+.danmu-item.is-admin::after {
+  content: "";
+  position: absolute;
+  right: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 25px;
+  background: url('./frost-palace/wing-right.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.9;
+}
+
+/* 总督 (Guard 1) */
+.danmu-item.guard-1 {
+  background: linear-gradient(135deg, rgba(30, 10, 35, 0.95), rgba(15, 20, 50, 0.92)) !important;
+  border-color: #ff4d6d !important;
+  box-shadow: 0 4px 22px rgba(255, 77, 109, 0.45) !important;
+}
+.danmu-item.guard-1 .danmu-uname { color: #ffccd5 !important; }
+
+/* 提督 (Guard 2) */
+.danmu-item.guard-2 {
+  background: linear-gradient(135deg, rgba(20, 10, 45, 0.95), rgba(10, 25, 55, 0.92)) !important;
+  border-color: #c77dff !important;
+  box-shadow: 0 4px 20px rgba(199, 125, 255, 0.4) !important;
+}
+.danmu-item.guard-2 .danmu-uname { color: #e0aaff !important; }
+
+/* 舰长 (Guard 3) */
+.danmu-item.guard-3 {
+  background: linear-gradient(135deg, rgba(10, 30, 60, 0.95), rgba(8, 20, 45, 0.92)) !important;
+  border-color: #00f0ff !important;
+  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.35) !important;
+}
+.danmu-item.guard-3 .danmu-uname { color: #90e0ef !important; }

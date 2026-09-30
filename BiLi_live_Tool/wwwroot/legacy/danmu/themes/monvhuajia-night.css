@@ -1,0 +1,221 @@
+/* Theme: 魔女花嫁 · 暗夜幽魅 (Monv Huajia - Night) */
+:root {
+  --monv-n-primary: #dd9ced;
+  --monv-n-sub: #acc7ff;
+  --monv-n-border: #9d74d1;
+}
+
+#danmu-box {
+  background: rgba(18, 14, 28, 0.72) !important;
+  border: 1.5px solid rgba(160, 120, 220, 0.7) !important;
+  box-shadow: 0 8px 32px rgba(80, 50, 140, 0.5), inset 0 0 20px rgba(140, 95, 210, 0.2) !important;
+}
+
+#danmu-stage {
+  padding-bottom: 14px !important;
+}
+
+/* 卡片通用样式：暗夜幽紫渐变 + 右侧暗夜蕾丝玫瑰水印 */
+.danmu-item {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: relative !important;
+  border-radius: 14px !important;
+  border-width: var(--danmu-border-width, 1.5px) !important;
+  border-style: solid !important;
+  border-color: var(--danmu-border-color, var(--monv-n-border)) !important;
+  background-color: var(--danmu-bg-color, rgba(26, 21, 40, 0.92)) !important;
+  background-image: url('./monvhuajia/night/gift-pattern.png') !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 140px auto !important;
+  box-shadow: 0 4px 20px rgba(80, 45, 140, 0.45), inset 0 0 12px rgba(150, 100, 220, 0.15) !important;
+  padding: 8px 14px 8px 10px !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.danmu-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(120, 75, 190, 0.55) !important;
+}
+
+/* 观众头像容器：外覆暗夜魔女花冠天使翅膀框 */
+.danmu-avatar-wrap {
+  position: relative !important;
+  overflow: visible !important;
+  flex-shrink: 0;
+}
+
+/* 普通粉丝专属暗夜花冠框 */
+.danmu-avatar-wrap::before {
+  content: "";
+  position: absolute;
+  width: 165% !important;
+  height: 165% !important;
+  left: -32% !important;
+  top: -33% !important;
+  background: url('./monvhuajia/night/gift-avatar.png') no-repeat center !important;
+  background-size: contain !important;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* 头像本体 */
+.danmu-avatar {
+  border-radius: 50% !important;
+  border: 2px solid #9d74d1 !important;
+  position: relative;
+  z-index: 1;
+}
+
+/* 头像与弹幕内容之间的点状蕾丝流苏分割线 */
+.danmu-content {
+  position: relative !important;
+  padding-left: 12px !important;
+  z-index: 1;
+}
+
+.danmu-content::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 15%;
+  width: 4px;
+  height: 70%;
+  background: url('./monvhuajia/night/admin-dot.png') repeat-y center;
+  background-size: contain;
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+/* 昵称区域与装饰羽翼 */
+.danmu-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.danmu-uname {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  background: linear-gradient(90deg, transparent 0%, rgba(13, 11, 19, 0.88) 20%, rgba(13, 11, 19, 0.88) 80%, transparent 100%) !important;
+  border-radius: 4px;
+  color: var(--monv-n-sub);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.danmu-uname::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: url('./monvhuajia/night/nor-name-side.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+}
+
+.danmu-uname::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: url('./monvhuajia/night/nor-name-side.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+}
+
+.danmu-text {
+  color: #f0ebff !important;
+  font-weight: 500;
+}
+
+/* ── 舰长 / 提督 / 总督 暗夜专属华丽魔女羽翼底架 ── */
+.danmu-item.is-guard {
+  border-color: var(--danmu-guard3-border, var(--danmu-border-color, #c77dff)) !important;
+  background-color: var(--danmu-guard3-bg, var(--danmu-bg-color, rgba(22, 28, 52, 0.92))) !important;
+  box-shadow: 0 6px 26px rgba(120, 60, 200, 0.55) !important;
+  background-image: url('./monvhuajia/night/admin-pattern.png') !important;
+  background-size: 160px auto !important;
+}
+
+/* 暗夜大航海头像框升级为金边繁花皇冠 */
+.danmu-item.is-guard .danmu-avatar-wrap::before {
+  background-image: url('./monvhuajia/night/admin-avatar.png') !important;
+  width: 165% !important;
+  height: 165% !important;
+  left: -32% !important;
+  top: -33% !important;
+}
+
+.danmu-item.is-guard .danmu-uname {
+  color: var(--danmu-guard3-text, var(--monv-n-primary)) !important;
+}
+
+.danmu-item.is-guard .danmu-uname::before {
+  background-image: url('./monvhuajia/night/mem-name-side.png') !important;
+}
+
+.danmu-item.is-guard .danmu-uname::after {
+  background-image: url('./monvhuajia/night/mem-name-side.png') !important;
+}
+
+/* 舰长卡片底角：唯美蕾丝花架羽翼 */
+.danmu-item.is-guard::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  bottom: -10px;
+  width: 135px;
+  height: 46px;
+  background: url('./monvhuajia/night/nmem-name-left.png') no-repeat left bottom;
+  background-size: contain;
+  pointer-events: none;
+  opacity: 0.95;
+  z-index: 2;
+}
+
+.danmu-item.is-guard::after {
+  content: "";
+  position: absolute;
+  right: 6px;
+  bottom: -10px;
+  width: 135px;
+  height: 46px;
+  background: url('./monvhuajia/night/mem-right.png') no-repeat right bottom;
+  background-size: contain;
+  pointer-events: none;
+  opacity: 0.95;
+  z-index: 2;
+}
+
+/* 提督与总督专属色彩覆盖 */
+.danmu-item.guard-level-1 {
+  border-color: var(--danmu-guard1-border, var(--danmu-border-color, #ff4d6d)) !important;
+  background-color: var(--danmu-guard1-bg, var(--danmu-bg-color, rgba(61, 14, 30, 0.94))) !important;
+  box-shadow: 0 8px 32px rgba(255, 77, 109, 0.5) !important;
+}
+.danmu-item.guard-level-1 .danmu-uname {
+  color: var(--danmu-guard1-text, #ff8fa3) !important;
+}
+
+.danmu-item.guard-level-2 {
+  border-color: var(--danmu-guard2-border, var(--danmu-border-color, #c77dff)) !important;
+  background-color: var(--danmu-guard2-bg, var(--danmu-bg-color, rgba(38, 14, 61, 0.94))) !important;
+  box-shadow: 0 8px 30px rgba(199, 125, 255, 0.5) !important;
+}
+.danmu-item.guard-level-2 .danmu-uname {
+  color: var(--danmu-guard2-text, #e0aaff) !important;
+}

@@ -1,0 +1,38 @@
+/* Theme: Pixel Arcade (复古街机像素) */
+.danmu-item {
+  border-radius: 0px !important;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.85);
+  image-rendering: pixelated;
+}
+
+.danmu-uname {
+  font-family: monospace, "Courier New", Courier, sans-serif !important;
+  text-shadow: 2px 2px 0px #000000;
+  letter-spacing: 1px;
+}
+
+.danmu-text {
+  font-family: monospace, "Courier New", Courier, sans-serif !important;
+  text-shadow: 2px 2px 0px #000000;
+}
+
+.danmu-avatar {
+  border-radius: 0px !important;
+  image-rendering: pixelated;
+}
+
+.danmu-badge.guard {
+  border-radius: 0px !important;
+  background: #ff0055;
+  color: #ffffff;
+  box-shadow: 2px 2px 0px #000;
+  border: 1px solid #fff;
+}
+
+.danmu-badge.medal {
+  border-radius: 0px !important;
+  background: #00ccff;
+  color: #000000;
+  box-shadow: 2px 2px 0px #000;
+  border: 1px solid #fff;
+}

@@ -390,10 +390,11 @@ public sealed class LivePipeline : IDisposable
                     bool stop;
                     lock (_likeLock) stop = _likeStop;
                     if (stop) break;
-                    var (code, message) = await BiliApi.LikeOnceAsync(ctx, _cts.Token);
+                    const int batchLikes = 5;
+                    var (code, message) = await BiliApi.LikeOnceAsync(ctx, _cts.Token, batchLikes);
                     if (code == 0)
                     {
-                        lock (_likeLock) { _likeLiked++; _likeError = ""; }
+                        lock (_likeLock) { _likeLiked += batchLikes; _likeError = ""; }
                         retry352 = 0;
                     }
                     else if (code == -352 && retry352 < 3)
@@ -414,7 +415,9 @@ public sealed class LivePipeline : IDisposable
                                 (code == -352 ? "：多为 B站风控（该接口对同一账号有节奏限制），稍后重试或降低频率" : "");
                         break;
                     }
-                    await Task.Delay(300, _cts.Token);
+                    // 拟人化自然间隔（1.5s~2.5s），平稳避免触发 B 站真实频率限制
+                    var jitter = Random.Shared.Next(1500, 2500);
+                    await Task.Delay(jitter, _cts.Token);
                 }
             }
             catch (OperationCanceledException) { }

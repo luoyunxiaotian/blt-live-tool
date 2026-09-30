@@ -1,0 +1,298 @@
+/* danmu overlay - base layout & styles */
+:root {
+  --danmu-nick-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --danmu-nick-color: #ffd04b;
+  --danmu-nick-opacity: 1;
+  --danmu-nick-size: 14px;
+  --danmu-nick-weight: 600;
+
+  --danmu-text-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --danmu-text-color: #ffffff;
+  --danmu-text-opacity: 1;
+  --danmu-text-size: 16px;
+  --danmu-line-height: 1.4;
+  --danmu-text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+
+  --danmu-bg-color: rgba(30, 34, 45, 0.75);
+  --danmu-card-radius: 10px;
+  --danmu-card-padding: 8px 12px;
+  --danmu-card-gap: 8px;
+
+  --danmu-border-width: 1px;
+  --danmu-border-color: rgba(58, 66, 86, 0.6);
+
+  --danmu-avatar-size: 36px;
+  --danmu-avatar-radius: 50%;
+  --danmu-avatar-border: 2px solid rgba(255, 255, 255, 0.4);
+
+  /* 常驻固定底框 (Permanent Danmu Box) */
+  --danmu-box-width: 380px;
+  --danmu-box-height: 500px;
+  --danmu-box-bg: rgba(20, 24, 36, 0.65);
+  --danmu-box-radius: 12px;
+  --danmu-box-padding: 12px;
+  --danmu-box-border: 1px solid rgba(58, 66, 86, 0.6);
+  --danmu-box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+/* 常驻固定底框：始终固定在画面中，不会随弹幕消失，标示弹幕机专属区域 */
+#danmu-box {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  width: var(--danmu-box-width, 380px);
+  height: var(--danmu-box-height, 500px);
+  background-color: var(--danmu-box-bg, rgba(20, 24, 36, 0.65));
+  border: var(--danmu-box-border, 1px solid rgba(58, 66, 86, 0.6));
+  border-radius: var(--danmu-box-radius, 12px);
+  box-shadow: var(--danmu-box-shadow, 0 8px 32px rgba(0, 0, 0, 0.35));
+  padding: var(--danmu-box-padding, 12px);
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: width 0.25s ease, height 0.25s ease, background-color 0.25s ease, border-color 0.25s ease;
+}
+
+/* 当用户选择不显示底框时：变为无边框纯透明容器 */
+#danmu-box.box-disabled {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 内部舞台容器：占满底框内部空间，弹幕由下至上排列展示 */
+#danmu-stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: var(--danmu-card-gap, 8px);
+  pointer-events: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 0 12px 0;
+}
+
+.danmu-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: var(--danmu-card-padding);
+  background-color: var(--danmu-bg-color);
+  border-radius: var(--danmu-card-radius);
+  border: var(--danmu-border-width) solid var(--danmu-border-color);
+  max-width: 100%;
+  word-break: break-word;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  will-change: transform, opacity;
+}
+
+/* 大航海专属个性化样式（支持总督、提督、舰长独立配色覆盖） */
+.danmu-item.guard-level-1 {
+  background-color: var(--danmu-guard1-bg, var(--danmu-bg-color));
+  border-color: var(--danmu-guard1-border, var(--danmu-border-color));
+}
+.danmu-item.guard-level-1 .danmu-uname {
+  color: var(--danmu-guard1-text, var(--danmu-nick-color));
+}
+.danmu-item.guard-level-2 {
+  background-color: var(--danmu-guard2-bg, var(--danmu-bg-color));
+  border-color: var(--danmu-guard2-border, var(--danmu-border-color));
+}
+.danmu-item.guard-level-2 .danmu-uname {
+  color: var(--danmu-guard2-text, var(--danmu-nick-color));
+}
+.danmu-item.guard-level-3 {
+  background-color: var(--danmu-guard3-bg, var(--danmu-bg-color));
+  border-color: var(--danmu-guard3-border, var(--danmu-border-color));
+}
+.danmu-item.guard-level-3 .danmu-uname {
+  color: var(--danmu-guard3-text, var(--danmu-nick-color));
+}
+
+/* 动效类型 */
+.danmu-item.anim-slide {
+  animation: danmuSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.danmu-item.anim-fade {
+  animation: danmuFadeIn 0.35s ease forwards;
+}
+.danmu-item.anim-bounce {
+  animation: danmuBounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.danmu-item.anim-none {
+  opacity: 1;
+}
+
+.danmu-item.fading-out {
+  opacity: 0 !important;
+  transform: translateY(-8px) scale(0.96) !important;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+@keyframes danmuSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes danmuFadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes danmuBounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) translateY(20px);
+  }
+  70% {
+    transform: scale(1.05) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 头像控制 */
+.danmu-avatar-wrap {
+  flex-shrink: 0;
+  width: var(--danmu-avatar-size);
+  height: var(--danmu-avatar-size);
+}
+
+.danmu-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--danmu-avatar-radius);
+  border: var(--danmu-avatar-border);
+  object-fit: cover;
+  display: block;
+}
+
+.no-avatar .danmu-avatar-wrap {
+  display: none !important;
+}
+
+/* 内容区域 */
+.danmu-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.danmu-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.danmu-uname {
+  font-family: var(--danmu-nick-font);
+  color: var(--danmu-nick-color);
+  opacity: var(--danmu-nick-opacity);
+  font-size: var(--danmu-nick-size);
+  font-weight: var(--danmu-nick-weight);
+  text-shadow: var(--danmu-text-shadow);
+  line-height: 1.2;
+}
+
+.danmu-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.danmu-badge.guard {
+  background: linear-gradient(135deg, #ff708f, #e91e63);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.danmu-badge.medal {
+  background: rgba(30, 144, 255, 0.25);
+  color: #64b5f6;
+  border: 1px solid rgba(100, 181, 246, 0.5);
+}
+
+.danmu-text {
+  font-family: var(--danmu-text-font);
+  color: var(--danmu-text-color);
+  opacity: var(--danmu-text-opacity);
+  font-size: var(--danmu-text-size);
+  line-height: var(--danmu-line-height);
+  text-shadow: var(--danmu-text-shadow);
+  word-break: break-all;
+}
+
+/* flat (行模式) */
+.display-flat .danmu-item {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 3px 6px;
+}
+
+/* 弹幕表情与富文本图标 */
+.danmu-emoji {
+  height: 1.35em;
+  width: auto;
+  vertical-align: -0.22em;
+  margin: 0 2px;
+  display: inline-block;
+  object-fit: contain;
+}
+
+.danmu-emoji.large {
+  height: 2.8em;
+  vertical-align: middle;
+  margin: 4px 2px;
+  display: block;
+}
+.display-flat .danmu-content {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+}
+.display-flat .danmu-meta {
+  margin-bottom: 0;
+}

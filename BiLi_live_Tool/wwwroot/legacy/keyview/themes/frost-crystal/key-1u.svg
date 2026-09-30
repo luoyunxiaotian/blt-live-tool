@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="fc-border" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="30%" stop-color="#9ddcf9"/>
+      <stop offset="70%" stop-color="#00aeef"/>
+      <stop offset="100%" stop-color="#002651"/>
+    </linearGradient>
+    <linearGradient id="fc-face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#142c4a"/>
+      <stop offset="50%" stop-color="#0a182b"/>
+      <stop offset="100%" stop-color="#050e1c"/>
+    </linearGradient>
+    <linearGradient id="fc-facet" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#00aeef" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Diamond cut polygon -->
+  <polygon points="10,2 90,2 98,10 98,90 90,98 10,98 2,90 2,10" fill="url(#fc-border)" stroke="#001833" stroke-width="1.5"/>
+  <polygon points="12,5 88,5 95,12 95,88 88,95 12,95 5,88 5,12" fill="url(#fc-face)"/>
+  <!-- Glacial crystal facet triangle -->
+  <polygon points="12,5 88,5 50,45" fill="url(#fc-facet)"/>
+  <!-- Ice crystal corner spikes -->
+  <line x1="2" y1="10" x2="18" y2="10" stroke="#c9ebfc" stroke-width="1.5"/>
+  <line x1="10" y1="2" x2="10" y2="18" stroke="#c9ebfc" stroke-width="1.5"/>
+  <line x1="98" y1="10" x2="82" y2="10" stroke="#c9ebfc" stroke-width="1.5"/>
+  <line x1="90" y1="2" x2="90" y2="18" stroke="#c9ebfc" stroke-width="1.5"/>
+</svg>

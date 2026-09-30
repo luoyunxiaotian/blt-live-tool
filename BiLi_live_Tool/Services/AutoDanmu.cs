@@ -233,7 +233,7 @@ public sealed class AutoDanmu
             return new { count = _followCount, tracked = _followedUids.Count, cap = FollowCap };
     }
 
-    private void Welcome(LiveEvent ev)
+    private async void Welcome(LiveEvent ev)
     {
         List<string> texts, guardTexts;
         long honorMin, medalMin, rate;
@@ -258,7 +258,28 @@ public sealed class AutoDanmu
             _lastWelcome[ev.Uid] = now;
         }
         var isGuard = ev.IsGuard || ev.Type == "guard";
-        var uname = string.IsNullOrWhiteSpace(ev.Uname) ? (ev.Uid.Length > 0 ? "用户" + ev.Uid : "观众") : ev.Uname;
+        var uname = ev.Uname ?? "";
+        if (string.IsNullOrWhiteSpace(uname) || uname == "用户" + ev.Uid || (uname.StartsWith("用户") && long.TryParse(uname.Substring(2), out _)))
+        {
+            if (BiliApi.UserCache.TryGet(ev.Uid, out var cached) && !string.IsNullOrWhiteSpace(cached))
+            {
+                uname = cached;
+            }
+            else if (long.TryParse(ev.Uid, out var uidNum) && uidNum > 0)
+            {
+                try
+                {
+                    using var cts = new CancellationTokenSource(1500);
+                    var fetched = await BiliApi.FetchUserNicknameAsync(uidNum, cts.Token);
+                    if (!string.IsNullOrWhiteSpace(fetched))
+                        uname = fetched;
+                }
+                catch { }
+            }
+        }
+        if (string.IsNullOrWhiteSpace(uname))
+            uname = ev.Uid.Length > 0 ? "用户" + ev.Uid : "观众";
+
         var pool = isGuard ? guardTexts : texts;
         var tpl = Pick(pool, Random.Shared);
         if (tpl.Length == 0) tpl = isGuard ? guardTexts[0] : texts[0];
@@ -278,7 +299,14 @@ public sealed class AutoDanmu
         }
         var list = ev.Gifts ?? new List<GiftItem>();
         if (list.Count == 0) return;
-        var uname = string.IsNullOrWhiteSpace(ev.Uname) ? (ev.Uid.Length > 0 ? "用户" + ev.Uid : "观众") : ev.Uname;
+        var uname = ev.Uname ?? "";
+        if (string.IsNullOrWhiteSpace(uname) || uname == "用户" + ev.Uid || (uname.StartsWith("用户") && long.TryParse(uname.Substring(2), out _)))
+        {
+            if (BiliApi.UserCache.TryGet(ev.Uid, out var cached) && !string.IsNullOrWhiteSpace(cached))
+                uname = cached;
+        }
+        if (string.IsNullOrWhiteSpace(uname))
+            uname = ev.Uid.Length > 0 ? "用户" + ev.Uid : "观众";
         var summary = GiftSummaryText(list);
         var single = list.Count == 1 ? list[0] : null;
         var vars = new Dictionary<string, string>

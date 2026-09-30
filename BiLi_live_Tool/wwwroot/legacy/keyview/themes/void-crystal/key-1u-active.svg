@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <defs>
+    <linearGradient id="vc-bevel-act" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#fd9eff"/>
+      <stop offset="80%" stop-color="#a540f7"/>
+      <stop offset="100%" stop-color="#4b0f7d"/>
+    </linearGradient>
+    <linearGradient id="vc-plasma-core" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00f0ff"/>
+      <stop offset="40%" stop-color="#00bfff"/>
+      <stop offset="100%" stop-color="#1c7e99"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="5" width="76" height="73" rx="14" fill="#05010a"/>
+  <!-- Depressed Bevel -->
+  <rect x="2" y="5" width="76" height="71" rx="14" fill="url(#vc-bevel-act)" stroke="#00f0ff" stroke-width="1.8"/>
+  <!-- Overcharged Plasma Core -->
+  <rect x="7" y="10" width="66" height="61" rx="10" fill="url(#vc-plasma-core)"/>
+  <!-- Center Energy Burst -->
+  <circle cx="40" cy="40" r="20" fill="#ffffff" opacity="0.45"/>
+  <circle cx="40" cy="40" r="10" fill="#fd9eff" opacity="0.75"/>
+</svg>

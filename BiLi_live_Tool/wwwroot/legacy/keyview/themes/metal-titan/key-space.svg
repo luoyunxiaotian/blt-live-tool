@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80">
+  <defs>
+    <linearGradient id="tsp-bevel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#55585b"/>
+      <stop offset="35%" stop-color="#313336"/>
+      <stop offset="100%" stop-color="#141517"/>
+    </linearGradient>
+    <linearGradient id="tsp-plate" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#26282a"/>
+      <stop offset="20%" stop-color="#3b3e42"/>
+      <stop offset="50%" stop-color="#2c2f32"/>
+      <stop offset="80%" stop-color="#3b3e42"/>
+      <stop offset="100%" stop-color="#202224"/>
+    </linearGradient>
+    <pattern id="knurl" width="8" height="8" patternUnits="userSpaceOnUse">
+      <path d="M0 8 L8 0 M0 0 L8 8" stroke="#484d52" stroke-width="0.7" opacity="0.4"/>
+    </pattern>
+  </defs>
+  <rect x="2" y="2" width="396" height="76" rx="6" fill="url(#tsp-bevel)" stroke="#111213" stroke-width="2"/>
+  <rect x="7" y="6" width="386" height="66" rx="4" fill="url(#tsp-plate)"/>
+  <!-- Center knurled grip strip -->
+  <rect x="50" y="16" width="300" height="48" rx="3" fill="url(#knurl)"/>
+  <rect x="50" y="16" width="300" height="48" rx="3" fill="none" stroke="#50555c" stroke-width="1"/>
+  <!-- Industrial accents -->
+  <line x1="12" y1="12" x2="388" y2="12" stroke="#757b82" stroke-width="0.8" opacity="0.6"/>
+</svg>

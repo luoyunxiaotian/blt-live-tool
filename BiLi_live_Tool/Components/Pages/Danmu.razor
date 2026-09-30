@@ -1,0 +1,3205 @@
+@page "/danmu"
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@inject KestrelHost Api
+@inject AppConfig Config
+@inject IJSRuntime JS
+@inject EventHub Hub
+
+<div class="blt-pagehead"><h1>弹幕显示浮层</h1><span class="en">DANMU OVERLAY</span></div>
+
+<div class="blt-topstrip">
+    <span class="seg">浮层状态 <b class="@(_cfg.Enabled ? "green" : "ink-3")">@(_cfg.Enabled ? "已启用" : "已停用")</b></span>
+    <span class="seg">预设皮肤 <b class="amber">@ThemeDisplayName(_cfg.Theme)</b></span>
+    <span class="seg">OBS 链接 <b class="mono" style="font-size:11px">@OverlayUrl()</b></span>
+    <span class="seg" style="gap:6px">
+        <button class="blt-btn" style="padding:2px 8px" @onclick="CopyOverlayUrl"><BltIcon Name="copy" /> 复制链接</button>
+        <a class="blt-btn" style="padding:2px 8px;text-decoration:none" href="@OverlayUrl()" target="_blank" rel="noopener"><BltIcon Name="external" /> 浏览器打开</a>
+    </span>
+    <span class="seg" style="margin-left:auto;gap:6px">
+        <button class="blt-btn" style="padding:2px 10px" @onclick="SendTestDanmu">测试普通弹幕</button>
+        <button class="blt-btn" style="padding:2px 10px" @onclick="SendTestEmoteDanmu">测试表情弹幕</button>
+        <button class="blt-btn amber" style="padding:2px 10px" @onclick="SendTestGuardDanmu">测试舰长弹幕</button>
+        <button class="blt-btn" style="padding:2px 10px;background:rgba(255,77,109,0.2);color:#ff4d6d;border:1px solid rgba(255,77,109,0.4)" @onclick="SendTestGovernorDanmu">测试总督弹幕</button>
+        <button class="blt-btn subtle" style="padding:2px 10px" @onclick="ResetCurrentThemeDefaults">恢复皮肤默认值</button>
+        <button class="blt-btn blue" style="padding:2px 12px;font-weight:600" @onclick="SaveConfig">保存配置</button>
+    </span>
+</div>
+
+@if (!string.IsNullOrEmpty(_note))
+{
+    <div style="margin-bottom:10px;padding:6px 12px;border-radius:var(--r);font-size:12px;background:@(_noteOk ? "rgba(46,204,113,0.15)" : "rgba(231,76,60,0.15)");border:1px solid @(_noteOk ? "rgba(46,204,113,0.4)" : "rgba(231,76,60,0.4)");color:@(_noteOk ? "#2ecc71" : "#e74c3c")">
+        @_note
+    </div>
+}
+
+<div class="blt-grid blt-cols-2" style="align-items:start">
+    @* ── 左侧：配置参数控制台 ── *@
+    <div>
+        @* 皮肤与全局布局 *@
+        <div class="blt-panel" style="margin-bottom:12px">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="🎨" /> 皮肤预设与布局模式</span>
+                <span class="en">THEME & LAYOUT</span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div>
+                        <label class="blt-label">预设皮肤</label>
+                        <select class="blt-input" value="@_cfg.Theme" @onchange="OnThemeSelectChanged">
+                            <option value="classic-glass">★ 现代半透明极简玻璃 (Classic Glass)</option>
+                            <option value="frost-palace">❄️ 凛冬圣殿 · 冰凌结晶 (冰晶花环冰魄羽翼)</option>
+                            <option value="violet-cyber">⚡ 幻紫电竞 · 赛博光环 (八边视窗脉冲翼)</option>
+                            <option value="titan-tactical">🛡️ 战术重工 · 钛金雷达 (防爆装甲重装翼)</option>
+                            <option value="monvhuajia">🌸 魔女花嫁 · 梦幻昼白 (精美蕾丝花架)</option>
+                            <option value="monvhuajia-night">🌙 魔女花嫁 · 暗夜幽魅 (紫藤夜月)</option>
+                            <option value="rose-throne">🌹 蔷薇王座 · 哥特绯红 (荆棘皇冠双翼)</option>
+                            <option value="cyber-night">⚡ 赛博迷幻夜 · 霓虹幻境 (机甲光环浮空翼)</option>
+                            <option value="neko-cute">🐾 萌系猫咪 · 糖粉猫爪 (萌猫耳肉球丝带翼)</option>
+                            <option value="strawberry-bunny">🍓 草莓兔兔 · 甜莓奶霜 (萌耳草莓圈双翼)</option>
+                            <option value="magic-card">🔮 魔法卡牌 · 库洛幻彩 (星芒塔罗阵羽翼)</option>
+                            <option value="butterfly-wind">🦋 蝶月风铃 · 幽夜幻蝶 (幽蓝风铃月影蝶翼)</option>
+                            <option value="jinx-graffiti">⚡ 街头涂鸦 · 狂潮电音 (朋克电音闪电翼)</option>
+                            <option value="neon-station">📡 霓虹基站 · 矩阵脉冲 (轨道HUD电路翼)</option>
+                            <option value="tulip-letter">🌷 郁金香信 · 晨曦花园 (复古花信火漆翼)</option>
+                            <option value="star-moon-gold">👑 星海月球 · 坠夜黑金 (奢华星轨星云双翼)</option>
+                            <option value="flower-hymn">⚜️ 花与诗颂 · 欧风古典 (欧式金叶洛可可花枝)</option>
+                            <option value="ark-rhodes">🛡️ 方舟终端 · 罗德战备 (工业装甲雷达双翼)</option>
+                            <option value="rainbow-sunny">🌈 彩虹星晴 · 甜彩梦境 (梦幻云朵七彩光辉翼)</option>
+                            <option value="cat-cookies">🍪 小猫曲奇 · 甜蜜烘焙 (奶油猫耳可颂麦穗翼)</option>
+                            <option value="memory-diary">📒 谁的日记 · 手账贴纸 (胶带相框撕边便签翼)</option>
+                            <option value="eldritch-eye">👁️ 暗夜深渊 · 诡谲骨眼 (魔眼骨环恶魔翼)</option>
+                            <option value="sakura-wafuu">🌸 樱华落雪 · 绯樱结 (水引绯樱花筏翼)</option>
+                            <option value="bakery-shop">🍞 面包小店 · 暖心手账 (牛角包麦穗手账翼)</option>
+                            <option value="candy-game">🍬 糖果游戏 · 炫彩电玩 (像素按键彩虹翼)</option>
+                            <option value="win98-retro">💻 Win98 · 复古视窗 (经典视窗标题栏)</option>
+                            <option value="openlivechat">💬 仿油管气泡 · 纯享风 (YouTube 纯享气泡)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="blt-label">显示排列模式</label>
+                        <select class="blt-input" @bind="_cfg.DisplayMode">
+                            <option value="card">气泡卡片模式 (Card)</option>
+                            <option value="flat">紧凑通栏单行模式 (Flat)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:16px;margin-top:10px;align-items:center">
+                    <label class="blt-check"><input type="checkbox" @bind="_cfg.Enabled" /> 启用弹幕浮层</label>
+                    <label class="blt-check"><input type="checkbox" @bind="_cfg.ShowMedal" /> 显示粉丝勋章</label>
+                </div>
+            </div>
+        </div>
+
+        @* 常驻固定底框（看板）设置 *@
+        <div class="blt-panel" style="margin-bottom:12px">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="🔲" /> 弹幕常驻固定底框（看板容器）</span>
+                <span class="en">PERMANENT CANVAS BOX</span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                    <label class="blt-check" style="font-weight:600">
+                        <input type="checkbox" @bind="_cfg.ShowBox" /> 开启常驻固定底框（常驻显示弹幕区域，不会随弹幕消失）
+                    </label>
+                    <span style="font-size:12px;color:var(--ink-3)">适合在直播间标定弹幕机固定区域</span>
+                </div>
+
+                @if (_cfg.ShowBox)
+                {
+                    @* 快捷预设尺寸 *@
+                    <div style="margin-bottom:12px;padding:8px 10px;background:var(--bg-2);border-radius:6px;border:1px solid var(--line)">
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                            <span style="font-size:11px;color:var(--ink-2);font-weight:600">快捷预设尺寸：</span>
+                            <button class="blt-btn subtle" style="padding:2px 8px;font-size:11px" @onclick="() => SetBoxPreset(320, 450)">小巧精致 (320 × 450)</button>
+                            <button class="blt-btn subtle" style="padding:2px 8px;font-size:11px" @onclick="() => SetBoxPreset(380, 520)">经典标准 (380 × 520)</button>
+                            <button class="blt-btn subtle" style="padding:2px 8px;font-size:11px" @onclick="() => SetBoxPreset(450, 650)">宽屏大版 (450 × 650)</button>
+                            <button class="blt-btn subtle" style="padding:2px 8px;font-size:11px" @onclick="() => SetBoxPreset(380, 780)">瘦长通顶 (380 × 780)</button>
+                        </div>
+                    </div>
+
+                    @* 底框尺寸（宽与高） *@
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                        <div>
+                            <div style="display:flex;justify-content:space-between">
+                                <label class="blt-label">底框宽度 (@_cfg.BoxWidth px)</label>
+                                <span style="font-size:11px;color:var(--ink-3)">推荐 320~480</span>
+                            </div>
+                            <input type="range" min="200" max="800" step="10" @bind="_cfg.BoxWidth" @bind:event="oninput" style="width:100%" />
+                        </div>
+                        <div>
+                            <div style="display:flex;justify-content:space-between">
+                                <label class="blt-label">底框高度 (@_cfg.BoxHeight px)</label>
+                                <span style="font-size:11px;color:var(--ink-3)">推荐 400~800</span>
+                            </div>
+                            <input type="range" min="200" max="1000" step="10" @bind="_cfg.BoxHeight" @bind:event="oninput" style="width:100%" />
+                        </div>
+                    </div>
+
+                    @* 底框色彩与透明度 *@
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                        <div>
+                            <label class="blt-label">底框背景颜色</label>
+                            <div style="display:flex;gap:6px;align-items:center">
+                                <input type="color" @bind="_cfg.BoxBgColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                <input class="blt-input mono" @bind="_cfg.BoxBgColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="blt-label">底框背景透明度 (@_cfg.BoxBgOpacity%)</label>
+                            <input type="range" min="0" max="100" step="5" @bind="_cfg.BoxBgOpacity" @bind:event="oninput" style="width:100%" />
+                        </div>
+                    </div>
+
+                    @* 底框圆角与内边距 *@
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div>
+                            <label class="blt-label">底框圆角 (@_cfg.BoxRadius px)</label>
+                            <input type="range" min="0" max="36" step="1" @bind="_cfg.BoxRadius" @bind:event="oninput" style="width:100%" />
+                        </div>
+                        <div>
+                            <label class="blt-label">底框内边距 (@_cfg.BoxPadding px)</label>
+                            <input type="range" min="4" max="32" step="2" @bind="_cfg.BoxPadding" @bind:event="oninput" style="width:100%" />
+                        </div>
+                    </div>
+
+                    @* 底框边框设置 *@
+                    <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+                            <label class="blt-check"><input type="checkbox" @bind="_cfg.ShowBoxBorder" /> 开启底框外边框</label>
+                        </div>
+                        @if (_cfg.ShowBoxBorder)
+                        {
+                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                                <div>
+                                    <label class="blt-label">边框颜色</label>
+                                    <div style="display:flex;gap:6px;align-items:center">
+                                        <input type="color" @bind="_cfg.BoxBorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                        <input class="blt-input mono" @bind="_cfg.BoxBorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="blt-label">边框透明度 (@_cfg.BoxBorderOpacity%)</label>
+                                    <input type="range" min="0" max="100" step="5" @bind="_cfg.BoxBorderOpacity" @bind:event="oninput" style="width:100%" />
+                                </div>
+                                <div>
+                                    <label class="blt-label">边框粗细 (@_cfg.BoxBorderWidth px)</label>
+                                    <input type="range" min="1" max="8" step="1" @bind="_cfg.BoxBorderWidth" @bind:event="oninput" style="width:100%" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* 昵称设置 *@
+        <div class="blt-panel" style="margin-bottom:12px">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="👤" /> 昵称文字样式</span>
+                <span class="en">NICKNAME</span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div>
+                        <label class="blt-label">昵称字体</label>
+                        <select class="blt-input" @bind="_cfg.NicknameFont">
+                            <option value="system-ui">系统默认无衬线字体</option>
+                            <option value="Microsoft YaHei">微软雅黑</option>
+                            <option value="SimHei">黑体</option>
+                            <option value="KaiTi">楷体</option>
+                            <option value="Consolas">等宽代码体 (Consolas)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="blt-label">昵称字号大小 (@_cfg.NicknameSize px)</label>
+                        <input type="range" min="12" max="32" step="1" @bind="_cfg.NicknameSize" @bind:event="oninput" style="width:100%" />
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;align-items:center">
+                    <div>
+                        <label class="blt-label">昵称颜色</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="color" @bind="_cfg.NicknameColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                            <input class="blt-input mono" @bind="_cfg.NicknameColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">昵称透明度 (@_cfg.NicknameOpacity%)</label>
+                        <input type="range" min="0" max="100" step="5" @bind="_cfg.NicknameOpacity" @bind:event="oninput" style="width:100%" />
+                    </div>
+                    <div style="padding-top:14px">
+                        <label class="blt-check"><input type="checkbox" @bind="_cfg.NicknameBold" /> 昵称加粗显示</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* 弹幕设置 *@
+        <div class="blt-panel" style="margin-bottom:12px">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="💬" /> 弹幕文字样式</span>
+                <span class="en">DANMU CONTENT</span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div>
+                        <label class="blt-label">弹幕字体</label>
+                        <select class="blt-input" @bind="_cfg.DanmuFont">
+                            <option value="system-ui">系统默认无衬线字体</option>
+                            <option value="Microsoft YaHei">微软雅黑</option>
+                            <option value="SimHei">黑体</option>
+                            <option value="KaiTi">楷体</option>
+                            <option value="Consolas">等宽代码体 (Consolas)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="blt-label">弹幕字号大小 (@_cfg.DanmuSize px)</label>
+                        <input type="range" min="12" max="36" step="1" @bind="_cfg.DanmuSize" @bind:event="oninput" style="width:100%" />
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+                    <div>
+                        <label class="blt-label">弹幕颜色</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="color" @bind="_cfg.DanmuColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                            <input class="blt-input mono" @bind="_cfg.DanmuColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">弹幕透明度 (@_cfg.DanmuOpacity%)</label>
+                        <input type="range" min="0" max="100" step="5" @bind="_cfg.DanmuOpacity" @bind:event="oninput" style="width:100%" />
+                    </div>
+                    <div>
+                        <label class="blt-label">描边与阴影</label>
+                        <select class="blt-input" @bind="_cfg.DanmuStroke">
+                            <option value="none">无阴影描边</option>
+                            <option value="shadow">柔和抗疲劳阴影</option>
+                            <option value="heavy-shadow">清晰重阴影</option>
+                            <option value="outline">硬朗黑色描边</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* 背景与边框设置 *@
+        <div class="blt-panel" style="margin-bottom:12px">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="🔲" /> 背景与边框</span>
+                <span class="en">BACKGROUND & BORDER</span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                    <div>
+                        <label class="blt-label">背景底色</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="color" @bind="_cfg.BgColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                            <input class="blt-input mono" @bind="_cfg.BgColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">背景透明度 (@_cfg.BgOpacity%)</label>
+                        <input type="range" min="0" max="100" step="5" @bind="_cfg.BgOpacity" @bind:event="oninput" style="width:100%" />
+                    </div>
+                    <div>
+                        <label class="blt-label">卡片圆角 (@_cfg.CardRadius px)</label>
+                        <input type="range" min="0" max="28" step="1" @bind="_cfg.CardRadius" @bind:event="oninput" style="width:100%" />
+                    </div>
+                </div>
+
+                <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+                        <label class="blt-check"><input type="checkbox" @bind="_cfg.ShowBorder" /> 开启卡片外边框</label>
+                    </div>
+                    @if (_cfg.ShowBorder)
+                    {
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                            <div>
+                                <label class="blt-label">边框颜色</label>
+                                <div style="display:flex;gap:6px;align-items:center">
+                                    <input type="color" @bind="_cfg.BorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                    <input class="blt-input mono" @bind="_cfg.BorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="blt-label">边框透明度 (@_cfg.BorderOpacity%)</label>
+                                <input type="range" min="0" max="100" step="5" @bind="_cfg.BorderOpacity" @bind:event="oninput" style="width:100%" />
+                            </div>
+                            <div>
+                                <label class="blt-label">边框粗细 (@_cfg.BorderWidth px)</label>
+                                <input type="range" min="1" max="6" step="1" @bind="_cfg.BorderWidth" @bind:event="oninput" style="width:100%" />
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* ── 大航海专属个性化样式（舰长 / 提督 / 总督）· 可折叠 ── *@
+        <div class="blt-panel" style="margin-bottom:12px;border:1px solid @(_expandGuardSettings ? "var(--brand)" : "var(--line)")">
+            <div class="blt-panel-head" style="user-select:none;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span class="t"><BltIcon Emoji="💎" /> 大航海专属个性化样式（舰长 / 提督 / 总督）</span>
+                    <span class="en">GUARD STYLES</span>
+                </div>
+                
+                <div style="display:flex;align-items:center;gap:10px">
+                    @* 折叠状态下的常驻总开关（用户直接点击切换，打开时显示不同边框，关闭时显示全局统一边框） *@
+                    <label class="blt-check" style="margin:0;font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px" @onclick:stopPropagation="true">
+                        <input type="checkbox" @bind="_cfg.CustomGuardStyle" /> 启用专属样式
+                    </label>
+
+                    @if (_cfg.CustomGuardStyle)
+                    {
+                        <span class="blt-pill" style="font-size:10px;background:rgba(186,136,235,0.25);color:#ba88eb;border:1px solid rgba(186,136,235,0.5)">
+                            已启用专属边框与色彩
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="blt-pill" style="font-size:10px;background:rgba(255,255,255,0.06);color:var(--ink-3);border:1px solid var(--line)">
+                            已关闭 · 全局统一边框
+                        </span>
+                    }
+
+                    <button type="button" class="blt-btn subtle" style="padding:2px 8px;font-size:12px;color:var(--brand);font-weight:600" @onclick="() => _expandGuardSettings = !_expandGuardSettings">
+                        @(_expandGuardSettings ? "收起配置 ▲" : "展开配置 ▼")
+                    </button>
+                </div>
+            </div>
+
+            @if (_expandGuardSettings)
+            {
+                <div class="blt-panel-body">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:8px 12px;background:@(_cfg.CustomGuardStyle ? "rgba(186,136,235,0.08)" : "rgba(255,255,255,0.03)");border:1px solid @(_cfg.CustomGuardStyle ? "rgba(186,136,235,0.3)" : "var(--line)");border-radius:6px">
+                        <div style="font-size:12px">
+                            @if (_cfg.CustomGuardStyle)
+                            {
+                                <span style="color:#ba88eb;font-weight:600">🟢 大航海专属样式已启用：</span>
+                                <span style="color:var(--ink-2)">总督、提督、舰长弹幕将展示下方配置的专属独立边框色、背景色与昵称高亮色。</span>
+                            }
+                            else
+                            {
+                                <span style="color:var(--ink-3);font-weight:600">⚪ 大航海专属样式已关闭：</span>
+                                <span style="color:var(--ink-2)">所有弹幕的边框与背景将与普通弹幕保持一致（统一边框）。您仍可在下方预先配置各项色彩，开启后即刻生效。</span>
+                            }
+                        </div>
+                        <button type="button" class="blt-btn subtle" style="padding:3px 10px;font-size:11px;flex-shrink:0;margin-left:12px" @onclick="ResetGuardColors">恢复大航海默认配色</button>
+                    </div>
+
+                    @* 无论总开关开启还是关闭，下方 3 个大航海级别配置全部可见并可调节！绝不再出现空白！ *@
+                    @* 1. 总督 (Guard Level 1) *@
+                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,77,109,0.35);border-radius:8px;padding:12px;margin-bottom:10px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span style="font-size:11px;padding:2px 8px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff">👑 总督 (Governor)</span>
+                                <span style="font-size:11px;color:var(--ink-3)">最高荣誉大航海身份 · 专属尊享配色</span>
+                            </div>
+                            @if (!_cfg.CustomGuardStyle)
+                            {
+                                <span style="font-size:11px;color:var(--ink-3)">（总开关关闭中，开启后生效）</span>
+                            }
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                            <div>
+                                <label class="blt-label">卡片背景色</label>
+                                <div style="display:flex;gap:6px;align-items:center">
+                                    <input type="color" @bind="_cfg.GovernorBgColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                    <input class="blt-input mono" @bind="_cfg.GovernorBgColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="blt-label">背景透明度 (@_cfg.GovernorBgOpacity%)</label>
+                                <input type="range" min="0" max="100" step="5" @bind="_cfg.GovernorBgOpacity" @bind:event="oninput" style="width:100%" />
+                            </div>
+                            <div>
+                                <label class="blt-label">昵称/高亮强调色</label>
+                                <div style="display:flex;gap:6px;align-items:center">
+                                    <input type="color" @bind="_cfg.GovernorTextColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                    <input class="blt-input mono" @bind="_cfg.GovernorTextColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+                            <div>
+                                <label class="blt-label">边框颜色</label>
+                                <div style="display:flex;gap:6px;align-items:center">
+                                    <input type="color" @bind="_cfg.GovernorBorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                    <input class="blt-input mono" @bind="_cfg.GovernorBorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="blt-label">边框透明度 (@_cfg.GovernorBorderOpacity%)</label>
+                                <input type="range" min="0" max="100" step="5" @bind="_cfg.GovernorBorderOpacity" @bind:event="oninput" style="width:100%" />
+                            </div>
+                        </div>
+                    </div>
+
+                    @* 2. 提督 (Guard Level 2) *@
+                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(199,125,255,0.35);border-radius:8px;padding:12px;margin-bottom:10px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span style="font-size:11px;padding:2px 8px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#9d4edd,#7b2cbf);color:#fff">🔱 提督 (Admiral)</span>
+                                <span style="font-size:11px;color:var(--ink-3)">高阶大航海荣誉身份 · 专属华丽配色</span>
+                            </div>
+                            @if (!_cfg.CustomGuardStyle)
+                            {
+                                <span style="font-size:11px;color:var(--ink-3)">（总开关关闭中，开启后生效）</span>
+                            }
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                            <div>
+                                <label class="blt-label">卡片背景色</label>
+                                <div style="display:flex;gap:6px;align-items:center">
+                                    <input type="color" @bind="_cfg.AdmiralBgColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                    <input class="blt-input mono" @bind="_cfg.AdmiralBgColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="blt-label">背景透明度 (@_cfg.AdmiralBgOpacity%)</label>
+                                <input type="range" min="0" max="100" step="5" @bind="_cfg.AdmiralBgOpacity" @bind:event="oninput" style="width:100%" />
+                            </div>
+                            <div>
+                                <label class="blt-label">昵称/高亮强调色</label>
+                                <div style="display:flex;gap:6px;align-items:center">
+                                    <input type="color" @bind="_cfg.AdmiralTextColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                    <input class="blt-input mono" @bind="_cfg.AdmiralTextColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+                            <div>
+                                <label class="blt-label">边框颜色</label>
+                                <div style="display:flex;gap:6px;align-items:center">
+                                    <input type="color" @bind="_cfg.AdmiralBorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                    <input class="blt-input mono" @bind="_cfg.AdmiralBorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="blt-label">边框透明度 (@_cfg.AdmiralBorderOpacity%)</label>
+                                <input type="range" min="0" max="100" step="5" @bind="_cfg.AdmiralBorderOpacity" @bind:event="oninput" style="width:100%" />
+                            </div>
+                        </div>
+                    </div>
+
+                    @* 3. 舰长 (Guard Level 3) *@
+                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(78,168,222,0.35);border-radius:8px;padding:12px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span style="font-size:11px;padding:2px 8px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff">⚓ 舰长 (Captain)</span>
+                                <span style="font-size:11px;color:var(--ink-3)">经典大航海中坚力量 · 专属深蓝配色</span>
+                            </div>
+                            @if (!_cfg.CustomGuardStyle)
+                            {
+                                <span style="font-size:11px;color:var(--ink-3)">（总开关关闭中，开启后生效）</span>
+                            }
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                            <div>
+                                <label class="blt-label">卡片背景色</label>
+                                <div style="display:flex;gap:6px;align-items:center">
+                                    <input type="color" @bind="_cfg.CaptainBgColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                    <input class="blt-input mono" @bind="_cfg.CaptainBgColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="blt-label">背景透明度 (@_cfg.CaptainBgOpacity%)</label>
+                                <input type="range" min="0" max="100" step="5" @bind="_cfg.CaptainBgOpacity" @bind:event="oninput" style="width:100%" />
+                            </div>
+                            <div>
+                                <label class="blt-label">昵称/高亮强调色</label>
+                                <div style="display:flex;gap:6px;align-items:center">
+                                    <input type="color" @bind="_cfg.CaptainTextColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                    <input class="blt-input mono" @bind="_cfg.CaptainTextColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+                            <div>
+                                <label class="blt-label">边框颜色</label>
+                                <div style="display:flex;gap:6px;align-items:center">
+                                    <input type="color" @bind="_cfg.CaptainBorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                    <input class="blt-input mono" @bind="_cfg.CaptainBorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="blt-label">边框透明度 (@_cfg.CaptainBorderOpacity%)</label>
+                                <input type="range" min="0" max="100" step="5" @bind="_cfg.CaptainBorderOpacity" @bind:event="oninput" style="width:100%" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* 头像设置 *@
+        <div class="blt-panel" style="margin-bottom:12px">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="🖼" /> 观众头像设置</span>
+                <span class="en">AVATAR</span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+                    <label class="blt-check"><input type="checkbox" @bind="_cfg.ShowAvatar" /> 显示观众头像（取消勾选则一键隐藏头像，仅保留文字）</label>
+                </div>
+                @if (_cfg.ShowAvatar)
+                {
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                        <div>
+                            <label class="blt-label">头像外形</label>
+                            <select class="blt-input" @bind="_cfg.AvatarShape">
+                                <option value="circle">圆形 (Circle)</option>
+                                <option value="rounded">圆角矩形 (Rounded)</option>
+                                <option value="square">正方形 (Square)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="blt-label">头像大小 (@_cfg.AvatarSize px)</label>
+                            <input type="range" min="20" max="60" step="2" @bind="_cfg.AvatarSize" @bind:event="oninput" style="width:100%" />
+                        </div>
+                    </div>
+
+                    <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+                            <label class="blt-check"><input type="checkbox" @bind="_cfg.ShowAvatarBorder" /> 开启头像外边框</label>
+                        </div>
+                        @if (_cfg.ShowAvatarBorder)
+                        {
+                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                                <div>
+                                    <label class="blt-label">头像边框颜色</label>
+                                    <div style="display:flex;gap:6px;align-items:center">
+                                        <input type="color" @bind="_cfg.AvatarBorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
+                                        <input class="blt-input mono" @bind="_cfg.AvatarBorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="blt-label">边框透明度 (@_cfg.AvatarBorderOpacity%)</label>
+                                    <input type="range" min="0" max="100" step="5" @bind="_cfg.AvatarBorderOpacity" @bind:event="oninput" style="width:100%" />
+                                </div>
+                                <div>
+                                    <label class="blt-label">边框粗细 (@_cfg.AvatarBorderWidth px)</label>
+                                    <input type="range" min="1" max="5" step="1" @bind="_cfg.AvatarBorderWidth" @bind:event="oninput" style="width:100%" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* 动效与停留时间 *@
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="⏱" /> 动效与展示规则</span>
+                <span class="en">ANIMATION & LIFETIME</span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+                    <div>
+                        <label class="blt-label">入场动画</label>
+                        <select class="blt-input" @bind="_cfg.Animation">
+                            <option value="slide">底部平滑滑入 (Slide Up)</option>
+                            <option value="fade">原地平滑淡入 (Fade In)</option>
+                            <option value="bounce">灵动弹跳入场 (Bounce In)</option>
+                            <option value="none">秒出无动效 (Instant)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="blt-label">同屏最大弹幕条数 (@_cfg.MaxCount 条)</label>
+                        <input type="range" min="3" max="30" step="1" @bind="_cfg.MaxCount" @bind:event="oninput" style="width:100%" />
+                    </div>
+                </div>
+
+                @* 独立突出的持续时间控件 *@
+                <div style="padding:10px;background:rgba(255,255,255,0.03);border:1px solid var(--line);border-radius:8px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                        <label class="blt-label" style="margin:0;font-weight:600">
+                            ⏱ 弹幕显示持续时间（每条弹幕停留多久）
+                        </label>
+                        <span class="blt-badge" style="font-size:11px;font-weight:600;color:var(--brand)">
+                            @(_cfg.StayDuration == 0 ? "常驻不消失" : $"{_cfg.StayDuration} 秒")
+                        </span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+                        <input type="range" min="0" max="60" step="1" @bind="_cfg.StayDuration" @bind:event="oninput" style="flex:1" />
+                        <div style="display:flex;align-items:center;gap:4px;width:90px">
+                            <input type="number" min="0" max="120" class="blt-input mono" @bind="_cfg.StayDuration" style="text-align:center;padding:2px 4px" />
+                            <span style="font-size:11px;color:var(--ink-3)">秒</span>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                        <span style="font-size:11px;color:var(--ink-3)">快捷预设：</span>
+                        <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => _cfg.StayDuration = 5">5秒</button>
+                        <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => _cfg.StayDuration = 10">10秒</button>
+                        <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => _cfg.StayDuration = 15">15秒 (推荐)</button>
+                        <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => _cfg.StayDuration = 30">30秒</button>
+                        <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => _cfg.StayDuration = 0">常驻不消失 (0秒)</button>
+                    </div>
+                    <div style="font-size:11px;color:var(--ink-3);margin-top:6px">
+                        💡 提示：设置为 0 秒时弹幕将常驻显示，不自动淡出移除，直到超出同屏最大条数被新弹幕顶替。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── 右侧：1:1 动态实时交互预览画布 ── *@
+    <div>
+        <div class="blt-panel" style="position:sticky;top:10px">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="👁" /> 1:1 动态实时预览画布</span>
+                <span class="en">LIVE PREVIEW</span>
+                <span class="right">
+                    <span style="font-size:11px;color:var(--ink-3)">底衬模拟：</span>
+                    <select class="blt-input" style="width:120px;padding:1px 6px;font-size:11px" @bind="_previewBg">
+                        <option value="dark">极夜深黑</option>
+                        <option value="checker">透明棋盘格</option>
+                        <option value="game">模拟游戏画面</option>
+                    </select>
+                </span>
+            </div>
+            <div class="blt-panel-body" style="padding:0;overflow:hidden">
+                <div style="@PreviewContainerStyle()">
+                    <div style="@PreviewStageBoxStyle()">
+                        @if (_cfg.ShowBox)
+                        {
+                            <div style="font-size:10px;font-family:monospace;color:rgba(255,255,255,0.45);text-align:right;margin-bottom:6px;user-select:none">
+                                📌 常驻固定底框 · @_cfg.BoxWidth × @_cfg.BoxHeight px
+                            </div>
+                        }
+                        <div style="@PreviewStageStyle()">
+                            @* 模拟弹幕 1：普通粉丝 *@
+                            <div style="@ItemCardStyle(0)">
+                                @if (IsWin98Theme)
+                                {
+                                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(0);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
+                                        <div style="display:flex;align-items:center;gap:4px">
+                                            <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
+                                            <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(0)</span>
+                                        </div>
+                                        <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
+                                    </div>
+                                }
+                                @if (HasThemeOrnaments)
+                                {
+                                    <div style="position:absolute;right:4px;top:0;bottom:0;width:140px;background:url('@ThemePatternUrl(0)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.85;z-index:0"></div>
+                                }
+                                <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
+                                    @if (_cfg.ShowAvatar)
+                                    {
+                                        <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
+                                            <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                            @if (HasThemeOrnaments)
+                                            {
+                                                <img src="@ThemeAvatarFrameUrl(0)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
+                                            }
+                                        </div>
+                                    }
+                                    @if (HasThemeOrnaments)
+                                    {
+                                        <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                    }
+                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
+                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                            @if (_cfg.ShowMedal)
+                                            {
+                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.12</span>
+                                            }
+                                            @if (HasThemeOrnaments)
+                                            {
+                                                <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(0)">
+                                                    <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
+                                                    <span style="@UnameStyle(0)">喵喵小布丁</span>
+                                                    <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span style="@UnameStyle(0)">喵喵小布丁</span>
+                                            }
+                                        </div>
+                                        <div style="@DanmuContentBoxStyle(0)">
+                                            <div style="@DanmuTextStyle()">主播下午好呀！今天播什么好玩的游戏？</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @* 模拟弹幕 2：舰长专享 *@
+                            <div style="@ItemCardStyle(3)">
+                                @if (IsWin98Theme)
+                                {
+                                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(3);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
+                                        <div style="display:flex;align-items:center;gap:4px">
+                                            <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
+                                            <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(3)</span>
+                                        </div>
+                                        <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
+                                    </div>
+                                }
+                                @if (HasThemeOrnaments)
+                                {
+                                    <div style="position:absolute;right:4px;top:0;bottom:0;width:150px;background:url('@ThemePatternUrl(3)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.9;z-index:0"></div>
+                                    <img src="@ThemeWingLeftUrl()" style="position:absolute;left:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-l" />
+                                    <img src="@ThemeWingRightUrl()" style="position:absolute;right:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-r" />
+                                }
+                                <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
+                                    @if (_cfg.ShowAvatar)
+                                    {
+                                        <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
+                                            <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                            @if (HasThemeOrnaments)
+                                            {
+                                                <img src="@ThemeAvatarFrameUrl(3)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
+                                            }
+                                        </div>
+                                    }
+                                    @if (HasThemeOrnaments)
+                                    {
+                                        <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                    }
+                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
+                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                            <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
+                                            @if (_cfg.ShowMedal)
+                                            {
+                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.24</span>
+                                            }
+                                            @if (HasThemeOrnaments)
+                                            {
+                                                <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(3)">
+                                                    <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                    <span style="@UnameStyle(3)">星空守望者</span>
+                                                    <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span style="@UnameStyle(3)">星空守望者</span>
+                                            }
+                                        </div>
+                                        <div style="@DanmuContentBoxStyle(3)">
+                                            <div style="@DanmuTextStyle()">打卡上舰！主播继续加油，刚刚那波操作太帅了！666666</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @* 模拟弹幕 3：总督专享 *@
+                            <div style="@ItemCardStyle(1)">
+                                @if (IsWin98Theme)
+                                {
+                                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(1);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
+                                        <div style="display:flex;align-items:center;gap:4px">
+                                            <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
+                                            <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(1)</span>
+                                        </div>
+                                        <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
+                                    </div>
+                                }
+                                @if (HasThemeOrnaments)
+                                {
+                                    <div style="position:absolute;right:4px;top:0;bottom:0;width:150px;background:url('@ThemePatternUrl(1)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.9;z-index:0"></div>
+                                    <img src="@ThemeWingLeftUrl()" style="position:absolute;left:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-l" />
+                                    <img src="@ThemeWingRightUrl()" style="position:absolute;right:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-r" />
+                                }
+                                <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
+                                    @if (_cfg.ShowAvatar)
+                                    {
+                                        <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
+                                            <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                            @if (HasThemeOrnaments)
+                                            {
+                                                <img src="@ThemeAvatarFrameUrl(1)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
+                                            }
+                                        </div>
+                                    }
+                                    @if (HasThemeOrnaments)
+                                    {
+                                        <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                    }
+                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
+                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                            <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;border:1px solid rgba(255,255,255,0.4)">👑 总督</span>
+                                            @if (_cfg.ShowMedal)
+                                            {
+                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(255,77,109,0.25);color:#ff758f;border:1px solid rgba(255,77,109,0.5)">Lv.36</span>
+                                            }
+                                            @if (HasThemeOrnaments)
+                                            {
+                                                <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(1)">
+                                                    <img src="@ThemeNameSideUrl(1)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                    <span style="@UnameStyle(1)">幻夜幽灵总督</span>
+                                                    <img src="@ThemeNameSideUrl(1)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span style="@UnameStyle(1)">幻夜幽灵总督</span>
+                                            }
+                                        </div>
+                                        <div style="@DanmuContentBoxStyle(1)">
+                                            <div style="@DanmuTextStyle()">总督降临！全场排面拉满，这专属特效太华丽了！👑✨</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @* 模拟弹幕 4：B站表情富文本弹幕 *@
+                            <div style="@ItemCardStyle(0)">
+                                @if (IsWin98Theme)
+                                {
+                                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(0);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
+                                        <div style="display:flex;align-items:center;gap:4px">
+                                            <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
+                                            <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(0)</span>
+                                        </div>
+                                        <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
+                                    </div>
+                                }
+                                @if (HasThemeOrnaments)
+                                {
+                                    <div style="position:absolute;right:4px;top:0;bottom:0;width:140px;background:url('@ThemePatternUrl(0)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.85;z-index:0"></div>
+                                }
+                                <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
+                                    @if (_cfg.ShowAvatar)
+                                    {
+                                        <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
+                                            <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                            @if (HasThemeOrnaments)
+                                            {
+                                                <img src="@ThemeAvatarFrameUrl(0)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
+                                            }
+                                        </div>
+                                    }
+                                    @if (HasThemeOrnaments)
+                                    {
+                                        <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                    }
+                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
+                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                            @if (_cfg.ShowMedal)
+                                            {
+                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.18</span>
+                                            }
+                                            @if (HasThemeOrnaments)
+                                            {
+                                                <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(0)">
+                                                    <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
+                                                    <span style="@UnameStyle(0)">みこAyayaya</span>
+                                                    <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span style="@UnameStyle(0)">みこAyayaya</span>
+                                            }
+                                        </div>
+                                        <div style="@DanmuContentBoxStyle(0)">
+                                            <div style="@DanmuTextStyle()">
+                                                主播这波太强了 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/82d3858c422c5e5f5f4b5d259c47e0ee093f416c.png" alt="[doge]" title="[doge]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" /> 必须给个大大的 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/5070058b75e11f10cfec9524ecfb7aee07fa4830.png" alt="[点赞]" title="[点赞]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" />！✨
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding:10px 14px;background:var(--bg-2);border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink-3)">
+                    <span>OBS 浏览器源尺寸：宽 @(_cfg.BoxWidth + 32) × 高 @(_cfg.BoxHeight + 32)（建议）</span>
+                    <button class="blt-btn subtle" style="padding:2px 8px" @onclick="SendTestDanmu">立即触发动态入场</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DanmuConfig _cfg = new();
+    private string _note = "";
+    private bool _noteOk = true;
+    private string _previewBg = "dark";
+    private bool _expandGuardSettings = false;
+
+    protected override void OnInitialized()
+    {
+        LoadConfigFromStorage();
+    }
+
+    private string OverlayUrl() => $"http://127.0.0.1:{Api.Port}/legacy/danmu/overlay.html";
+
+    private void LoadConfigFromStorage()
+    {
+        var node = Config.GetNode("danmuOverlay");
+        if (node is JsonObject jo)
+        {
+            try
+            {
+                _cfg = JsonSerializer.Deserialize<DanmuConfig>(jo.ToJsonString(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new DanmuConfig();
+            }
+            catch { _cfg = new DanmuConfig(); }
+        }
+        else
+        {
+            _cfg = new DanmuConfig();
+        }
+    }
+
+    private void OnThemeSelectChanged(ChangeEventArgs e)
+    {
+        _cfg.Theme = e.Value?.ToString() ?? "classic-glass";
+        ApplyThemeDefaults(_cfg.Theme);
+    }
+
+    private void ResetCurrentThemeDefaults()
+    {
+        ApplyThemeDefaults(_cfg.Theme);
+        Notify("已恢复当前皮肤的默认预设参数", true);
+    }
+
+    private void SetBoxPreset(int width, int height)
+    {
+        _cfg.BoxWidth = width;
+        _cfg.BoxHeight = height;
+    }
+
+    private void ApplyThemeDefaults(string theme)
+    {
+        switch (theme)
+        {
+            case "frost-palace":
+                _cfg.BgColor = "#0a1a30";
+                _cfg.BgOpacity = 92;
+                _cfg.BorderColor = "#00aeef";
+                _cfg.BorderOpacity = 80;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 12;
+                _cfg.NicknameColor = "#c9ebfc";
+                _cfg.DanmuColor = "#ffffff";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#00f0ff";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#061020";
+                _cfg.BoxBgOpacity = 78;
+                _cfg.BoxRadius = 12;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#00aeef";
+                _cfg.BoxBorderOpacity = 75;
+                _cfg.BoxBorderWidth = 1;
+                break;
+            case "violet-cyber":
+                _cfg.BgColor = "#140a24";
+                _cfg.BgOpacity = 94;
+                _cfg.BorderColor = "#a540f7";
+                _cfg.BorderOpacity = 80;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 10;
+                _cfg.NicknameColor = "#ff44fe";
+                _cfg.DanmuColor = "#ffffff";
+                _cfg.DanmuStroke = "heavy-shadow";
+                _cfg.AvatarShape = "square";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#a540f7";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#0e0818";
+                _cfg.BoxBgOpacity = 80;
+                _cfg.BoxRadius = 10;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#a540f7";
+                _cfg.BoxBorderOpacity = 75;
+                _cfg.BoxBorderWidth = 1;
+                break;
+            case "titan-tactical":
+                _cfg.BgColor = "#181a1e";
+                _cfg.BgOpacity = 94;
+                _cfg.BorderColor = "#4a5058";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 8;
+                _cfg.NicknameColor = "#ffb703";
+                _cfg.DanmuColor = "#e5e7eb";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.AvatarShape = "rounded";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ff9f1c";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#121417";
+                _cfg.BoxBgOpacity = 85;
+                _cfg.BoxRadius = 8;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#555a60";
+                _cfg.BoxBorderOpacity = 80;
+                _cfg.BoxBorderWidth = 1;
+                break;
+            case "cyber-neon":
+                _cfg.BgColor = "#0a0c18";
+                _cfg.BgOpacity = 85;
+                _cfg.BorderColor = "#00f0ff";
+                _cfg.BorderOpacity = 65;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 4;
+                _cfg.NicknameColor = "#00f0ff";
+                _cfg.DanmuColor = "#ffffff";
+                _cfg.DanmuStroke = "heavy-shadow";
+                _cfg.AvatarShape = "square";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ff007f";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 400;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#0b0e17";
+                _cfg.BoxBgOpacity = 75;
+                _cfg.BoxRadius = 8;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#00f0ff";
+                _cfg.BoxBorderOpacity = 70;
+                _cfg.BoxBorderWidth = 2;
+                break;
+            case "macaron-cute":
+                _cfg.BgColor = "#ffebee";
+                _cfg.BgOpacity = 90;
+                _cfg.BorderColor = "#ff80ab";
+                _cfg.BorderOpacity = 70;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 18;
+                _cfg.NicknameColor = "#e91e63";
+                _cfg.DanmuColor = "#37474f";
+                _cfg.DanmuStroke = "none";
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ff80ab";
+                _cfg.AvatarBorderOpacity = 80;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "bounce";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 480;
+                _cfg.BoxBgColor = "#fff5f7";
+                _cfg.BoxBgOpacity = 80;
+                _cfg.BoxRadius = 18;
+                _cfg.BoxPadding = 14;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ff80ab";
+                _cfg.BoxBorderOpacity = 70;
+                _cfg.BoxBorderWidth = 2;
+                break;
+            case "obsidian-gold":
+                _cfg.BgColor = "#141418";
+                _cfg.BgOpacity = 92;
+                _cfg.BorderColor = "#d4af37";
+                _cfg.BorderOpacity = 50;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 8;
+                _cfg.NicknameColor = "#f5d77f";
+                _cfg.DanmuColor = "#f0ece1";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.AvatarShape = "rounded";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#d4af37";
+                _cfg.AvatarBorderOpacity = 65;
+                _cfg.AvatarBorderWidth = 1;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#0e0f12";
+                _cfg.BoxBgOpacity = 85;
+                _cfg.BoxRadius = 10;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#d4af37";
+                _cfg.BoxBorderOpacity = 60;
+                _cfg.BoxBorderWidth = 1;
+                break;
+            case "pixel-arcade":
+                _cfg.BgColor = "#101020";
+                _cfg.BgOpacity = 90;
+                _cfg.BorderColor = "#ffe600";
+                _cfg.BorderOpacity = 100;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 0;
+                _cfg.NicknameColor = "#00ffcc";
+                _cfg.DanmuColor = "#ffffff";
+                _cfg.DanmuStroke = "outline";
+                _cfg.AvatarShape = "square";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ff0055";
+                _cfg.AvatarBorderOpacity = 100;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "none";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 500;
+                _cfg.BoxBgColor = "#11111b";
+                _cfg.BoxBgOpacity = 90;
+                _cfg.BoxRadius = 0;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ff0055";
+                _cfg.BoxBorderOpacity = 100;
+                _cfg.BoxBorderWidth = 2;
+                break;
+            case "monvhuajia":
+                _cfg.BgColor = "#fbf9ff";
+                _cfg.BgOpacity = 88;
+                _cfg.BorderColor = "#d6c7eb";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 12;
+                _cfg.NicknameColor = "#557dd0";
+                _cfg.DanmuColor = "#3d3752";
+                _cfg.DanmuStroke = "none";
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#d4b8f0";
+                _cfg.AvatarBorderOpacity = 75;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#251e36";
+                _cfg.BoxBgOpacity = 50;
+                _cfg.BoxRadius = 14;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#c5b2e6";
+                _cfg.BoxBorderOpacity = 65;
+                _cfg.BoxBorderWidth = 1;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#fff0f5";
+                _cfg.GovernorBgOpacity = 95;
+                _cfg.GovernorBorderColor = "#ff708f";
+                _cfg.GovernorBorderOpacity = 90;
+                _cfg.GovernorTextColor = "#a81d45";
+                _cfg.AdmiralBgColor = "#f7efff";
+                _cfg.AdmiralBgOpacity = 92;
+                _cfg.AdmiralBorderColor = "#ba88eb";
+                _cfg.AdmiralBorderOpacity = 85;
+                _cfg.AdmiralTextColor = "#63279c";
+                _cfg.CaptainBgColor = "#f2f5ff";
+                _cfg.CaptainBgOpacity = 90;
+                _cfg.CaptainBorderColor = "#8ca6e8";
+                _cfg.CaptainBorderOpacity = 85;
+                _cfg.CaptainTextColor = "#274894";
+                break;
+            case "monvhuajia-night":
+                _cfg.BgColor = "#171324";
+                _cfg.BgOpacity = 90;
+                _cfg.BorderColor = "#9d74d1";
+                _cfg.BorderOpacity = 75;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 12;
+                _cfg.NicknameColor = "#acc7ff";
+                _cfg.DanmuColor = "#f0ebff";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#c7a4f5";
+                _cfg.AvatarBorderOpacity = 80;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#0f0b18";
+                _cfg.BoxBgOpacity = 75;
+                _cfg.BoxRadius = 14;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#7952ad";
+                _cfg.BoxBorderOpacity = 65;
+                _cfg.BoxBorderWidth = 1;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#3d0e1e";
+                _cfg.GovernorBgOpacity = 92;
+                _cfg.GovernorBorderColor = "#ff4d6d";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ff8fa3";
+                _cfg.AdmiralBgColor = "#260e3d";
+                _cfg.AdmiralBgOpacity = 90;
+                _cfg.AdmiralBorderColor = "#c77dff";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#e0aaff";
+                _cfg.CaptainBgColor = "#111f3d";
+                _cfg.CaptainBgOpacity = 88;
+                _cfg.CaptainBorderColor = "#4ea8de";
+                _cfg.CaptainBorderOpacity = 88;
+                _cfg.CaptainTextColor = "#90e0ef";
+                break;
+            case "candy-game":
+                _cfg.BgColor = "#e1f7fc";
+                _cfg.BgOpacity = 95;
+                _cfg.BorderColor = "#aee8f8";
+                _cfg.BorderOpacity = 90;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#00bae8";
+                _cfg.DanmuColor = "#10667e";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ffffff";
+                _cfg.AvatarBorderOpacity = 100;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "bounce";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#eaf8fc";
+                _cfg.BoxBgOpacity = 50;
+                _cfg.BoxRadius = 16;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#00bae8";
+                _cfg.BoxBorderOpacity = 65;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#ffdede";
+                _cfg.GovernorBgOpacity = 95;
+                _cfg.GovernorBorderColor = "#c03737";
+                _cfg.GovernorBorderOpacity = 90;
+                _cfg.GovernorTextColor = "#c03737";
+                _cfg.AdmiralBgColor = "#eedfff";
+                _cfg.AdmiralBgOpacity = 95;
+                _cfg.AdmiralBorderColor = "#724fc6";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#724fc6";
+                _cfg.CaptainBgColor = "#dce7ff";
+                _cfg.CaptainBgOpacity = 95;
+                _cfg.CaptainBorderColor = "#2658f6";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#2658f6";
+                break;
+            case "openlivechat":
+                _cfg.BgColor = "#18202c";
+                _cfg.BgOpacity = 88;
+                _cfg.BorderColor = "#6fd6dd";
+                _cfg.BorderOpacity = 45;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 16;
+                _cfg.NicknameColor = "#b4e5ea";
+                _cfg.DanmuColor = "#ffffff";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ffffff";
+                _cfg.AvatarBorderOpacity = 50;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 500;
+                _cfg.BoxBgColor = "#121620";
+                _cfg.BoxBgOpacity = 65;
+                _cfg.BoxRadius = 14;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#6fd6dd";
+                _cfg.BoxBorderOpacity = 40;
+                _cfg.BoxBorderWidth = 1;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#3a161c";
+                _cfg.GovernorBgOpacity = 92;
+                _cfg.GovernorBorderColor = "#eab4b8";
+                _cfg.GovernorBorderOpacity = 85;
+                _cfg.GovernorTextColor = "#eab4b8";
+                _cfg.AdmiralBgColor = "#261a38";
+                _cfg.AdmiralBgOpacity = 92;
+                _cfg.AdmiralBorderColor = "#c2b4ea";
+                _cfg.AdmiralBorderOpacity = 85;
+                _cfg.AdmiralTextColor = "#c2b4ea";
+                _cfg.CaptainBgColor = "#142438";
+                _cfg.CaptainBgOpacity = 92;
+                _cfg.CaptainBorderColor = "#b4d2ea";
+                _cfg.CaptainBorderOpacity = 85;
+                _cfg.CaptainTextColor = "#b4d2ea";
+                break;
+            case "win98-retro":
+                _cfg.BgColor = "#c0c0c0";
+                _cfg.BgOpacity = 100;
+                _cfg.BorderColor = "#ffffff";
+                _cfg.BorderOpacity = 100;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 0;
+                _cfg.NicknameColor = "#000080";
+                _cfg.DanmuColor = "#000000";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "square";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#808080";
+                _cfg.AvatarBorderOpacity = 100;
+                _cfg.AvatarBorderWidth = 1;
+                _cfg.Animation = "none";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 500;
+                _cfg.BoxBgColor = "#008080";
+                _cfg.BoxBgOpacity = 55;
+                _cfg.BoxRadius = 0;
+                _cfg.BoxPadding = 10;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ffffff";
+                _cfg.BoxBorderOpacity = 100;
+                _cfg.BoxBorderWidth = 3;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#c0c0c0";
+                _cfg.GovernorBgOpacity = 100;
+                _cfg.GovernorBorderColor = "#800000";
+                _cfg.GovernorBorderOpacity = 100;
+                _cfg.GovernorTextColor = "#800000";
+                _cfg.AdmiralBgColor = "#c0c0c0";
+                _cfg.AdmiralBgOpacity = 100;
+                _cfg.AdmiralBorderColor = "#4b0082";
+                _cfg.AdmiralBorderOpacity = 100;
+                _cfg.AdmiralTextColor = "#4b0082";
+                _cfg.CaptainBgColor = "#c0c0c0";
+                _cfg.CaptainBgOpacity = 100;
+                _cfg.CaptainBorderColor = "#000080";
+                _cfg.CaptainBorderOpacity = 100;
+                _cfg.CaptainTextColor = "#000080";
+                break;
+            case "bakery-shop":
+                _cfg.BgColor = "#fffdf8";
+                _cfg.BgOpacity = 95;
+                _cfg.BorderColor = "#dfa273";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#8c5322";
+                _cfg.DanmuColor = "#5c3818";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#e69d45";
+                _cfg.AvatarBorderOpacity = 90;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#fefaf2";
+                _cfg.BoxBgOpacity = 60;
+                _cfg.BoxRadius = 16;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#d97d54";
+                _cfg.BoxBorderOpacity = 65;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#fff0f2";
+                _cfg.GovernorBgOpacity = 95;
+                _cfg.GovernorBorderColor = "#df5b74";
+                _cfg.GovernorBorderOpacity = 90;
+                _cfg.GovernorTextColor = "#a81c37";
+                _cfg.AdmiralBgColor = "#fbf2ff";
+                _cfg.AdmiralBgOpacity = 95;
+                _cfg.AdmiralBorderColor = "#a67bc4";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#6c3591";
+                _cfg.CaptainBgColor = "#f2f7fc";
+                _cfg.CaptainBgOpacity = 95;
+                _cfg.CaptainBorderColor = "#6a9ed4";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#2b619e";
+                break;
+            case "sakura-wafuu":
+                _cfg.BgColor = "#fffafc";
+                _cfg.BgOpacity = 94;
+                _cfg.BorderColor = "#ffd1dc";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 12;
+                _cfg.NicknameColor = "#a81d45";
+                _cfg.DanmuColor = "#4a2833";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ffb7c5";
+                _cfg.AvatarBorderOpacity = 80;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#fff5f7";
+                _cfg.BoxBgOpacity = 50;
+                _cfg.BoxRadius = 14;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ffb7c5";
+                _cfg.BoxBorderOpacity = 70;
+                _cfg.BoxBorderWidth = 1;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#ffeef2";
+                _cfg.GovernorBgOpacity = 96;
+                _cfg.GovernorBorderColor = "#f27289";
+                _cfg.GovernorBorderOpacity = 90;
+                _cfg.GovernorTextColor = "#900c28";
+                _cfg.AdmiralBgColor = "#faf2ff";
+                _cfg.AdmiralBgOpacity = 95;
+                _cfg.AdmiralBorderColor = "#cca3f0";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#5e278e";
+                _cfg.CaptainBgColor = "#f0f6ff";
+                _cfg.CaptainBgOpacity = 95;
+                _cfg.CaptainBorderColor = "#90b8f0";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#1d4e89";
+                break;
+            case "rose-throne":
+                _cfg.BgColor = "#260e14";
+                _cfg.BgOpacity = 94;
+                _cfg.BorderColor = "#b82035";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#f5d77f";
+                _cfg.DanmuColor = "#f0e6e8";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#b82035";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#1c0c10";
+                _cfg.BoxBgOpacity = 65;
+                _cfg.BoxRadius = 14;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#daa520";
+                _cfg.BoxBorderOpacity = 70;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#3d0e19";
+                _cfg.GovernorBgOpacity = 95;
+                _cfg.GovernorBorderColor = "#ff3366";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ff758f";
+                _cfg.AdmiralBgColor = "#2b1022";
+                _cfg.AdmiralBgOpacity = 95;
+                _cfg.AdmiralBorderColor = "#c92a65";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#f5d77f";
+                _cfg.CaptainBgColor = "#1c1024";
+                _cfg.CaptainBgOpacity = 95;
+                _cfg.CaptainBorderColor = "#8e24aa";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#ffd166";
+                break;
+            case "cyber-night":
+                _cfg.BgColor = "#0c1224";
+                _cfg.BgOpacity = 94;
+                _cfg.BorderColor = "#00f0ff";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#00f0ff";
+                _cfg.DanmuColor = "#e0f7ff";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ff007f";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#080c18";
+                _cfg.BoxBgOpacity = 75;
+                _cfg.BoxRadius = 14;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#00f0ff";
+                _cfg.BoxBorderOpacity = 75;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#2b0a1f";
+                _cfg.GovernorBgOpacity = 95;
+                _cfg.GovernorBorderColor = "#ff007f";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ff5ea5";
+                _cfg.AdmiralBgColor = "#1e0d33";
+                _cfg.AdmiralBgOpacity = 95;
+                _cfg.AdmiralBorderColor = "#9d4edd";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#e0aaff";
+                _cfg.CaptainBgColor = "#0a1c33";
+                _cfg.CaptainBgOpacity = 95;
+                _cfg.CaptainBorderColor = "#00b4d8";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#90e0ef";
+                break;
+            case "neko-cute":
+                _cfg.BgColor = "#fffafc";
+                _cfg.BgOpacity = 96;
+                _cfg.BorderColor = "#ff85a2";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#e63968";
+                _cfg.DanmuColor = "#4a2a35";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ff85a2";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "bounce";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#fff5f8";
+                _cfg.BoxBgOpacity = 65;
+                _cfg.BoxRadius = 16;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ff8caf";
+                _cfg.BoxBorderOpacity = 80;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#ffe8ee";
+                _cfg.GovernorBgOpacity = 98;
+                _cfg.GovernorBorderColor = "#ff4d6d";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#c9184a";
+                _cfg.AdmiralBgColor = "#f8e8ff";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#c77dff";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#7b2cbf";
+                _cfg.CaptainBgColor = "#e8f4ff";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#70a1ff";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#1e6091";
+                break;
+            case "eldritch-eye":
+                _cfg.BgColor = "#181224";
+                _cfg.BgOpacity = 95;
+                _cfg.BorderColor = "#8a2be2";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#c77dff";
+                _cfg.DanmuColor = "#e8e0f5";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ba55d3";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#100c18";
+                _cfg.BoxBgOpacity = 75;
+                _cfg.BoxRadius = 14;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#8a2be2";
+                _cfg.BoxBorderOpacity = 75;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#2b0a1a";
+                _cfg.GovernorBgOpacity = 95;
+                _cfg.GovernorBorderColor = "#ff0055";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ff5277";
+                _cfg.AdmiralBgColor = "#1f0c33";
+                _cfg.AdmiralBgOpacity = 95;
+                _cfg.AdmiralBorderColor = "#a855f7";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#c084fc";
+                _cfg.CaptainBgColor = "#0c1933";
+                _cfg.CaptainBgOpacity = 95;
+                _cfg.CaptainBorderColor = "#3b82f6";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#60a5fa";
+                break;
+            case "strawberry-bunny":
+                _cfg.BgColor = "#fffafc";
+                _cfg.BgOpacity = 96;
+                _cfg.BorderColor = "#ff8fa3";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 16;
+                _cfg.NicknameColor = "#c9184a";
+                _cfg.DanmuColor = "#591a2b";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ff8fa3";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "bounce";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#fff5f8";
+                _cfg.BoxBgOpacity = 65;
+                _cfg.BoxRadius = 16;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ff8fa3";
+                _cfg.BoxBorderOpacity = 80;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#ffeeee";
+                _cfg.GovernorBgOpacity = 98;
+                _cfg.GovernorBorderColor = "#ff4d6d";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#a4133c";
+                _cfg.AdmiralBgColor = "#fff0f5";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#c77dff";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#7b2cbf";
+                _cfg.CaptainBgColor = "#e8f4ff";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#70a1ff";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#1e6091";
+                break;
+            case "magic-card":
+                _cfg.BgColor = "#201632";
+                _cfg.BgOpacity = 95;
+                _cfg.BorderColor = "#9d4edd";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#ffd700";
+                _cfg.DanmuColor = "#f8f4ff";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ffd700";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#1b1429";
+                _cfg.BoxBgOpacity = 70;
+                _cfg.BoxRadius = 14;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ffd700";
+                _cfg.BoxBorderOpacity = 75;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#35163b";
+                _cfg.GovernorBgOpacity = 96;
+                _cfg.GovernorBorderColor = "#ff007f";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ff5ea5";
+                _cfg.AdmiralBgColor = "#2a1944";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#ffd700";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#ffe066";
+                _cfg.CaptainBgColor = "#131f42";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#4ea8de";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#90e0ef";
+                break;
+            case "butterfly-wind":
+                _cfg.BgColor = "#12102a";
+                _cfg.BgOpacity = 95;
+                _cfg.BorderColor = "#48cae4";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#90e0ef";
+                _cfg.DanmuColor = "#eefdff";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#48cae4";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#0b091a";
+                _cfg.BoxBgOpacity = 75;
+                _cfg.BoxRadius = 14;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#48cae4";
+                _cfg.BoxBorderOpacity = 75;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#331035";
+                _cfg.GovernorBgOpacity = 96;
+                _cfg.GovernorBorderColor = "#b5179e";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ffb3ec";
+                _cfg.AdmiralBgColor = "#1c1237";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#7209b7";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#c77dff";
+                _cfg.CaptainBgColor = "#0c2340";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#00b4d8";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#90e0ef";
+                break;
+            case "jinx-graffiti":
+                _cfg.BgColor = "#16141e";
+                _cfg.BgOpacity = 95;
+                _cfg.BorderColor = "#ff007f";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 8;
+                _cfg.NicknameColor = "#ffe600";
+                _cfg.DanmuColor = "#ffffff";
+                _cfg.DanmuStroke = "heavy-shadow";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "square";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#00f0ff";
+                _cfg.AvatarBorderOpacity = 90;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "bounce";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#121217";
+                _cfg.BoxBgOpacity = 80;
+                _cfg.BoxRadius = 8;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#00f0ff";
+                _cfg.BoxBorderOpacity = 80;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#350c26";
+                _cfg.GovernorBgOpacity = 96;
+                _cfg.GovernorBorderColor = "#ff007f";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ff5ea5";
+                _cfg.AdmiralBgColor = "#230c38";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#ffe600";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#ffe600";
+                _cfg.CaptainBgColor = "#082032";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#00f0ff";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#00f0ff";
+                break;
+            case "neon-station":
+                _cfg.BgColor = "#141228";
+                _cfg.BgOpacity = 95;
+                _cfg.BorderColor = "#00e5ff";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 6;
+                _cfg.NicknameColor = "#00e5ff";
+                _cfg.DanmuColor = "#e8f7ff";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "square";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ffb703";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#0e0d1e";
+                _cfg.BoxBgOpacity = 75;
+                _cfg.BoxRadius = 8;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#00e5ff";
+                _cfg.BoxBorderOpacity = 75;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#30102d";
+                _cfg.GovernorBgOpacity = 96;
+                _cfg.GovernorBorderColor = "#d90429";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ff4d6d";
+                _cfg.AdmiralBgColor = "#1e1038";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#ffb703";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#ffb703";
+                _cfg.CaptainBgColor = "#0c203b";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#00e5ff";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#00e5ff";
+                break;
+            case "tulip-letter":
+                _cfg.BgColor = "#fffdfa";
+                _cfg.BgOpacity = 96;
+                _cfg.BorderColor = "#e76f51";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#e76f51";
+                _cfg.DanmuColor = "#4a3528";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#f4a261";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#fffcf8";
+                _cfg.BoxBgOpacity = 65;
+                _cfg.BoxRadius = 16;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#f4a261";
+                _cfg.BoxBorderOpacity = 80;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#fff0eb";
+                _cfg.GovernorBgOpacity = 98;
+                _cfg.GovernorBorderColor = "#e76f51";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#bc4749";
+                _cfg.AdmiralBgColor = "#fdf2e9";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#f4a261";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#e76f51";
+                _cfg.CaptainBgColor = "#f0f7f4";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#588157";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#2a9d8f";
+                break;
+            case "star-moon-gold":
+                _cfg.BgColor = "#16161e";
+                _cfg.BgOpacity = 95;
+                _cfg.BorderColor = "#ffd700";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 12;
+                _cfg.NicknameColor = "#ffd700";
+                _cfg.DanmuColor = "#fffbe8";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ffd700";
+                _cfg.AvatarBorderOpacity = 90;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 390;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#0f0f14";
+                _cfg.BoxBgOpacity = 78;
+                _cfg.BoxRadius = 14;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ffd700";
+                _cfg.BoxBorderOpacity = 80;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#2e260f";
+                _cfg.GovernorBgOpacity = 98;
+                _cfg.GovernorBorderColor = "#ffd700";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ffffff";
+                _cfg.AdmiralBgColor = "#261f0c";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#ffea75";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#ffea75";
+                _cfg.CaptainBgColor = "#1a1a24";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#e6b432";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#ffd700";
+                break;
+            case "flower-hymn":
+                _cfg.BgColor = "#fffcf8";
+                _cfg.BgOpacity = 96;
+                _cfg.BorderColor = "#daa520";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#b05d3b";
+                _cfg.DanmuColor = "#4a2810";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#daa520";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#fdf8f2";
+                _cfg.BoxBgOpacity = 70;
+                _cfg.BoxRadius = 16;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#daa520";
+                _cfg.BoxBorderOpacity = 80;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#fff5eb";
+                _cfg.GovernorBgOpacity = 98;
+                _cfg.GovernorBorderColor = "#e07a5f";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#9e2a2b";
+                _cfg.AdmiralBgColor = "#fefae0";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#daa520";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#b05d3b";
+                _cfg.CaptainBgColor = "#fdf0ed";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#f4a261";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#c85a17";
+                break;
+            case "ark-rhodes":
+                _cfg.BgColor = "#1a1c22";
+                _cfg.BgOpacity = 96;
+                _cfg.BorderColor = "#ffcc00";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 6;
+                _cfg.NicknameColor = "#ffcc00";
+                _cfg.DanmuColor = "#f0f3f6";
+                _cfg.DanmuStroke = "heavy-shadow";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "square";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ffcc00";
+                _cfg.AvatarBorderOpacity = 90;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 400;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#14161a";
+                _cfg.BoxBgOpacity = 80;
+                _cfg.BoxRadius = 8;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ffcc00";
+                _cfg.BoxBorderOpacity = 85;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#351a1a";
+                _cfg.GovernorBgOpacity = 98;
+                _cfg.GovernorBorderColor = "#ff4646";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ff7575";
+                _cfg.AdmiralBgColor = "#2e2815";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#ffcc00";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#ffe66d";
+                _cfg.CaptainBgColor = "#152432";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#00d4ff";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#00d4ff";
+                break;
+            case "rainbow-sunny":
+                _cfg.BgColor = "#fffcfd";
+                _cfg.BgOpacity = 96;
+                _cfg.BorderColor = "#ff6b81";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 16;
+                _cfg.NicknameColor = "#ff4757";
+                _cfg.DanmuColor = "#2f3542";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ff6b81";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "bounce";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#fff8fc";
+                _cfg.BoxBgOpacity = 70;
+                _cfg.BoxRadius = 18;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ff6b81";
+                _cfg.BoxBorderOpacity = 80;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#fff0f5";
+                _cfg.GovernorBgOpacity = 98;
+                _cfg.GovernorBorderColor = "#ff4757";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#ff4757";
+                _cfg.AdmiralBgColor = "#fff8e7";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#ffa502";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#ff7f50";
+                _cfg.CaptainBgColor = "#f1f9ff";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#70a1ff";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#1e90ff";
+                break;
+            case "cat-cookies":
+                _cfg.BgColor = "#fffcf5";
+                _cfg.BgOpacity = 96;
+                _cfg.BorderColor = "#dea057";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 14;
+                _cfg.NicknameColor = "#8b4513";
+                _cfg.DanmuColor = "#4a2c11";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#dea057";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "bounce";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#fdf8f0";
+                _cfg.BoxBgOpacity = 72;
+                _cfg.BoxRadius = 16;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#dea057";
+                _cfg.BoxBorderOpacity = 85;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#fff4e6";
+                _cfg.GovernorBgOpacity = 98;
+                _cfg.GovernorBorderColor = "#d97706";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#9a3412";
+                _cfg.AdmiralBgColor = "#fffbeb";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#ffc107";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#b87333";
+                _cfg.CaptainBgColor = "#f7fee7";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#84cc16";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#65a30d";
+                break;
+            case "memory-diary":
+                _cfg.BgColor = "#ffffff";
+                _cfg.BgOpacity = 96;
+                _cfg.BorderColor = "#5e60ce";
+                _cfg.BorderOpacity = 85;
+                _cfg.BorderWidth = 2;
+                _cfg.CardRadius = 10;
+                _cfg.NicknameColor = "#5e60ce";
+                _cfg.DanmuColor = "#2b2d42";
+                _cfg.DanmuStroke = "none";
+                _cfg.NicknameBold = true;
+                _cfg.AvatarShape = "rounded";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#5e60ce";
+                _cfg.AvatarBorderOpacity = 85;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 520;
+                _cfg.BoxBgColor = "#f8f9ff";
+                _cfg.BoxBgOpacity = 70;
+                _cfg.BoxRadius = 12;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#5e60ce";
+                _cfg.BoxBorderOpacity = 75;
+                _cfg.BoxBorderWidth = 2;
+                _cfg.CustomGuardStyle = true;
+                _cfg.GovernorBgColor = "#fff5f5";
+                _cfg.GovernorBgOpacity = 98;
+                _cfg.GovernorBorderColor = "#ff6b6b";
+                _cfg.GovernorBorderOpacity = 95;
+                _cfg.GovernorTextColor = "#e63946";
+                _cfg.AdmiralBgColor = "#fffbe6";
+                _cfg.AdmiralBgOpacity = 96;
+                _cfg.AdmiralBorderColor = "#ffd166";
+                _cfg.AdmiralBorderOpacity = 90;
+                _cfg.AdmiralTextColor = "#f77f00";
+                _cfg.CaptainBgColor = "#f0fdf4";
+                _cfg.CaptainBgOpacity = 96;
+                _cfg.CaptainBorderColor = "#06d6a0";
+                _cfg.CaptainBorderOpacity = 90;
+                _cfg.CaptainTextColor = "#059669";
+                break;
+            case "classic-glass":
+            default:
+                _cfg.BgColor = "#1e222d";
+                _cfg.BgOpacity = 75;
+                _cfg.BorderColor = "#3a4256";
+                _cfg.BorderOpacity = 60;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 10;
+                _cfg.NicknameColor = "#ffd04b";
+                _cfg.DanmuColor = "#ffffff";
+                _cfg.DanmuStroke = "shadow";
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = true;
+                _cfg.AvatarBorderColor = "#ffffff";
+                _cfg.AvatarBorderOpacity = 40;
+                _cfg.AvatarBorderWidth = 2;
+                _cfg.Animation = "slide";
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 500;
+                _cfg.BoxBgColor = "#141824";
+                _cfg.BoxBgOpacity = 65;
+                _cfg.BoxRadius = 12;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#3a4256";
+                _cfg.BoxBorderOpacity = 60;
+                _cfg.BoxBorderWidth = 1;
+                break;
+        }
+    }
+
+    private void SaveConfig()
+    {
+        try
+        {
+            var jsonStr = JsonSerializer.Serialize(_cfg);
+            if (JsonNode.Parse(jsonStr) is JsonObject obj)
+            {
+                var doc = Config.Snapshot();
+                doc["danmuOverlay"] = obj;
+                Config.ReplaceFrom(doc);
+                Hub.PublishOutbound("danmu_config_update", obj);
+                Notify("弹幕浮层配置已保存，OBS 浮层已实时同步更新！", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            Notify("保存失败: " + ex.Message, false);
+        }
+    }
+
+    // 内置高清矢量测试头像（0依赖，永不失效）
+    private const string TestFanAvatar = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImJnIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjZmY5YTllIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjZmVjZmVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDgiIGZpbGw9InVybCgjYmcpIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMyIvPjxwb2x5Z29uIHBvaW50cz0iMjYsMzggMTgsMTYgMzgsMjQiIGZpbGw9IiNmZjc1OGMiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHBvbHlnb24gcG9pbnRzPSIyNywzMyAyMiwyMCAzNCwyNSIgZmlsbD0iI2ZmY2NkNSIvPjxwb2x5Z29uIHBvaW50cz0iNzQsMzggODIsMTYgNjIsMjQiIGZpbGw9IiNmZjc1OGMiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHBvbHlnb24gcG9pbnRzPSI3MywzMyA3OCwyMCA2NiwyNSIgZmlsbD0iI2ZmY2NkNSIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTQiIHI9IjI2IiBmaWxsPSIjZmZmNWVhIi8+PGVsbGlwc2UgY3g9IjQwIiBjeT0iNTIiIHJ4PSI0LjUiIHJ5PSI2IiBmaWxsPSIjMmQzNzQ4Ii8+PGVsbGlwc2UgY3g9IjYwIiBjeT0iNTIiIHJ4PSI0LjUiIHJ5PSI2IiBmaWxsPSIjMmQzNzQ4Ii8+PGNpcmNsZSBjeD0iNDEuNSIgY3k9IjUwIiByPSIyIiBmaWxsPSIjZmZmIi8+PGNpcmNsZSBjeD0iNjEuNSIgY3k9IjUwIiByPSIyIiBmaWxsPSIjZmZmIi8+PGVsbGlwc2UgY3g9IjM0IiBjeT0iNTkiIHJ4PSI0IiByeT0iMiIgZmlsbD0iI2ZmOGE5ZSIgb3BhY2l0eT0iMC42Ii8+PGVsbGlwc2UgY3g9IjY2IiBjeT0iNTkiIHJ4PSI0IiByeT0iMiIgZmlsbD0iI2ZmOGE5ZSIgb3BhY2l0eT0iMC42Ii8+PHBhdGggZD0iTTQ2LDYwIFE1MCw2NCA1NCw2MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTA1NmZkIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjI0IiBjeT0iNzIiIHI9IjIuNSIgZmlsbD0iI2ZmZDE2NiIvPjxjaXJjbGUgY3g9Ijc2IiBjeT0iNzIiIHI9IjIuNSIgZmlsbD0iI2ZmZDE2NiIvPjwvc3ZnPg==";
+    private const string TestGuardAvatar = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdiZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzE0MWUzMCIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzI0M2I1NSIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJnb2xkIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjZmZlMjU5Ii8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjZmZhNzUxIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDgiIGZpbGw9InVybCgjZ2JnKSIgc3Ryb2tlPSJ1cmwoI2dvbGQpIiBzdHJva2Utd2lkdGg9IjQiLz48cGF0aCBkPSJNNTAsMTggTDc2LDI4IEw3Niw1MiBDNzYsNjggNjQsODAgNTAsODYgQzM2LDgwIDI0LDY4IDI0LDUyIEwyNCwyOCBaIiBmaWxsPSJyZ2JhKDI1NSwyMTUsMCwwLjE4KSIgc3Ryb2tlPSJ1cmwoI2dvbGQpIiBzdHJva2Utd2lkdGg9IjIuNSIvPjxwb2x5Z29uIHBvaW50cz0iNTAsMjggNTQsNDAgNjcsNDAgNTYsNDggNjAsNjAgNTAsNTIgNDAsNjAgNDQsNDggMzMsNDAgNDYsNDAiIGZpbGw9InVybCgjZ29sZCkiLz48cGF0aCBkPSJNMzYsNjggUTUwLDc0IDY0LDY4IEw2MCw3OCBRNTAsODMgNDAsNzggWiIgZmlsbD0idXJsKCNnb2xkKSIvPjwvc3ZnPg==";
+
+    private void SendTestDanmu()
+    {
+        var now = DateTime.Now;
+        var ev = new LiveEvent
+        {
+            Type = "danmu",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "999888",
+            Uname = "粉丝小可爱",
+            Msg = "这是一条实时测试弹幕，效果很赞！🎉",
+            Uface = TestFanAvatar,
+            MedalLevel = 16,
+            HonorLevel = 22,
+            IsGuard = false,
+            GuardLevel = 0,
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条普通测试弹幕（内置专属二次元测试头像）", true);
+    }
+
+    private void SendTestEmoteDanmu()
+    {
+        var now = DateTime.Now;
+        var emotes = new Dictionary<string, EmoteInfo>
+        {
+            ["[doge]"] = new EmoteInfo
+            {
+                Emoji = "[doge]",
+                Url = "https://i0.hdslb.com/bfs/live/82d3858c422c5e5f5f4b5d259c47e0ee093f416c.png",
+                Width = 64, Height = 64
+            },
+            ["[点赞]"] = new EmoteInfo
+            {
+                Emoji = "[点赞]",
+                Url = "https://i0.hdslb.com/bfs/live/5070058b75e11f10cfec9524ecfb7aee07fa4830.png",
+                Width = 64, Height = 64
+            }
+        };
+
+        var ev = new LiveEvent
+        {
+            Type = "danmu",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "666888",
+            Uname = "表情包小可爱",
+            Msg = "主播这波操作太秀了 [doge] 必须给个 [点赞] 666",
+            Uface = TestFanAvatar,
+            Emotes = emotes,
+            MedalLevel = 21,
+            HonorLevel = 19,
+            IsGuard = false,
+            GuardLevel = 0,
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条包含 [doge] 与 [点赞] 表情的测试弹幕！", true);
+    }
+
+    private void SendTestGuardDanmu()
+    {
+        var now = DateTime.Now;
+        var ev = new LiveEvent
+        {
+            Type = "danmu",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "777666",
+            Uname = "尊贵大舰长",
+            Msg = "舰长进入直播间支持主播！666666！🚀",
+            Uface = TestGuardAvatar,
+            MedalLevel = 28,
+            HonorLevel = 35,
+            IsGuard = true,
+            GuardLevel = 3,
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条舰长测试弹幕（内置专属金色盾徽测试头像）", true);
+    }
+
+    private void SendTestGovernorDanmu()
+    {
+        var now = DateTime.Now;
+        var ev = new LiveEvent
+        {
+            Type = "danmu",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "888888",
+            Uname = "幻夜幽灵总督",
+            Msg = "总督降临！全场排面拉满，这专属特效太华丽了！👑✨",
+            Uface = TestGuardAvatar,
+            MedalLevel = 36,
+            HonorLevel = 50,
+            IsGuard = true,
+            GuardLevel = 1,
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条总督尊享测试弹幕！", true);
+    }
+
+    private void ResetGuardColors()
+    {
+        _cfg.GovernorBgColor = "#581c2b";
+        _cfg.GovernorBgOpacity = 85;
+        _cfg.GovernorBorderColor = "#ff4d6d";
+        _cfg.GovernorBorderOpacity = 90;
+        _cfg.GovernorTextColor = "#ffccd5";
+
+        _cfg.AdmiralBgColor = "#341c54";
+        _cfg.AdmiralBgOpacity = 85;
+        _cfg.AdmiralBorderColor = "#c77dff";
+        _cfg.AdmiralBorderOpacity = 85;
+        _cfg.AdmiralTextColor = "#e0aaff";
+
+        _cfg.CaptainBgColor = "#1c3254";
+        _cfg.CaptainBgOpacity = 80;
+        _cfg.CaptainBorderColor = "#4ea8de";
+        _cfg.CaptainBorderOpacity = 80;
+        _cfg.CaptainTextColor = "#90e0ef";
+        Notify("已恢复大航海默认经典色彩方案", true);
+    }
+
+    private async Task CopyOverlayUrl()
+    {
+        var url = OverlayUrl();
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", url);
+            Notify("已复制 OBS 浮层链接到剪贴板！", true);
+        }
+        catch
+        {
+            try
+            {
+                var literal = JsonSerializer.Serialize(url);
+                await JS.InvokeVoidAsync("eval",
+                    "(function(){var t=document.createElement('textarea');t.value=" + literal +
+                    ";t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.focus();t.select();" +
+                    "document.execCommand('copy');document.body.removeChild(t);})()");
+                Notify("已复制 OBS 浮层链接到剪贴板！", true);
+            }
+            catch
+            {
+                Notify("复制失败，请手动在上方地址栏复制", false);
+            }
+        }
+    }
+
+    private void Notify(string msg, bool ok)
+    {
+        _note = msg;
+        _noteOk = ok;
+    }
+
+    private string ThemeDisplayName(string id) => id switch
+    {
+        "classic-glass" => "现代半透明极简玻璃",
+        "frost-palace" => "凛冬圣殿 · 冰凌结晶",
+        "violet-cyber" => "幻紫电竞 · 赛博光环",
+        "titan-tactical" => "战术重工 · 钛金雷达",
+        "monvhuajia" => "魔女花嫁 · 梦幻昼白",
+        "monvhuajia-night" => "魔女花嫁 · 暗夜幽魅",
+        "rose-throne" => "蔷薇王座 · 哥特绯红",
+        "cyber-night" => "赛博迷幻夜 · 霓虹幻境",
+        "neko-cute" => "萌系猫咪 · 糖粉猫爪",
+        "strawberry-bunny" => "草莓兔兔 · 甜莓奶霜",
+        "magic-card" => "魔法卡牌 · 库洛幻彩",
+        "butterfly-wind" => "蝶月风铃 · 幽夜幻蝶",
+        "jinx-graffiti" => "街头涂鸦 · 狂潮电音",
+        "neon-station" => "霓虹基站 · 矩阵脉冲",
+        "tulip-letter" => "郁金香信 · 晨曦花园",
+        "star-moon-gold" => "星海月球 · 坠夜黑金",
+        "flower-hymn" => "花与诗颂 · 欧风古典",
+        "ark-rhodes" => "方舟终端 · 罗德战备",
+        "rainbow-sunny" => "彩虹星晴 · 甜彩梦境",
+        "cat-cookies" => "小猫曲奇 · 甜蜜烘焙",
+        "memory-diary" => "谁的日记 · 手账贴纸",
+        "eldritch-eye" => "暗夜深渊 · 诡谲骨眼",
+        "candy-game" => "糖果游戏 · 炫彩电玩",
+        "openlivechat" => "仿油管气泡 · 纯享风",
+        "win98-retro" => "Win98 · 复古视窗",
+        "bakery-shop" => "面包小店 · 暖心手账",
+        "sakura-wafuu" => "樱华落雪 · 绯樱结",
+        "cyber-neon" => "赛博霓虹电竞",
+        "macaron-cute" => "甜美马卡龙萌系",
+        "obsidian-gold" => "曜石黑金尊享",
+        "pixel-arcade" => "复古街机像素",
+        _ => id
+    };
+
+    private bool IsFrostPalaceTheme => _cfg.Theme == "frost-palace";
+    private bool IsVioletCyberTheme => _cfg.Theme == "violet-cyber";
+    private bool IsTitanTacticalTheme => _cfg.Theme == "titan-tactical";
+    private bool IsMonvTheme => _cfg.Theme == "monvhuajia" || _cfg.Theme == "monvhuajia-night";
+    private bool IsMonvNight => _cfg.Theme == "monvhuajia-night";
+    private bool IsCandyTheme => _cfg.Theme == "candy-game";
+    private bool IsOlcTheme => _cfg.Theme == "openlivechat";
+    private bool IsWin98Theme => _cfg.Theme == "win98-retro";
+    private bool IsBakeryTheme => _cfg.Theme == "bakery-shop";
+    private bool IsSakuraTheme => _cfg.Theme == "sakura-wafuu";
+    private bool IsRoseTheme => _cfg.Theme == "rose-throne";
+    private bool IsCyberNightTheme => _cfg.Theme == "cyber-night";
+    private bool IsNekoCuteTheme => _cfg.Theme == "neko-cute";
+    private bool IsEldritchEyeTheme => _cfg.Theme == "eldritch-eye";
+    private bool IsStrawberryTheme => _cfg.Theme == "strawberry-bunny";
+    private bool IsMagicCardTheme => _cfg.Theme == "magic-card";
+    private bool IsButterflyTheme => _cfg.Theme == "butterfly-wind";
+    private bool IsGraffitiTheme => _cfg.Theme == "jinx-graffiti";
+    private bool IsNeonStationTheme => _cfg.Theme == "neon-station";
+    private bool IsTulipTheme => _cfg.Theme == "tulip-letter";
+    private bool IsStarMoonTheme => _cfg.Theme == "star-moon-gold";
+    private bool IsFlowerHymnTheme => _cfg.Theme == "flower-hymn";
+    private bool IsArkRhodesTheme => _cfg.Theme == "ark-rhodes";
+    private bool IsRainbowTheme => _cfg.Theme == "rainbow-sunny";
+    private bool IsCatCookiesTheme => _cfg.Theme == "cat-cookies";
+    private bool IsMemoryDiaryTheme => _cfg.Theme == "memory-diary";
+
+    private bool HasThemeOrnaments => _cfg.Theme switch
+    {
+        "frost-palace" or "violet-cyber" or "titan-tactical" or
+        "monvhuajia" or "monvhuajia-night" or "rose-throne" or "cyber-night" or 
+        "neko-cute" or "eldritch-eye" or "sakura-wafuu" or "bakery-shop" or "candy-game" or
+        "strawberry-bunny" or "magic-card" or "butterfly-wind" or "jinx-graffiti" or "neon-station" or "tulip-letter" or
+        "star-moon-gold" or "flower-hymn" or "ark-rhodes" or "rainbow-sunny" or "cat-cookies" or "memory-diary" => true,
+        _ => false
+    };
+
+    private string ThemePatternUrl(int guardLevel)
+    {
+        return _cfg.Theme switch
+        {
+            "monvhuajia" => guardLevel > 0 
+                ? "legacy/danmu/themes/monvhuajia/light/2admin-pattern.png" 
+                : "legacy/danmu/themes/monvhuajia/light/gift-pattern.png",
+            "monvhuajia-night" => guardLevel > 0 
+                ? "legacy/danmu/themes/monvhuajia/night/admin-pattern.png" 
+                : "legacy/danmu/themes/monvhuajia/night/gift-pattern.png",
+            _ => $"legacy/danmu/themes/{_cfg.Theme}/pattern.png"
+        };
+    }
+
+    private string ThemeAvatarFrameUrl(int guardLevel)
+    {
+        return _cfg.Theme switch
+        {
+            "monvhuajia" => guardLevel > 0 
+                ? "legacy/danmu/themes/monvhuajia/light/2admin-avatar.png" 
+                : "legacy/danmu/themes/monvhuajia/light/2gift-avatar.png",
+            "monvhuajia-night" => guardLevel > 0 
+                ? "legacy/danmu/themes/monvhuajia/night/admin-avatar.png" 
+                : "legacy/danmu/themes/monvhuajia/night/gift-avatar.png",
+            _ => guardLevel > 0 
+                ? $"legacy/danmu/themes/{_cfg.Theme}/admin-avatar.png" 
+                : $"legacy/danmu/themes/{_cfg.Theme}/avatar-frame.png"
+        };
+    }
+
+    private string ThemeDotUrl()
+    {
+        return _cfg.Theme switch
+        {
+            "monvhuajia" => "legacy/danmu/themes/monvhuajia/light/admin-dot.png",
+            "monvhuajia-night" => "legacy/danmu/themes/monvhuajia/night/admin-dot.png",
+            _ => $"legacy/danmu/themes/{_cfg.Theme}/dot.png"
+        };
+    }
+
+    private string ThemeNameSideUrl(int guardLevel)
+    {
+        return _cfg.Theme switch
+        {
+            "monvhuajia" => guardLevel > 0 
+                ? "legacy/danmu/themes/monvhuajia/light/name-side2.png" 
+                : "legacy/danmu/themes/monvhuajia/light/nor-name-side.png",
+            "monvhuajia-night" => guardLevel > 0 
+                ? "legacy/danmu/themes/monvhuajia/night/mem-name-side.png" 
+                : "legacy/danmu/themes/monvhuajia/night/nor-name-side.png",
+            _ => $"legacy/danmu/themes/{_cfg.Theme}/name-side.png"
+        };
+    }
+
+    private string ThemeWingLeftUrl()
+    {
+        return _cfg.Theme switch
+        {
+            "monvhuajia" => "legacy/danmu/themes/monvhuajia/light/2mem-left.png",
+            "monvhuajia-night" => "legacy/danmu/themes/monvhuajia/night/nmem-name-left.png",
+            _ => $"legacy/danmu/themes/{_cfg.Theme}/wing-left.png"
+        };
+    }
+
+    private string ThemeWingRightUrl()
+    {
+        return _cfg.Theme switch
+        {
+            "monvhuajia" => "legacy/danmu/themes/monvhuajia/light/2mem-right.png",
+            "monvhuajia-night" => "legacy/danmu/themes/monvhuajia/night/mem-right.png",
+            _ => $"legacy/danmu/themes/{_cfg.Theme}/wing-right.png"
+        };
+    }
+
+    private string ThemeNameBg(int guardLevel)
+    {
+        return _cfg.Theme switch
+        {
+            "frost-palace" => guardLevel > 0 ? "rgba(0, 174, 239, 0.22)" : "rgba(201, 235, 252, 0.18)",
+            "violet-cyber" => guardLevel > 0 ? "rgba(255, 68, 254, 0.24)" : "rgba(165, 64, 247, 0.18)",
+            "titan-tactical" => guardLevel > 0 ? "rgba(255, 159, 28, 0.22)" : "rgba(85, 90, 96, 0.2)",
+            "monvhuajia" => guardLevel > 0 ? "rgba(112, 89, 164, 0.12)" : "rgba(85, 125, 208, 0.12)",
+            "monvhuajia-night" => guardLevel > 0 ? "rgba(199, 125, 255, 0.18)" : "rgba(172, 199, 255, 0.15)",
+            "rose-throne" => guardLevel > 0 ? "rgba(220, 53, 69, 0.2)" : "rgba(184, 32, 53, 0.15)",
+            "cyber-night" => guardLevel > 0 ? "rgba(157, 78, 221, 0.22)" : "rgba(0, 240, 255, 0.15)",
+            "neko-cute" => guardLevel > 0 ? "rgba(255, 107, 129, 0.2)" : "rgba(255, 128, 171, 0.15)",
+            "eldritch-eye" => guardLevel > 0 ? "rgba(170, 0, 255, 0.22)" : "rgba(100, 50, 160, 0.18)",
+            "sakura-wafuu" => guardLevel > 0 ? "rgba(232, 74, 95, 0.18)" : "rgba(255, 183, 197, 0.2)",
+            "bakery-shop" => guardLevel > 0 ? "rgba(168, 28, 55, 0.15)" : "rgba(223, 162, 115, 0.2)",
+            "candy-game" => guardLevel > 0 ? "rgba(114, 79, 198, 0.18)" : "rgba(0, 186, 232, 0.15)",
+            "strawberry-bunny" => guardLevel > 0 ? "rgba(255, 77, 109, 0.2)" : "rgba(255, 143, 163, 0.15)",
+            "magic-card" => guardLevel > 0 ? "rgba(255, 215, 0, 0.22)" : "rgba(157, 78, 221, 0.18)",
+            "butterfly-wind" => guardLevel > 0 ? "rgba(181, 23, 158, 0.22)" : "rgba(72, 202, 228, 0.18)",
+            "jinx-graffiti" => guardLevel > 0 ? "rgba(255, 0, 127, 0.25)" : "rgba(0, 240, 255, 0.2)",
+            "neon-station" => guardLevel > 0 ? "rgba(255, 183, 3, 0.22)" : "rgba(0, 229, 255, 0.18)",
+            "tulip-letter" => guardLevel > 0 ? "rgba(231, 111, 81, 0.2)" : "rgba(244, 162, 97, 0.18)",
+            "star-moon-gold" => guardLevel > 0 ? "rgba(255, 215, 0, 0.22)" : "rgba(230, 180, 50, 0.16)",
+            "flower-hymn" => guardLevel > 0 ? "rgba(224, 122, 95, 0.2)" : "rgba(244, 211, 94, 0.18)",
+            "ark-rhodes" => guardLevel > 0 ? "rgba(255, 70, 70, 0.22)" : "rgba(255, 204, 0, 0.18)",
+            "rainbow-sunny" => guardLevel > 0 ? "rgba(255, 71, 87, 0.2)" : "rgba(255, 107, 129, 0.16)",
+            "cat-cookies" => guardLevel > 0 ? "rgba(217, 119, 6, 0.2)" : "rgba(222, 160, 87, 0.16)",
+            "memory-diary" => guardLevel > 0 ? "rgba(255, 107, 107, 0.2)" : "rgba(94, 96, 206, 0.16)",
+            _ => "rgba(255, 255, 255, 0.08)"
+        };
+    }
+
+    private string CandyArrowUrl(int guardLevel) => guardLevel switch
+    {
+        1 => "legacy/danmu/themes/candy-game/candy-arrow-red.svg",
+        2 => "legacy/danmu/themes/candy-game/candy-arrow-purple.svg",
+        3 => "legacy/danmu/themes/candy-game/candy-arrow-blue.svg",
+        _ => "legacy/danmu/themes/candy-game/candy-arrow-cyan.svg"
+    };
+
+    private string CandyGamepadUrl(int guardLevel) => guardLevel switch
+    {
+        1 => "legacy/danmu/themes/candy-game/candy-gamepad-red.svg",
+        2 => "legacy/danmu/themes/candy-game/candy-gamepad-purple.svg",
+        3 => "legacy/danmu/themes/candy-game/candy-gamepad-blue.svg",
+        _ => "legacy/danmu/themes/candy-game/candy-gamepad-cyan.svg"
+    };
+
+    private string OlcLaurelUrl(int guardLevel) => guardLevel switch
+    {
+        1 => "legacy/danmu/themes/openlivechat/laurel-governor.svg",
+        2 => "legacy/danmu/themes/openlivechat/laurel-admiral.svg",
+        3 => "legacy/danmu/themes/openlivechat/laurel-captain.svg",
+        _ => "legacy/danmu/themes/openlivechat/laurel-owner.svg"
+    };
+
+    private string Win98TitleBg(int guardLevel) => guardLevel switch
+    {
+        1 => "linear-gradient(90deg, #800000 0%, #b22222 100%)",
+        2 => "linear-gradient(90deg, #4b0082 0%, #7b68ee 100%)",
+        3 => "linear-gradient(90deg, #004080 0%, #2080d0 100%)",
+        _ => "linear-gradient(90deg, #000080 0%, #1084d0 100%)"
+    };
+
+    private string Win98TitleText(int guardLevel) => guardLevel switch
+    {
+        1 => "Governor - System32.dll",
+        2 => "Admiral - Explorer.exe",
+        3 => "Captain - NetWork.sys",
+        _ => "LiveChat - UserMessage"
+    };
+
+    // ── 预览样式计算 ──
+    private string PreviewContainerStyle()
+    {
+        var bg = _previewBg switch
+        {
+            "checker" => "background-image: linear-gradient(45deg, #222 25%, transparent 25%), linear-gradient(-45deg, #222 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #222 75%), linear-gradient(-45deg, transparent 75%, #222 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; background-color: #161616;",
+            "game" => "background: radial-gradient(circle at 50% 50%, #1f2a44 0%, #0d111a 100%);",
+            _ => "background: #0e1117;"
+        };
+        return $"{bg};min-height:480px;height:520px;display:flex;align-items:flex-end;justify-content:flex-start;padding:16px;box-sizing:border-box;overflow:auto;position:relative;";
+    }
+
+    private string PreviewStageBoxStyle()
+    {
+        if (!_cfg.ShowBox) return "width:100%;max-width:440px;pointer-events:none;";
+        var bg = HexToRgba(_cfg.BoxBgColor, _cfg.BoxBgOpacity);
+        var bWidth = _cfg.ShowBoxBorder ? _cfg.BoxBorderWidth : 0;
+        var bColor = HexToRgba(_cfg.BoxBorderColor, _cfg.BoxBorderOpacity);
+        var pad = _cfg.BoxPadding;
+        var w = Math.Clamp(_cfg.BoxWidth, 240, 480);
+        var h = Math.Clamp(_cfg.BoxHeight, 260, 480);
+        return $"width:{w}px;height:{h}px;background-color:{bg};border-radius:{_cfg.BoxRadius}px;border:{bWidth}px solid {bColor};padding:{pad}px;box-sizing:border-box;box-shadow:0 8px 32px rgba(0,0,0,0.35);pointer-events:none;display:flex;flex-direction:column;justify-content:flex-end;flex-shrink:0;";
+    }
+
+    private string PreviewStageStyle()
+        => $"display:flex;flex-direction:column;gap:{_cfg.CardGap}px;width:100%;pointer-events:none;padding-bottom:14px;";
+
+    private string ItemCardStyle(int guardLevel = 0)
+    {
+        if (_cfg.DisplayMode == "flat")
+        {
+            return "display:flex;align-items:baseline;gap:8px;padding:3px 6px;word-break:break-all;";
+        }
+        var bg = HexToRgba(_cfg.BgColor, _cfg.BgOpacity);
+        var bWidth = _cfg.ShowBorder ? _cfg.BorderWidth : 0;
+        var bColor = HexToRgba(_cfg.BorderColor, _cfg.BorderOpacity);
+        var pad = _cfg.CardPadding;
+
+        if (_cfg.CustomGuardStyle && guardLevel > 0)
+        {
+            if (guardLevel == 1) // 总督
+            {
+                bg = HexToRgba(_cfg.GovernorBgColor, _cfg.GovernorBgOpacity);
+                bColor = HexToRgba(_cfg.GovernorBorderColor, _cfg.GovernorBorderOpacity);
+            }
+            else if (guardLevel == 2) // 提督
+            {
+                bg = HexToRgba(_cfg.AdmiralBgColor, _cfg.AdmiralBgOpacity);
+                bColor = HexToRgba(_cfg.AdmiralBorderColor, _cfg.AdmiralBorderOpacity);
+            }
+            else if (guardLevel == 3) // 舰长
+            {
+                bg = HexToRgba(_cfg.CaptainBgColor, _cfg.CaptainBgOpacity);
+                bColor = HexToRgba(_cfg.CaptainBorderColor, _cfg.CaptainBorderOpacity);
+            }
+        }
+
+        if (IsWin98Theme)
+        {
+            return "display:flex;flex-direction:column;gap:4px;padding:4px 6px;background-color:#c0c0c0;border-radius:0;border:2px solid;border-top-color:#ffffff;border-left-color:#ffffff;border-right-color:#404040;border-bottom-color:#404040;box-shadow:2px 2px 0 rgba(0,0,0,0.35);position:relative;word-break:break-word;";
+        }
+        if (IsBakeryTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px dashed {bColor};word-break:break-word;position:relative;box-shadow:0 4px 14px rgba(140,83,34,0.15);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsCandyTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;overflow:visible;box-shadow:0 4px 14px rgba(0,186,232,0.22), 0 2px 0 rgba(0,186,232,0.3);margin-bottom:6px;";
+        }
+        if (IsSakuraTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 16px rgba(232,122,144,0.18);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsRoseTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(180, 20, 40, 0.35);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsCyberNightTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(0, 240, 255, 0.35);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsNekoCuteTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 16px rgba(255, 140, 175, 0.3);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsEldritchEyeTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(138, 43, 226, 0.4);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsStrawberryTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 16px rgba(255, 143, 163, 0.3);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsMagicCardTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(157, 78, 221, 0.4);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsButterflyTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(72, 202, 228, 0.35);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsGraffitiTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(255, 0, 127, 0.4);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsNeonStationTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(0, 229, 255, 0.35);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsTulipTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 16px rgba(244, 162, 97, 0.25);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsStarMoonTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(255, 215, 0, 0.35);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsFlowerHymnTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 16px rgba(218, 165, 32, 0.3);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsArkRhodesTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(0, 0, 0, 0.5);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsRainbowTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 16px rgba(255, 107, 129, 0.3);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsCatCookiesTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 16px rgba(184, 115, 51, 0.28);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsMemoryDiaryTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 16px rgba(94, 96, 206, 0.25);overflow:visible;margin-bottom:6px;";
+        }
+
+        if (IsFrostPalaceTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(0, 174, 239, 0.35);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsVioletCyberTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(165, 64, 247, 0.38);overflow:visible;margin-bottom:6px;";
+        }
+        if (IsTitanTacticalTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;position:relative;box-shadow:0 4px 18px rgba(0, 0, 0, 0.65);overflow:visible;margin-bottom:6px;";
+        }
+
+        var isMonv = _cfg.Theme == "monvhuajia" || _cfg.Theme == "monvhuajia-night";
+        var extraStyle = isMonv ? "position:relative;overflow:visible;box-shadow:0 4px 18px rgba(140, 110, 210, 0.35);margin-bottom:6px;" : "position:relative;box-shadow:0 3px 12px rgba(0,0,0,0.25);";
+
+        return $"display:flex;align-items:flex-start;gap:10px;padding:{pad}px {Math.Round(pad * 1.4)}px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};word-break:break-word;{extraStyle}";
+    }
+
+    private string AvatarImageStyle()
+    {
+        var radius = _cfg.AvatarShape == "circle" ? "50%" : (_cfg.AvatarShape == "rounded" ? "8px" : "0px");
+        var b = _cfg.ShowAvatarBorder && _cfg.AvatarBorderWidth > 0
+            ? $"{_cfg.AvatarBorderWidth}px solid {HexToRgba(_cfg.AvatarBorderColor, _cfg.AvatarBorderOpacity)}"
+            : "none";
+        return $"width:100%;height:100%;border-radius:{radius};border:{b};object-fit:cover;display:block;";
+    }
+
+    private string DanmuContentBoxStyle(int guardLevel = 0)
+    {
+        if (IsWin98Theme)
+        {
+            return "background:#ffffff;border:1px solid #808080;border-top-color:#808080;border-left-color:#808080;border-right-color:#dfdfdf;border-bottom-color:#dfdfdf;padding:3px 6px;width:100%;box-sizing:border-box;";
+        }
+        return "";
+    }
+
+    private string UnameStyle(int guardLevel = 0)
+    {
+        var font = _cfg.NicknameFont == "system-ui" ? "system-ui, -apple-system, sans-serif" : _cfg.NicknameFont;
+        var color = HexToRgba(_cfg.NicknameColor, _cfg.NicknameOpacity);
+
+        if (_cfg.CustomGuardStyle && guardLevel > 0)
+        {
+            if (guardLevel == 1 && !string.IsNullOrEmpty(_cfg.GovernorTextColor))
+                color = _cfg.GovernorTextColor;
+            else if (guardLevel == 2 && !string.IsNullOrEmpty(_cfg.AdmiralTextColor))
+                color = _cfg.AdmiralTextColor;
+            else if (guardLevel == 3 && !string.IsNullOrEmpty(_cfg.CaptainTextColor))
+                color = _cfg.CaptainTextColor;
+        }
+        else if (IsCandyTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#c03737",
+                2 => "#724fc6",
+                3 => "#2658f6",
+                _ => "#00bae8"
+            };
+        }
+        else if (IsOlcTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#eab4b8",
+                2 => "#c2b4ea",
+                3 => "#b4d2ea",
+                _ => "#b4e5ea"
+            };
+        }
+        else if (IsWin98Theme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#800000",
+                2 => "#4b0082",
+                3 => "#004080",
+                _ => "#000080"
+            };
+        }
+        else if (IsBakeryTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#a81c37",
+                2 => "#6c3591",
+                3 => "#2b619e",
+                _ => "#8c5322"
+            };
+        }
+        else if (IsSakuraTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#900c28",
+                2 => "#5e278e",
+                3 => "#1d4e89",
+                _ => "#a81d45"
+            };
+        }
+        else if (IsRoseTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff758f",
+                2 => "#f5d77f",
+                3 => "#ffd166",
+                _ => "#ffccd5"
+            };
+        }
+        else if (IsCyberNightTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff5ea5",
+                2 => "#e0aaff",
+                3 => "#90e0ef",
+                _ => "#00f0ff"
+            };
+        }
+        else if (IsNekoCuteTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#c9184a",
+                2 => "#7b2cbf",
+                3 => "#1e6091",
+                _ => "#e63968"
+            };
+        }
+        else if (IsEldritchEyeTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff5277",
+                2 => "#c084fc",
+                3 => "#60a5fa",
+                _ => "#c77dff"
+            };
+        }
+        else if (IsStrawberryTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#a4133c",
+                2 => "#7b2cbf",
+                3 => "#1e6091",
+                _ => "#c9184a"
+            };
+        }
+        else if (IsMagicCardTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff5ea5",
+                2 => "#ffe066",
+                3 => "#90e0ef",
+                _ => "#ffd700"
+            };
+        }
+        else if (IsButterflyTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ffb3ec",
+                2 => "#c77dff",
+                3 => "#90e0ef",
+                _ => "#90e0ef"
+            };
+        }
+        else if (IsGraffitiTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff5ea5",
+                2 => "#ffe600",
+                3 => "#00f0ff",
+                _ => "#ffe600"
+            };
+        }
+        else if (IsNeonStationTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff4d6d",
+                2 => "#ffb703",
+                3 => "#00e5ff",
+                _ => "#00e5ff"
+            };
+        }
+        else if (IsTulipTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#bc4749",
+                2 => "#e76f51",
+                3 => "#2a9d8f",
+                _ => "#e76f51"
+            };
+        }
+        else if (IsStarMoonTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ffffff",
+                2 => "#ffea75",
+                3 => "#ffd700",
+                _ => "#ffd700"
+            };
+        }
+        else if (IsFlowerHymnTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#9e2a2b",
+                2 => "#b05d3b",
+                3 => "#c85a17",
+                _ => "#b05d3b"
+            };
+        }
+        else if (IsArkRhodesTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff7575",
+                2 => "#ffe66d",
+                3 => "#00d4ff",
+                _ => "#ffcc00"
+            };
+        }
+        else if (IsRainbowTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff4757",
+                2 => "#ff7f50",
+                3 => "#1e90ff",
+                _ => "#ff4757"
+            };
+        }
+        else if (IsCatCookiesTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#9a3412",
+                2 => "#b87333",
+                3 => "#65a30d",
+                _ => "#8b4513"
+            };
+        }
+        else if (IsMemoryDiaryTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#e63946",
+                2 => "#f77f00",
+                3 => "#059669",
+                _ => "#5e60ce"
+            };
+        }
+        else if (IsFrostPalaceTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff758f",
+                2 => "#b5e2fa",
+                3 => "#90e0ef",
+                _ => "#c9ebfc"
+            };
+        }
+        else if (IsVioletCyberTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff007f",
+                2 => "#d3adf7",
+                3 => "#87e8de",
+                _ => "#ff44fe"
+            };
+        }
+        else if (IsTitanTacticalTheme)
+        {
+            color = guardLevel switch
+            {
+                1 => "#ff4d6d",
+                2 => "#ffb703",
+                3 => "#2ec4b6",
+                _ => "#ffb703"
+            };
+        }
+        else if (IsMonvTheme)
+        {
+            if (IsMonvNight)
+            {
+                color = guardLevel > 0 ? "#dd9ced" : "#acc7ff";
+            }
+            else
+            {
+                color = guardLevel > 0 ? "#7059a4" : "#557dd0";
+            }
+        }
+
+        var weight = _cfg.NicknameBold ? "700" : "400";
+        var shadow = StrokeToShadow(_cfg.DanmuStroke);
+        return $"font-family:{font};color:{color};font-size:{_cfg.NicknameSize}px;font-weight:{weight};line-height:1.2;text-shadow:{shadow};";
+    }
+
+    private string DanmuTextStyle()
+    {
+        var font = _cfg.DanmuFont == "system-ui" ? "system-ui, -apple-system, sans-serif" : _cfg.DanmuFont;
+        var color = HexToRgba(_cfg.DanmuColor, _cfg.DanmuOpacity);
+        var shadow = StrokeToShadow(_cfg.DanmuStroke);
+        return $"font-family:{font};color:{color};font-size:{_cfg.DanmuSize}px;line-height:{_cfg.DanmuLineHeight};text-shadow:{shadow};word-break:break-all;";
+    }
+
+    private static string StrokeToShadow(string stroke) => stroke switch
+    {
+        "shadow" => "0 1px 3px rgba(0,0,0,0.85)",
+        "heavy-shadow" => "0 2px 8px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.8)",
+        "outline" => "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000",
+        _ => "none"
+    };
+
+    private static string HexToRgba(string? hex, int opacityPercent)
+    {
+        if (string.IsNullOrEmpty(hex)) return "rgba(0,0,0,1)";
+        var h = hex.TrimStart('#');
+        if (h.Length == 3) h = $"{h[0]}{h[0]}{h[1]}{h[1]}{h[2]}{h[2]}";
+        if (h.Length != 6) return hex;
+        try
+        {
+            var r = Convert.ToInt32(h[..2], 16);
+            var g = Convert.ToInt32(h.Substring(2, 2), 16);
+            var b = Convert.ToInt32(h.Substring(4, 2), 16);
+            var a = Math.Clamp(opacityPercent / 100.0, 0.0, 1.0);
+            return $"rgba({r},{g},{b},{a:0.##})";
+        }
+        catch { return hex; }
+    }
+
+    public sealed class DanmuConfig
+    {
+        public bool Enabled { get; set; } = true;
+        public string Theme { get; set; } = "classic-glass";
+        public string DisplayMode { get; set; } = "card";
+
+        // 弹幕常驻固定底框 (Permanent Danmu Box)
+        public bool ShowBox { get; set; } = true;
+        public int BoxWidth { get; set; } = 380;
+        public int BoxHeight { get; set; } = 500;
+        public string BoxBgColor { get; set; } = "#141824";
+        public int BoxBgOpacity { get; set; } = 65;
+        public int BoxRadius { get; set; } = 12;
+        public int BoxPadding { get; set; } = 12;
+        public bool ShowBoxBorder { get; set; } = true;
+        public string BoxBorderColor { get; set; } = "#3a4256";
+        public int BoxBorderOpacity { get; set; } = 60;
+        public int BoxBorderWidth { get; set; } = 1;
+
+        // 向下兼容旧版属性名 Stage*
+        public bool ShowStageBox { get => ShowBox; set => ShowBox = value; }
+        public string StageBgColor { get => BoxBgColor; set => BoxBgColor = value; }
+        public int StageBgOpacity { get => BoxBgOpacity; set => BoxBgOpacity = value; }
+        public int StageRadius { get => BoxRadius; set => BoxRadius = value; }
+        public int StagePadding { get => BoxPadding; set => BoxPadding = value; }
+        public bool ShowStageBorder { get => ShowBoxBorder; set => ShowBoxBorder = value; }
+        public string StageBorderColor { get => BoxBorderColor; set => BoxBorderColor = value; }
+        public int StageBorderOpacity { get => BoxBorderOpacity; set => BoxBorderOpacity = value; }
+        public int StageBorderWidth { get => BoxBorderWidth; set => BoxBorderWidth = value; }
+
+        // 大航海专属个性化样式 (舰长 / 提督 / 总督)
+        public bool CustomGuardStyle { get; set; } = true;
+
+        // 总督 (Guard Level 1)
+        public string GovernorBgColor { get; set; } = "#581c2b";
+        public int GovernorBgOpacity { get; set; } = 85;
+        public string GovernorBorderColor { get; set; } = "#ff4d6d";
+        public int GovernorBorderOpacity { get; set; } = 90;
+        public string GovernorTextColor { get; set; } = "#ffccd5";
+
+        // 提督 (Guard Level 2)
+        public string AdmiralBgColor { get; set; } = "#341c54";
+        public int AdmiralBgOpacity { get; set; } = 85;
+        public string AdmiralBorderColor { get; set; } = "#c77dff";
+        public int AdmiralBorderOpacity { get; set; } = 85;
+        public string AdmiralTextColor { get; set; } = "#e0aaff";
+
+        // 舰长 (Guard Level 3)
+        public string CaptainBgColor { get; set; } = "#1c3254";
+        public int CaptainBgOpacity { get; set; } = 80;
+        public string CaptainBorderColor { get; set; } = "#4ea8de";
+        public int CaptainBorderOpacity { get; set; } = 80;
+        public string CaptainTextColor { get; set; } = "#90e0ef";
+
+        public string NicknameFont { get; set; } = "system-ui";
+        public string NicknameColor { get; set; } = "#ffd04b";
+        public int NicknameOpacity { get; set; } = 100;
+        public int NicknameSize { get; set; } = 14;
+        public bool NicknameBold { get; set; } = true;
+        public bool ShowMedal { get; set; } = true;
+        public string DanmuFont { get; set; } = "system-ui";
+        public string DanmuColor { get; set; } = "#ffffff";
+        public int DanmuOpacity { get; set; } = 100;
+        public int DanmuSize { get; set; } = 16;
+        public double DanmuLineHeight { get; set; } = 1.4;
+        public string DanmuStroke { get; set; } = "shadow";
+        public string BgColor { get; set; } = "#1e222d";
+        public int BgOpacity { get; set; } = 75;
+        public int CardRadius { get; set; } = 10;
+        public int CardPadding { get; set; } = 8;
+        public int CardGap { get; set; } = 8;
+        public bool ShowBorder { get; set; } = true;
+        public string BorderColor { get; set; } = "#3a4256";
+        public int BorderOpacity { get; set; } = 60;
+        public int BorderWidth { get; set; } = 1;
+        public bool ShowAvatar { get; set; } = true;
+        public int AvatarSize { get; set; } = 36;
+        public string AvatarShape { get; set; } = "circle";
+        public bool ShowAvatarBorder { get; set; } = true;
+        public string AvatarBorderColor { get; set; } = "#ffffff";
+        public int AvatarBorderOpacity { get; set; } = 40;
+        public int AvatarBorderWidth { get; set; } = 2;
+        public string Animation { get; set; } = "slide";
+        public int StayDuration { get; set; } = 15;
+        public int MaxCount { get; set; } = 15;
+    }
+}

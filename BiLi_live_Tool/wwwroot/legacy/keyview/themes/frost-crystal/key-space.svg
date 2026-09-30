@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80">
+  <defs>
+    <linearGradient id="fcsp-border" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00aeef"/>
+      <stop offset="50%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#00aeef"/>
+    </linearGradient>
+    <linearGradient id="fcsp-face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#142c4a"/>
+      <stop offset="100%" stop-color="#050e1c"/>
+    </linearGradient>
+  </defs>
+  <polygon points="12,2 388,2 398,10 398,70 388,78 12,78 2,70 2,10" fill="url(#fcsp-border)" stroke="#001833" stroke-width="1.5"/>
+  <polygon points="14,5 386,5 395,12 395,68 386,75 14,75 5,68 5,12" fill="url(#fcsp-face)"/>
+  <line x1="20" y1="40" x2="380" y2="40" stroke="#00aeef" stroke-width="1" stroke-dasharray="12 4" opacity="0.7"/>
+</svg>

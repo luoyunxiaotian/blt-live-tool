@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80">
+  <defs>
+    <linearGradient id="gsp-bevel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff0d0"/>
+      <stop offset="30%" stop-color="#ffd080"/>
+      <stop offset="70%" stop-color="#df9a20"/>
+      <stop offset="100%" stop-color="#804a00"/>
+    </linearGradient>
+    <linearGradient id="gsp-core" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8a0c0a"/>
+      <stop offset="15%" stop-color="#d91a18"/>
+      <stop offset="50%" stop-color="#fb2320"/>
+      <stop offset="85%" stop-color="#d91a18"/>
+      <stop offset="100%" stop-color="#8a0c0a"/>
+    </linearGradient>
+    <linearGradient id="gsp-rim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffcb84"/>
+      <stop offset="50%" stop-color="#fde5c1"/>
+      <stop offset="100%" stop-color="#ffcb84"/>
+    </linearGradient>
+    <linearGradient id="gsp-shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="8" width="396" height="70" rx="16" fill="#4d0605"/>
+  <rect x="2" y="2" width="396" height="72" rx="16" fill="url(#gsp-bevel)" stroke="#663b00" stroke-width="1.5"/>
+  <rect x="5.5" y="5.5" width="389" height="65" rx="13" fill="none" stroke="url(#gsp-rim)" stroke-width="1.2"/>
+  <rect x="8" y="8" width="384" height="60" rx="11" fill="url(#gsp-core)"/>
+  <rect x="11" y="10" width="378" height="24" rx="8" fill="url(#gsp-shine)"/>
+  <!-- Center Gold Crest Pattern -->
+  <path d="M 180 38 L 200 28 L 220 38 L 200 48 Z" fill="#ffd080" opacity="0.8"/>
+  <line x1="30" y1="38" x2="160" y2="38" stroke="#ffd080" stroke-width="1.2" opacity="0.6"/>
+  <line x1="240" y1="38" x2="370" y2="38" stroke="#ffd080" stroke-width="1.2" opacity="0.6"/>
+</svg>

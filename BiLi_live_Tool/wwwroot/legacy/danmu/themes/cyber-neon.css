@@ -1,0 +1,30 @@
+/* Theme: Cyber Neon (赛博霓虹电竞) */
+.danmu-item {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.35), inset 0 0 8px rgba(255, 0, 128, 0.2);
+  border-image: linear-gradient(135deg, #00f0ff, #ff007f) 1;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.danmu-uname {
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.8), 0 0 16px rgba(0, 240, 255, 0.4);
+}
+
+.danmu-text {
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.danmu-badge.guard {
+  background: linear-gradient(135deg, #ff007f, #7928ca);
+  box-shadow: 0 0 10px #ff007f;
+  text-transform: uppercase;
+}
+
+.danmu-badge.medal {
+  background: rgba(0, 240, 255, 0.2);
+  border-color: #00f0ff;
+  color: #00f0ff;
+  box-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+}

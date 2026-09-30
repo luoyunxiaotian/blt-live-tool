@@ -580,15 +580,145 @@ public static class BiliNormalize
                     if (u.GetArrayLength() > 0) uid = Plain(u[0]);
                     if (u.GetArrayLength() > 1 && u[1].ValueKind == JsonValueKind.String) uname = u[1].GetString() ?? "";
                 }
-                if (info.GetArrayLength() > 3 && info[3].ValueKind == JsonValueKind.Array && info[3].GetArrayLength() > 0
-                    && info[3][0].ValueKind == JsonValueKind.String)
-                    uface = info[3][0].GetString() ?? "";
+
+                // 深度提取用户头像 (info[0][15].user.base.face / extra / uinfo / data.face)
+                if (info.GetArrayLength() > 0 && info[0].ValueKind == JsonValueKind.Array && info[0].GetArrayLength() > 15)
+                {
+                    var extraObj = info[0][15];
+                    if (extraObj.ValueKind == JsonValueKind.Object)
+                    {
+                        if (extraObj.TryGetProperty("user", out var userEl) && userEl.ValueKind == JsonValueKind.Object)
+                        {
+                            if (userEl.TryGetProperty("base", out var baseEl) && baseEl.ValueKind == JsonValueKind.Object)
+                            {
+                                if (baseEl.TryGetProperty("face", out var fEl) && fEl.ValueKind == JsonValueKind.String)
+                                    uface = fEl.GetString() ?? "";
+                                if (string.IsNullOrEmpty(uname) && baseEl.TryGetProperty("name", out var nEl) && nEl.ValueKind == JsonValueKind.String)
+                                    uname = nEl.GetString() ?? "";
+                            }
+                        }
+                        if (string.IsNullOrEmpty(uface) && extraObj.TryGetProperty("extra", out var extraStrEl) && extraStrEl.ValueKind == JsonValueKind.String)
+                        {
+                            try
+                            {
+                                using var exDoc = JsonDocument.Parse(extraStrEl.GetString() ?? "{}");
+                                if (exDoc.RootElement.TryGetProperty("user_face", out var ufEl) && ufEl.ValueKind == JsonValueKind.String)
+                                    uface = ufEl.GetString() ?? "";
+                                else if (exDoc.RootElement.TryGetProperty("face", out var fcEl) && fcEl.ValueKind == JsonValueKind.String)
+                                    uface = fcEl.GetString() ?? "";
+                            }
+                            catch { }
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(uface) && msg.TryGetProperty("data", out var dEl) && dEl.ValueKind == JsonValueKind.Object)
+                {
+                    if (dEl.TryGetProperty("face", out var df) && df.ValueKind == JsonValueKind.String)
+                        uface = df.GetString() ?? "";
+                    else if (dEl.TryGetProperty("uinfo", out var uinfoEl) && uinfoEl.ValueKind == JsonValueKind.Object &&
+                             uinfoEl.TryGetProperty("base", out var ub) && ub.ValueKind == JsonValueKind.Object &&
+                             ub.TryGetProperty("face", out var ubf) && ubf.ValueKind == JsonValueKind.String)
+                        uface = ubf.GetString() ?? "";
+                }
+
+                if (uface.StartsWith("//")) uface = "https:" + uface;
+
+                // 若实时弹幕未能直接携带头像，尝试从 UserCache 中命中历史缓存头像
+                if (string.IsNullOrEmpty(uface) && !string.IsNullOrWhiteSpace(uid) && BiliApi.UserCache.TryGetInfo(uid, out _, out var cachedFace) && !string.IsNullOrEmpty(cachedFace))
+                {
+                    uface = cachedFace;
+                }
+
+                // 提取 B站 弹幕表情包与专属表情 (info[0][13], info[0][15].extra.emots, data.dm_v2)
+                Dictionary<string, EmoteInfo>? emotes = null;
+                try
+                {
+                    // 1. 检查 info[0][13] (大表情 / 单独表情对象)
+                    if (info.GetArrayLength() > 0 && info[0].ValueKind == JsonValueKind.Array && info[0].GetArrayLength() > 13)
+                    {
+                        var emoteEl = info[0][13];
+                        if (emoteEl.ValueKind == JsonValueKind.Object && emoteEl.TryGetProperty("url", out var eu) && eu.ValueKind == JsonValueKind.String)
+                        {
+                            var eUrl = eu.GetString() ?? "";
+                            if (!string.IsNullOrEmpty(eUrl))
+                            {
+                                if (eUrl.StartsWith("//")) eUrl = "https:" + eUrl;
+                                var eName = !string.IsNullOrEmpty(text) ? text : "[表情]";
+                                var ew = emoteEl.TryGetProperty("width", out var ewEl) && ewEl.ValueKind == JsonValueKind.Number ? ewEl.GetInt32() : 0;
+                                var eh = emoteEl.TryGetProperty("height", out var ehEl) && ehEl.ValueKind == JsonValueKind.Number ? ehEl.GetInt32() : 0;
+                                emotes ??= new(StringComparer.OrdinalIgnoreCase);
+                                emotes[eName] = new EmoteInfo { Emoji = eName, Url = eUrl, Width = ew, Height = eh };
+                            }
+                        }
+                    }
+
+                    // 2. 检查 info[0][15].extra (通用表情字典 emots: { "[doge]": { url, ... } })
+                    if (info.GetArrayLength() > 0 && info[0].ValueKind == JsonValueKind.Array && info[0].GetArrayLength() > 15)
+                    {
+                        var extraObj = info[0][15];
+                        if (extraObj.ValueKind == JsonValueKind.Object && extraObj.TryGetProperty("extra", out var exStrEl) && exStrEl.ValueKind == JsonValueKind.String)
+                        {
+                            try
+                            {
+                                using var exDoc = JsonDocument.Parse(exStrEl.GetString() ?? "{}");
+                                if (exDoc.RootElement.TryGetProperty("emots", out var emotsEl) && emotsEl.ValueKind == JsonValueKind.Object)
+                                {
+                                    foreach (var prop in emotsEl.EnumerateObject())
+                                    {
+                                        if (prop.Value.ValueKind == JsonValueKind.Object && prop.Value.TryGetProperty("url", out var uEl) && uEl.ValueKind == JsonValueKind.String)
+                                        {
+                                            var u = uEl.GetString() ?? "";
+                                            if (!string.IsNullOrEmpty(u))
+                                            {
+                                                if (u.StartsWith("//")) u = "https:" + u;
+                                                var w = prop.Value.TryGetProperty("width", out var wEl) && wEl.ValueKind == JsonValueKind.Number ? wEl.GetInt32() : 0;
+                                                var h = prop.Value.TryGetProperty("height", out var hEl) && hEl.ValueKind == JsonValueKind.Number ? hEl.GetInt32() : 0;
+                                                emotes ??= new(StringComparer.OrdinalIgnoreCase);
+                                                emotes[prop.Name] = new EmoteInfo { Emoji = prop.Name, Url = u, Width = w, Height = h };
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+
+                    // 3. 检查 data.dm_v2 (部分新版开放协议)
+                    if (msg.TryGetProperty("data", out var dmData) && dmData.ValueKind == JsonValueKind.Object &&
+                        dmData.TryGetProperty("dm_v2", out var dmV2) && dmV2.ValueKind == JsonValueKind.Object &&
+                        dmV2.TryGetProperty("emots", out var v2Emots) && v2Emots.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var prop in v2Emots.EnumerateObject())
+                        {
+                            if (prop.Value.ValueKind == JsonValueKind.Object && prop.Value.TryGetProperty("url", out var uEl) && uEl.ValueKind == JsonValueKind.String)
+                            {
+                                var u = uEl.GetString() ?? "";
+                                if (!string.IsNullOrEmpty(u))
+                                {
+                                    if (u.StartsWith("//")) u = "https:" + u;
+                                    var w = prop.Value.TryGetProperty("width", out var wEl) && wEl.ValueKind == JsonValueKind.Number ? wEl.GetInt32() : 0;
+                                    var h = prop.Value.TryGetProperty("height", out var hEl) && hEl.ValueKind == JsonValueKind.Number ? hEl.GetInt32() : 0;
+                                    emotes ??= new(StringComparer.OrdinalIgnoreCase);
+                                    emotes[prop.Name] = new EmoteInfo { Emoji = prop.Name, Url = u, Width = w, Height = h };
+                                }
+                            }
+                        }
+                    }
+                }
+                catch { }
+
                 var tier = ExtractTier(msg);
                 var guard = DetectGuard(msg);
+                if (!string.IsNullOrWhiteSpace(uid) && (!string.IsNullOrWhiteSpace(uname) || !string.IsNullOrWhiteSpace(uface)))
+                    BiliApi.UserCache.Set(uid, uname, uface);
+
                 return new LiveEvent
                 {
                     Type = "danmu", Time = time, Ts = ts,
                     Uid = uid, Uname = uname, Msg = text, Uface = uface,
+                    Emotes = emotes,
                     MedalLevel = tier.Medal, HonorLevel = tier.Honor,
                     IsGuard = guard.IsGuard, GuardLevel = guard.Level,
                 };
@@ -610,6 +740,8 @@ public static class BiliNormalize
                         if (g.Uname.Length > 0 || g.GiftName.Length > 0)
                         {
                             var perYuanPb = g.CoinType == "silver" ? 10000 : 1000;
+                            if (!string.IsNullOrWhiteSpace(g.Uid) && !string.IsNullOrWhiteSpace(g.Uname))
+                                BiliApi.UserCache.Set(g.Uid, g.Uname);
                             return new LiveEvent
                             {
                                 Type = "gifts", Time = time, Ts = ts,
@@ -649,10 +781,13 @@ public static class BiliNormalize
                 // Never emit a nameless, meaningless row (that is what showed up as
                 // “GIFT — 送出 ×1” in the stream and blocked the thank-you danmu).
                 if (uname.Length == 0 && giftName.Length == 0) return null;
+                var rawUid = Plain(GetProp(d, "uid"));
+                if (!string.IsNullOrWhiteSpace(rawUid) && !string.IsNullOrWhiteSpace(uname))
+                    BiliApi.UserCache.Set(rawUid, uname);
                 return new LiveEvent
                 {
                     Type = "gifts", Time = time, Ts = ts,
-                    Uid = Plain(GetProp(d, "uid")), Uname = uname,
+                    Uid = rawUid, Uname = uname,
                     GiftName = giftName, Num = (int)num, Price = price,
                     TotalCoin = totalCoin, CoinType = coinType, Value = value,
                     MedalLevel = tier.Medal, HonorLevel = tier.Honor,
@@ -667,10 +802,14 @@ public static class BiliNormalize
                 long num = GetLong(d, "num", 1); if (num < 1) num = 1;
                 long price = GetLong(d, "price");
                 var value = Math.Round(num * price / 1000.0 * 100) / 100;
+                var gUid = Plain(GetProp(d, "uid"));
+                var gUname = GetStr(d, "uname");
+                if (!string.IsNullOrWhiteSpace(gUid) && !string.IsNullOrWhiteSpace(gUname))
+                    BiliApi.UserCache.Set(gUid, gUname);
                 return new LiveEvent
                 {
                     Type = "guard", Time = time, Ts = ts,
-                    Uid = Plain(GetProp(d, "uid")), Uname = GetStr(d, "uname"),
+                    Uid = gUid, Uname = gUname,
                     Level = (int)level,
                     LevelName = level >= 1 && level <= 3 ? GuardNames[level] : "等级" + level,
                     Num = (int)num, Price = price, Value = value,
@@ -684,10 +823,14 @@ public static class BiliNormalize
                 var user = GetProp(d, "user");
                 var tier = ExtractTier(msg);
                 var guard = DetectGuard(msg);
+                var scUid = Plain(GetProp(user, "uid"));
+                var scUname = GetStr(user, "uname");
+                if (!string.IsNullOrWhiteSpace(scUid) && !string.IsNullOrWhiteSpace(scUname))
+                    BiliApi.UserCache.Set(scUid, scUname);
                 return new LiveEvent
                 {
                     Type = "superchat", Time = time, Ts = ts,
-                    Uid = Plain(GetProp(user, "uid")), Uname = GetStr(user, "uname"),
+                    Uid = scUid, Uname = scUname,
                     Msg = GetStr(d, "message"), Price = GetLong(d, "price"), Uface = GetStr(user, "face"),
                     StartTime = GetLong(d, "start_time"), EndTime = GetLong(d, "end_time"),
                     MedalLevel = tier.Medal, HonorLevel = tier.Honor,
@@ -721,7 +864,40 @@ public static class BiliNormalize
                     { ValueKind: JsonValueKind.String } s => s.GetString() ?? "",
                     _ => pbUid.Length > 0 ? pbUid : fromDeep.Uid,
                 };
-                var uname = FirstNonEmpty(GetStr(d, "uname"), pbUname, fromDeep.Uname);
+                if (string.IsNullOrWhiteSpace(uid))
+                    uid = FirstNonEmpty(GetNestedStr(d, "uinfo", "uid"), GetNestedStr(d, "user_info", "uid"), fromDeep.Uid);
+
+                var directUname = FirstNonEmpty(
+                    GetStr(d, "uname"),
+                    GetStr(d, "user_name"),
+                    GetStr(d, "name"),
+                    GetNestedStr(d, "uinfo", "base", "name"),
+                    GetNestedStr(d, "uinfo", "base", "origin_info", "name"),
+                    GetNestedStr(d, "user_info", "name"),
+                    GetNestedStr(d, "user_info", "uname")
+                );
+
+                if (string.IsNullOrWhiteSpace(directUname))
+                {
+                    var cw = FirstNonEmpty(GetStr(d, "copy_writing"), GetStr(d, "copy_writing_v2"));
+                    if (!string.IsNullOrWhiteSpace(cw))
+                    {
+                        var m = Regex.Match(cw, @"<%(.*?)%>");
+                        if (m.Success && !string.IsNullOrWhiteSpace(m.Groups[1].Value))
+                            directUname = m.Groups[1].Value.Trim();
+                    }
+                }
+
+                var uname = FirstNonEmpty(directUname, pbUname, fromDeep.Uname);
+                if (string.IsNullOrWhiteSpace(uname) && !string.IsNullOrWhiteSpace(uid) && BiliApi.UserCache.TryGet(uid, out var cachedName))
+                {
+                    uname = cachedName;
+                }
+                else if (!string.IsNullOrWhiteSpace(uid) && !string.IsNullOrWhiteSpace(uname))
+                {
+                    BiliApi.UserCache.Set(uid, uname);
+                }
+
                 return new LiveEvent
                 {
                     Type = "interact", Time = time, Ts = ts,
@@ -754,35 +930,58 @@ public static class BiliNormalize
     private static string FirstNonEmpty(params string[] values)
         => values.FirstOrDefault(v => !string.IsNullOrEmpty(v)) ?? "";
 
-    // Port of deepFindUser: first node carrying uname/uid anywhere in the payload.
+    // Port of deepFindUser: recursively find uname/uid anywhere in the payload.
+    // Fixed: does NOT bail out early when only uid is found without uname, and searches all modern Bilibili name/uid variants.
     private static (string Uname, string Uid) DeepFindUser(JsonElement root)
     {
-        var found = ("", "");
+        var foundUname = "";
+        var foundUid = "";
         Walk(root);
-        return found;
+        return (foundUname, foundUid);
 
         void Walk(JsonElement el)
         {
-            if (found.Item1.Length > 0 || found.Item2.Length > 0) return;
+            if (foundUname.Length > 0 && foundUid.Length > 0) return;
             switch (el.ValueKind)
             {
                 case JsonValueKind.Object:
-                    var u = "";
-                    var id = "";
                     foreach (var p in el.EnumerateObject())
                     {
-                        if (p.Name == "uname" && p.Value.ValueKind == JsonValueKind.String) u = p.Value.GetString() ?? "";
-                        if (p.Name == "uid")
+                        if (foundUname.Length == 0 && (p.NameEquals("uname") || p.NameEquals("user_name") || p.NameEquals("name") || p.NameEquals("nickname")) && p.Value.ValueKind == JsonValueKind.String)
                         {
-                            if (p.Value.ValueKind == JsonValueKind.Number) id = p.Value.GetRawText();
-                            else if (p.Value.ValueKind == JsonValueKind.String) id = p.Value.GetString() ?? "";
+                            var s = p.Value.GetString()?.Trim() ?? "";
+                            if (s.Length > 0 && !s.StartsWith("http", StringComparison.OrdinalIgnoreCase) && !s.Contains('{') && !s.Contains('}'))
+                            {
+                                foundUname = s;
+                            }
+                        }
+                        if (foundUid.Length == 0 && (p.NameEquals("uid") || p.NameEquals("mid") || p.NameEquals("user_id")))
+                        {
+                            if (p.Value.ValueKind == JsonValueKind.Number)
+                            {
+                                var n = p.Value.GetInt64();
+                                if (n > 0) foundUid = n.ToString();
+                            }
+                            else if (p.Value.ValueKind == JsonValueKind.String)
+                            {
+                                var s = p.Value.GetString()?.Trim() ?? "";
+                                if (s.Length > 0 && s != "0") foundUid = s;
+                            }
                         }
                     }
-                    if (u.Length > 0 || id.Length > 0) { found = (u, id); return; }
-                    foreach (var p in el.EnumerateObject()) Walk(p.Value);
+                    if (foundUname.Length > 0 && foundUid.Length > 0) return;
+                    foreach (var p in el.EnumerateObject())
+                    {
+                        Walk(p.Value);
+                        if (foundUname.Length > 0 && foundUid.Length > 0) return;
+                    }
                     break;
                 case JsonValueKind.Array:
-                    foreach (var item in el.EnumerateArray()) Walk(item);
+                    foreach (var item in el.EnumerateArray())
+                    {
+                        Walk(item);
+                        if (foundUname.Length > 0 && foundUid.Length > 0) return;
+                    }
                     break;
             }
         }
@@ -1012,6 +1211,18 @@ public static class BiliNormalize
     {
         var v = GetProp(el, name);
         return v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    }
+
+    private static string GetNestedStr(JsonElement el, params string[] path)
+    {
+        var cur = el;
+        for (int i = 0; i < path.Length; i++)
+        {
+            if (cur.ValueKind != JsonValueKind.Object || !cur.TryGetProperty(path[i], out var next))
+                return "";
+            cur = next;
+        }
+        return cur.ValueKind == JsonValueKind.String ? cur.GetString() ?? "" : "";
     }
 
     private static long GetLong(JsonElement el, string name, long def = 0)

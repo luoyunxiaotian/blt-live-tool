@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80">
+  <defs>
+    <linearGradient id="vcsp-bevel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#da9bfa"/>
+      <stop offset="35%" stop-color="#9d17c2"/>
+      <stop offset="70%" stop-color="#4b0f7d"/>
+      <stop offset="100%" stop-color="#1e0638"/>
+    </linearGradient>
+    <linearGradient id="vcsp-core" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#140624"/>
+      <stop offset="30%" stop-color="#2a0d4a"/>
+      <stop offset="50%" stop-color="#4b0f7d"/>
+      <stop offset="70%" stop-color="#2a0d4a"/>
+      <stop offset="100%" stop-color="#140624"/>
+    </linearGradient>
+    <linearGradient id="vcsp-cyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1c7e99" stop-opacity="0.3"/>
+      <stop offset="50%" stop-color="#00f0ff"/>
+      <stop offset="100%" stop-color="#1c7e99" stop-opacity="0.3"/>
+    </linearGradient>
+    <linearGradient id="vcsp-shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#fd9eff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="8" width="396" height="70" rx="14" fill="#0c0317"/>
+  <rect x="2" y="2" width="396" height="72" rx="14" fill="url(#vcsp-bevel)" stroke="#7121b3" stroke-width="1.5"/>
+  <rect x="5.5" y="5.5" width="389" height="65" rx="11" fill="none" stroke="url(#vcsp-cyan)" stroke-width="1.2"/>
+  <rect x="8" y="8" width="384" height="60" rx="9" fill="url(#vcsp-core)"/>
+  <rect x="11" y="10" width="378" height="22" rx="6" fill="url(#vcsp-shine)"/>
+  <!-- Energy Crystal Blade Center (inspired by 资源 1.svg) -->
+  <polygon points="200,24 230,38 200,52 170,38" fill="#00f0ff" opacity="0.8"/>
+  <line x1="30" y1="38" x2="160" y2="38" stroke="#1c7e99" stroke-width="1.5"/>
+  <line x1="240" y1="38" x2="370" y2="38" stroke="#1c7e99" stroke-width="1.5"/>
+</svg>

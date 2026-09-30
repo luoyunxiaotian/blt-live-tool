@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_图层_2" data-name="图层 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 77.68 31.88">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #ffb703;
+      }
+
+      .cls-2 {
+        fill: #996515;
+      }
+
+      .cls-3 {
+        fill: #443722;
+      }
+
+      .cls-4 {
+        fill: #0f0e0e;
+      }
+    </style>
+  </defs>
+  <g id="_图层_1-2" data-name="图层 1">
+    <g>
+      <rect class="cls-3" x="1.47" y="1.47" width="74.74" height="28.94"/>
+      <rect class="cls-4" x="1.47" y="1.47" width="1.47" height="1.47"/>
+      <rect class="cls-4" x="74.74" y="1.47" width="1.47" height="1.47"/>
+      <rect class="cls-4" x="1.47" y="28.94" width="1.47" height="1.47"/>
+      <rect class="cls-4" x="74.74" y="28.94" width="1.47" height="1.47"/>
+      <rect class="cls-4" x="2.94" width="71.8" height="1.47"/>
+      <rect class="cls-4" x="2.94" y="30.41" width="71.8" height="1.47"/>
+      <rect class="cls-4" x="76.21" y="2.94" width="1.47" height="26"/>
+      <rect class="cls-4" y="2.94" width="1.47" height="26"/>
+      <rect class="cls-2" x="2.94" y="1.47" width="71.8" height="1.47"/>
+      <rect class="cls-2" x="2.94" y="28.94" width="71.8" height="1.47"/>
+      <rect class="cls-2" x="1.47" y="2.94" width="1.47" height="26"/>
+      <rect class="cls-2" x="74.74" y="2.94" width="1.47" height="26"/>
+      <rect class="cls-1" x="2.94" y="1.47" width="1.47" height="1.47"/>
+      <rect class="cls-1" x="73.27" y="1.47" width="1.47" height="1.47"/>
+      <rect class="cls-1" x="1.47" y="2.94" width="1.47" height="1.47"/>
+      <rect class="cls-1" x="74.74" y="2.94" width="1.47" height="1.47"/>
+      <rect class="cls-1" x="1.47" y="27.47" width="1.47" height="1.47"/>
+      <rect class="cls-1" x="2.94" y="28.94" width="1.47" height="1.47"/>
+      <rect class="cls-1" x="74.74" y="27.47" width="1.47" height="1.47"/>
+      <rect class="cls-1" x="73.27" y="28.94" width="1.47" height="1.47"/>
+    </g>
+  </g>
+</svg>

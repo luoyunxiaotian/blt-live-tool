@@ -249,6 +249,9 @@ namespace BiLi_live_Tool
             "editorial" => ("#F8F5EE", "#22242A"),
             "neon" => ("#0A0614", "#F4EFFF"),
             "hud" => ("#05070B", "#DFE7F2"),
+            "cyber-violet" => ("#0F081E", "#F0E8FF"),
+            "frost-crystal" => ("#09111E", "#E6F4FF"),
+            "titan-metal" => ("#141618", "#E6E8EA"),
             "classic" => ("#0E0F13", "#EAEAEE"),   // 旧版默认皮肤（石墨黑 + B站粉）
             _ => ("#0B0F14", "#D7DEE8"),
         };

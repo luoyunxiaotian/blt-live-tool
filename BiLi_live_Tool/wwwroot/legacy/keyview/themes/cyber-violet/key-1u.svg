@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="cv-border" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a540f7"/>
+      <stop offset="50%" stop-color="#4b0f7d"/>
+      <stop offset="100%" stop-color="#1c7e99"/>
+    </linearGradient>
+    <linearGradient id="cv-face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a0c2e"/>
+      <stop offset="100%" stop-color="#0a0514"/>
+    </linearGradient>
+  </defs>
+  <!-- Chamfered cyber hexagon/octagon box -->
+  <polygon points="12,2 88,2 98,12 98,88 88,98 12,98 2,88 2,12" fill="url(#cv-border)" stroke="#000" stroke-width="1.5"/>
+  <polygon points="14,6 86,6 94,14 94,86 86,94 14,94 6,86 6,14" fill="url(#cv-face)"/>
+  <!-- Corner cyber ticks -->
+  <path d="M16,10 L10,16 M84,10 L90,16 M16,90 L10,84 M84,90 L90,84" stroke="#00f0ff" stroke-width="1.2" opacity="0.8"/>
+  <line x1="20" y1="6" x2="80" y2="6" stroke="#9844f2" stroke-width="1" opacity="0.6"/>
+</svg>

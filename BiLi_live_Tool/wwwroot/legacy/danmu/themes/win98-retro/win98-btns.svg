@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 54 16">
+  <!-- Minimize Button -->
+  <g transform="translate(0, 0)">
+    <rect x="0.5" y="0.5" width="15" height="15" fill="#dfdfdf" stroke="#fff" stroke-width="1"/>
+    <path d="M15.5,0.5 L15.5,15.5 L0.5,15.5" stroke="#808080" stroke-width="1" fill="none"/>
+    <rect x="3" y="10" width="8" height="2" fill="#000"/>
+  </g>
+  <!-- Maximize Button -->
+  <g transform="translate(18, 0)">
+    <rect x="0.5" y="0.5" width="15" height="15" fill="#dfdfdf" stroke="#fff" stroke-width="1"/>
+    <path d="M15.5,0.5 L15.5,15.5 L0.5,15.5" stroke="#808080" stroke-width="1" fill="none"/>
+    <rect x="3" y="3" width="9" height="9" fill="none" stroke="#000" stroke-width="2"/>
+    <rect x="3" y="3" width="9" height="2" fill="#000"/>
+  </g>
+  <!-- Close Button -->
+  <g transform="translate(36, 0)">
+    <rect x="0.5" y="0.5" width="15" height="15" fill="#dfdfdf" stroke="#fff" stroke-width="1"/>
+    <path d="M15.5,0.5 L15.5,15.5 L0.5,15.5" stroke="#808080" stroke-width="1" fill="none"/>
+    <path d="M4,4 L11,11 M11,4 L4,11" stroke="#000" stroke-width="2" stroke-linecap="square"/>
+  </g>
+</svg>

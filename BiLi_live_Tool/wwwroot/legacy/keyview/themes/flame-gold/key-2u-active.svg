@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80">
+  <defs>
+    <linearGradient id="g2-bevel-act" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="30%" stop-color="#ffe8a0"/>
+      <stop offset="70%" stop-color="#ffb224"/>
+      <stop offset="100%" stop-color="#b36200"/>
+    </linearGradient>
+    <linearGradient id="g2-core-act" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff5500"/>
+      <stop offset="50%" stop-color="#ff2200"/>
+      <stop offset="100%" stop-color="#b30000"/>
+    </linearGradient>
+    <linearGradient id="g2-rim-act" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#ffe8b0"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="5" width="156" height="73" rx="16" fill="#330403"/>
+  <rect x="2" y="5" width="156" height="71" rx="16" fill="url(#g2-bevel-act)" stroke="#ffb224" stroke-width="1.8"/>
+  <rect x="5.5" y="8" width="149" height="65" rx="13" fill="none" stroke="url(#g2-rim-act)" stroke-width="1.5"/>
+  <rect x="8" y="10.5" width="144" height="60" rx="11" fill="url(#g2-core-act)"/>
+  <circle cx="80" cy="40" r="22" fill="#ffcc00" opacity="0.35"/>
+</svg>

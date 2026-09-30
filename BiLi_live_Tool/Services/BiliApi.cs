@@ -303,37 +303,113 @@ public static partial class BiliApi
         return new UserInfo(isLogin, uid, uname);
     }
 
-    public sealed record LikeContext(long RoomId, long Uid, long AnchorId, string ImgKey, string SubKey, string Csrf);
+    private static (string Buvid3, string Buvid4)? _cachedBuvid;
+    private static DateTime _cachedBuvidUtc;
+
+    /// <summary>
+    /// Ensure cookie contains valid buvid3 and buvid4 device fingerprint identifiers.
+    /// Without buvid3/buvid4, Bilibili's risk control gateway rejects write requests (like likeReportV3) with -352.
+    /// </summary>
+    public static async Task<string> EnsureBuvidCookieAsync(string cookie, CancellationToken ct = default)
+    {
+        var c = cookie ?? "";
+        if (c.Contains("buvid3=")) return c;
+
+        string b3 = "", b4 = "";
+        if (_cachedBuvid != null && DateTime.UtcNow - _cachedBuvidUtc < TimeSpan.FromHours(12))
+        {
+            b3 = _cachedBuvid.Value.Buvid3;
+            b4 = _cachedBuvid.Value.Buvid4;
+        }
+        else
+        {
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(5000);
+                using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.bilibili.com/x/frontend/finger/spi");
+                req.Headers.TryAddWithoutValidation("User-Agent", Ua);
+                using var resp = await Http.SendAsync(req, cts.Token);
+                if (resp.IsSuccessStatusCode)
+                {
+                    var txt = await resp.Content.ReadAsStringAsync(cts.Token);
+                    using var doc = JsonDocument.Parse(txt);
+                    if (doc.RootElement.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Object)
+                    {
+                        if (d.TryGetProperty("b_3", out var b3El) && b3El.ValueKind == JsonValueKind.String)
+                            b3 = b3El.GetString() ?? "";
+                        if (d.TryGetProperty("b_4", out var b4El) && b4El.ValueKind == JsonValueKind.String)
+                            b4 = b4El.GetString() ?? "";
+                    }
+                }
+                if (!string.IsNullOrEmpty(b3))
+                {
+                    _cachedBuvid = (b3, b4);
+                    _cachedBuvidUtc = DateTime.UtcNow;
+                }
+            }
+            catch { }
+        }
+
+        if (string.IsNullOrEmpty(b3))
+        {
+            // Fallback generated buvid3 if network discovery failed
+            const string hex = "0123456789ABCDEF";
+            var sb = new StringBuilder();
+            void Part(int n) { for (var i = 0; i < n; i++) sb.Append(hex[Random.Shared.Next(16)]); }
+            Part(8); sb.Append('-'); Part(4); sb.Append('-'); Part(4); sb.Append('-'); Part(4); sb.Append('-'); Part(12);
+            b3 = sb.ToString() + "infoc";
+        }
+
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(c)) parts.Add(c.TrimEnd(';', ' '));
+        parts.Add($"buvid3={b3}");
+        if (!string.IsNullOrEmpty(b4)) parts.Add($"buvid4={b4}");
+        return string.Join("; ", parts);
+    }
+
+    public sealed record LikeContext(long RoomId, long Uid, long AnchorId, string ImgKey, string SubKey, string Csrf, string Cookie);
 
     /// <summary>Like context: uid/anchorId/wbiKeys/csrf (port of initLikeContext). Cache once per like session.</summary>
     public static async Task<LikeContext> InitLikeContextAsync(long roomId, string cookie, CancellationToken ct)
     {
         var csrf = CookieValue(cookie ?? "", "bili_jct") ?? throw new Exception("缺少 bili_jct(CSRF)，无法点赞（请先导入登录Cookie）");
-        var user = await GetUserInfoAsync(cookie, ct);
+        var enrichedCookie = await EnsureBuvidCookieAsync(cookie ?? "", ct);
+        var user = await GetUserInfoAsync(enrichedCookie, ct);
         if (user.Uid == 0) throw new Exception("无法获取用户uid，请检查Cookie是否有效");
         var room = await GetRealRoomIdAsync(roomId.ToString(), ct);
         if (room.Uid == 0) throw new Exception("无法获取主播uid");
+        var realRoomId = room.RealRoomId > 0 ? room.RealRoomId : roomId;
         var (imgKey, subKey) = await GetWbiKeysAsync(ct);
-        return new LikeContext(roomId, user.Uid, room.Uid, imgKey, subKey, csrf);
+        return new LikeContext(realRoomId, user.Uid, room.Uid, imgKey, subKey, csrf, enrichedCookie);
     }
 
     /// <summary>One like click with a prebuilt context; returns raw (code, message) — caller handles -352 retry.</summary>
-    public static async Task<(long Code, string Message)> LikeOnceAsync(LikeContext ctx, CancellationToken ct)
+    public static async Task<(long Code, string Message)> LikeOnceAsync(LikeContext ctx, CancellationToken ct, int clickTime = 5)
     {
-        var parameters = new Dictionary<string, string>
+        var parameters = new List<KeyValuePair<string, string>>
         {
-            ["click_time"] = "1",
-            ["room_id"] = ctx.RoomId.ToString(),
-            ["uid"] = ctx.Uid.ToString(),
-            ["anchor_id"] = ctx.AnchorId.ToString(),
-            ["web_location"] = "444.8",
-            ["csrf"] = ctx.Csrf,
+            new("click_time", Math.Max(1, clickTime).ToString()),
+            new("room_id", ctx.RoomId.ToString()),
+            new("uid", ctx.Uid.ToString()),
+            new("anchor_id", ctx.AnchorId.ToString()),
+            new("csrf", ctx.Csrf),
+            new("csrf_token", ctx.Csrf),
+            new("visit_id", ""),
         };
-        var query = await EncWbiAsync(parameters, ct);
-        using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.live.bilibili.com/xlive/app-ucenter/v1/like_info_v3/like/likeReportV3?" + query);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.live.bilibili.com/xlive/app-ucenter/v1/like_info_v3/like/likeReportV3")
+        {
+            Content = new FormUrlEncodedContent(parameters)
+        };
         req.Headers.TryAddWithoutValidation("User-Agent", Ua);
-        req.Headers.TryAddWithoutValidation("Referer", "https://live.bilibili.com/");
+        req.Headers.TryAddWithoutValidation("Referer", "https://live.bilibili.com/" + ctx.RoomId);
         req.Headers.TryAddWithoutValidation("Origin", "https://live.bilibili.com");
+        req.Headers.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
+        req.Headers.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+        if (!string.IsNullOrEmpty(ctx.Cookie))
+        {
+            req.Headers.TryAddWithoutValidation("Cookie", ctx.Cookie);
+        }
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(10000);
         using var resp = await Http.SendAsync(req, cts.Token);
@@ -350,6 +426,126 @@ public static partial class BiliApi
     /// <summary>One-shot like (context rebuilt every call) — convenience wrapper.</summary>
     public static async Task<(long Code, string Message)> LikeRoomAsync(long roomId, string cookie, CancellationToken ct)
         => await LikeOnceAsync(await InitLikeContextAsync(roomId, cookie, ct), ct);
+
+    public sealed record CachedUserInfo(string Name, string Face);
+
+    /// <summary>
+    /// Thread-safe user nickname and avatar cache (max 5000 items) to prevent displaying raw "用户{UID}"
+    /// across danmu, welcome, gift and SC events.
+    /// </summary>
+    public static class UserCache
+    {
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, CachedUserInfo> _dict = new();
+        private static readonly System.Collections.Concurrent.ConcurrentQueue<string> _order = new();
+        private const int MaxSize = 5000;
+
+        public static bool TryGet(string? uid, out string name)
+        {
+            name = "";
+            if (string.IsNullOrWhiteSpace(uid)) return false;
+            if (_dict.TryGetValue(uid.Trim(), out var cached) && !string.IsNullOrWhiteSpace(cached.Name))
+            {
+                name = cached.Name;
+                return true;
+            }
+            return false;
+        }
+
+        public static bool TryGetInfo(string? uid, out string name, out string face)
+        {
+            name = "";
+            face = "";
+            if (string.IsNullOrWhiteSpace(uid)) return false;
+            if (_dict.TryGetValue(uid.Trim(), out var cached))
+            {
+                name = cached.Name ?? "";
+                face = cached.Face ?? "";
+                return !string.IsNullOrWhiteSpace(name);
+            }
+            return false;
+        }
+
+        public static void Set(string? uid, string? name, string? face = null)
+        {
+            if (string.IsNullOrWhiteSpace(uid)) return;
+            var id = uid.Trim();
+            var n = name?.Trim() ?? "";
+            var f = face?.Trim() ?? "";
+            if (f.StartsWith("//")) f = "https:" + f;
+
+            if (_dict.TryGetValue(id, out var existing))
+            {
+                var finalName = string.IsNullOrWhiteSpace(n) || n == "用户" + id ? existing.Name : n;
+                var finalFace = string.IsNullOrWhiteSpace(f) ? existing.Face : f;
+                _dict[id] = new CachedUserInfo(finalName, finalFace);
+                return;
+            }
+
+            if (n.Length == 0 || n == "用户" + id || (n.StartsWith("用户") && long.TryParse(n.Substring(2), out _)))
+            {
+                if (string.IsNullOrWhiteSpace(f)) return;
+            }
+
+            var item = new CachedUserInfo(n, f);
+            if (_dict.TryAdd(id, item))
+            {
+                _order.Enqueue(id);
+                if (_order.Count > MaxSize && _order.TryDequeue(out var oldId))
+                {
+                    _dict.TryRemove(oldId, out _);
+                }
+            }
+        }
+    }
+
+    /// <summary>Fetch user nickname and avatar from Bilibili's public user card API with caching.</summary>
+    public static async Task<string> FetchUserNicknameAsync(long uid, CancellationToken ct = default)
+    {
+        var info = await FetchUserProfileAsync(uid, ct);
+        return info.Name;
+    }
+
+    /// <summary>Fetch user profile (nickname + avatar) from Bilibili's public user card API with caching.</summary>
+    public static async Task<(string Name, string Face)> FetchUserProfileAsync(long uid, CancellationToken ct = default)
+    {
+        if (uid <= 0) return ("", "");
+        var uidStr = uid.ToString();
+        if (UserCache.TryGetInfo(uidStr, out var cName, out var cFace) && !string.IsNullOrWhiteSpace(cName))
+            return (cName, cFace);
+
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(2500);
+            using var req = new HttpRequestMessage(HttpMethod.Get, $"https://api.bilibili.com/x/web-interface/card?mid={uid}");
+            req.Headers.TryAddWithoutValidation("User-Agent", Ua);
+            req.Headers.TryAddWithoutValidation("Referer", $"https://space.bilibili.com/{uid}");
+            using var resp = await Http.SendAsync(req, cts.Token);
+            if (!resp.IsSuccessStatusCode) return ("", "");
+            var txt = await resp.Content.ReadAsStringAsync(cts.Token);
+            using var doc = JsonDocument.Parse(txt);
+            if (doc.RootElement.TryGetProperty("code", out var code) && code.GetInt64() == 0 &&
+                doc.RootElement.TryGetProperty("data", out var data) &&
+                data.TryGetProperty("card", out var card))
+            {
+                var name = "";
+                var face = "";
+                if (card.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
+                    name = nameEl.GetString()?.Trim() ?? "";
+                if (card.TryGetProperty("face", out var faceEl) && faceEl.ValueKind == JsonValueKind.String)
+                    face = faceEl.GetString()?.Trim() ?? "";
+                if (face.StartsWith("//")) face = "https:" + face;
+
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    UserCache.Set(uidStr, name, face);
+                    return (name, face);
+                }
+            }
+        }
+        catch { }
+        return ("", "");
+    }
 
     public sealed record RoomGift(long Id, string Name, long Price, string CoinType);
 

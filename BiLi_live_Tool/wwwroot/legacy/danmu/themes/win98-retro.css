@@ -1,0 +1,160 @@
+/* Theme: Win98 · 复古视窗 (Win98 Retro Window) */
+/* 经典 Windows 98 复古操作系统视窗风格：3D 凸起边框、经典深蓝渐变标题栏、三联控制按钮与像素排版 */
+
+:root {
+  --win-gray: #c0c0c0;
+  --win-light: #ffffff;
+  --win-dark: #808080;
+  --win-black: #000000;
+  --win-blue-1: #000080;
+  --win-blue-2: #1084d0;
+}
+
+#danmu-box {
+  background: rgba(0, 128, 128, 0.45) !important; /* Win98 经典桌面青绿 (Teal) */
+  border: 3px solid #dfdfdf !important;
+  border-top-color: #ffffff !important;
+  border-left-color: #ffffff !important;
+  border-right-color: #808080 !important;
+  border-bottom-color: #808080 !important;
+  border-radius: 0 !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+#danmu-stage {
+  padding-bottom: 8px !important;
+}
+
+/* 基础视窗卡片 */
+.danmu-item {
+  position: relative !important;
+  border-radius: 0 !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-top-color: #ffffff !important;
+  border-left-color: #ffffff !important;
+  border-right-color: #404040 !important;
+  border-bottom-color: #404040 !important;
+  background-color: var(--danmu-bg-color, #c0c0c0) !important;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35) !important;
+  padding: 4px 6px 6px 6px !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* 视窗标题栏假体（顶部蓝条） */
+.danmu-item::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 20px;
+  background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+  margin-bottom: 4px;
+}
+
+/* 视窗右上角三联控制按钮 (最小化、最大化、关闭) */
+.danmu-item::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 50px;
+  height: 15px;
+  background: url('./win98-retro/win98-btns.svg') no-repeat right center;
+  background-size: contain;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* 视窗内部水平布局 */
+.danmu-item > .danmu-avatar-wrap {
+  margin-top: 2px;
+}
+
+/* 方形复古头像 */
+.danmu-avatar {
+  border-radius: 0 !important;
+  border: 1px solid #808080 !important;
+  outline: 1px solid #ffffff !important;
+}
+
+/* 昵称栏 */
+.danmu-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.danmu-uname {
+  font-family: "SimSun", "Microsoft YaHei", monospace !important;
+  font-weight: 700 !important;
+  color: #000080 !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.danmu-uname::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background: url('./win98-retro/win98-pc.svg') no-repeat center;
+  background-size: contain;
+}
+
+/* 正文 */
+.danmu-text {
+  font-family: "SimSun", "Microsoft YaHei", monospace !important;
+  font-size: 13px !important;
+  color: #000000 !important;
+  background: #ffffff !important;
+  border: 1px inset #808080 !important;
+  border-top-color: #808080 !important;
+  border-left-color: #808080 !important;
+  border-right-color: #dfdfdf !important;
+  border-bottom-color: #dfdfdf !important;
+  padding: 4px 6px !important;
+}
+
+/* 勋章 */
+.danmu-badge.medal {
+  border-radius: 0 !important;
+  background: #dfdfdf !important;
+  color: #000080 !important;
+  border: 1px outset #fff !important;
+  font-weight: 700 !important;
+  font-size: 10px !important;
+}
+
+/* ── 舰长 (Captain / Level 3) ── */
+.danmu-item.guard-level-3::before,
+.danmu-item.is-guard::before {
+  background: var(--danmu-guard3-border, linear-gradient(90deg, #004080 0%, #2080d0 100%)) !important;
+}
+
+.danmu-item.guard-level-3 .danmu-uname,
+.danmu-item.is-guard .danmu-uname {
+  color: var(--danmu-guard3-text, #004080) !important;
+}
+
+/* ── 提督 (Admiral / Level 2) ── */
+.danmu-item.guard-level-2::before {
+  background: var(--danmu-guard2-border, linear-gradient(90deg, #4b0082 0%, #7b68ee 100%)) !important;
+}
+
+.danmu-item.guard-level-2 .danmu-uname {
+  color: var(--danmu-guard2-text, #4b0082) !important;
+}
+
+/* ── 总督 (Governor / Level 1) ── */
+.danmu-item.guard-level-1::before {
+  background: var(--danmu-guard1-border, linear-gradient(90deg, #800000 0%, #b22222 100%)) !important;
+}
+
+.danmu-item.guard-level-1 .danmu-uname {
+  color: var(--danmu-guard1-text, #800000) !important;
+}

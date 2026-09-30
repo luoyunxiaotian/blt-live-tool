@@ -1,0 +1,156 @@
+/* Theme: 仿油管气泡 · 纯享风 (Openlivechat / Base Bubble) */
+/* 复刻 BLC 原版高赞仿油管极简气泡主题：圆角药丸胶囊、桂冠羽翼勋章与高对比度易读性 */
+
+:root {
+  --olc-nor-name: #b4e5ea;
+  --olc-nor-mes: #6fd6dd;
+  --olc-mem3-name: #b4d2ea;
+  --olc-mem3-mes: #6fabdd;
+  --olc-mem2-name: #c2b4ea;
+  --olc-mem2-mes: #8b6fdd;
+  --olc-mem1-name: #eab4b8;
+  --olc-mem1-mes: #dd6f76;
+}
+
+#danmu-box {
+  background: rgba(18, 22, 32, 0.65) !important;
+  border: 1px solid rgba(180, 229, 234, 0.35) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+}
+
+#danmu-stage {
+  padding-bottom: 10px !important;
+}
+
+/* 基础卡片样式 */
+.danmu-item {
+  position: relative !important;
+  border-radius: 12px 18px 18px 12px !important;
+  border-width: var(--danmu-border-width, 1px) !important;
+  border-style: solid !important;
+  border-color: var(--danmu-border-color, rgba(111, 214, 221, 0.35)) !important;
+  background-color: var(--danmu-bg-color, rgba(24, 32, 44, 0.88)) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  padding: 8px 14px !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.danmu-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.danmu-avatar {
+  border-radius: 50% !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+/* 昵称胶囊标签 */
+.danmu-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+
+.danmu-uname {
+  font-weight: 700 !important;
+  color: var(--olc-nor-name) !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 弹幕内容 */
+.danmu-text {
+  font-weight: 500 !important;
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ── 舰长 (Captain / Level 3) ── */
+.danmu-item.guard-level-3,
+.danmu-item.is-guard {
+  border-color: var(--danmu-guard3-border, rgba(111, 171, 221, 0.55)) !important;
+  background-color: var(--danmu-guard3-bg, rgba(20, 36, 56, 0.92)) !important;
+  box-shadow: 0 4px 18px rgba(111, 171, 221, 0.25) !important;
+}
+
+.danmu-item.guard-level-3 .danmu-uname,
+.danmu-item.is-guard .danmu-uname {
+  color: var(--danmu-guard3-text, var(--olc-mem3-name)) !important;
+}
+
+.danmu-item.guard-level-3 .danmu-uname::after,
+.danmu-item.is-guard .danmu-uname::after {
+  content: "";
+  display: inline-block;
+  width: 15px;
+  height: 20px;
+  background: url('./openlivechat/laurel-captain.svg') no-repeat center;
+  background-size: contain;
+}
+
+.danmu-item.guard-level-3 .danmu-badge.guard,
+.danmu-item.is-guard .danmu-badge.guard {
+  background: linear-gradient(135deg, #3a7bd5, #24497a) !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+}
+
+/* ── 提督 (Admiral / Level 2) ── */
+.danmu-item.guard-level-2 {
+  border-color: var(--danmu-guard2-border, rgba(194, 180, 234, 0.55)) !important;
+  background-color: var(--danmu-guard2-bg, rgba(38, 26, 56, 0.92)) !important;
+  box-shadow: 0 4px 18px rgba(139, 111, 221, 0.25) !important;
+}
+
+.danmu-item.guard-level-2 .danmu-uname {
+  color: var(--danmu-guard2-text, var(--olc-mem2-name)) !important;
+}
+
+.danmu-item.guard-level-2 .danmu-uname::after {
+  content: "";
+  display: inline-block;
+  width: 15px;
+  height: 20px;
+  background: url('./openlivechat/laurel-admiral.svg') no-repeat center;
+  background-size: contain;
+}
+
+.danmu-item.guard-level-2 .danmu-badge.guard {
+  background: linear-gradient(135deg, #8a4baf, #522770) !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+}
+
+/* ── 总督 (Governor / Level 1) ── */
+.danmu-item.guard-level-1 {
+  border-color: var(--danmu-guard1-border, rgba(234, 180, 184, 0.6)) !important;
+  background-color: var(--danmu-guard1-bg, rgba(58, 22, 28, 0.94)) !important;
+  box-shadow: 0 4px 20px rgba(221, 111, 118, 0.3) !important;
+}
+
+.danmu-item.guard-level-1 .danmu-uname {
+  color: var(--danmu-guard1-text, var(--olc-mem1-name)) !important;
+}
+
+.danmu-item.guard-level-1 .danmu-uname::after {
+  content: "";
+  display: inline-block;
+  width: 15px;
+  height: 20px;
+  background: url('./openlivechat/laurel-governor.svg') no-repeat center;
+  background-size: contain;
+}
+
+.danmu-item.guard-level-1 .danmu-badge.guard {
+  background: linear-gradient(135deg, #d83a56, #801d2e) !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+}

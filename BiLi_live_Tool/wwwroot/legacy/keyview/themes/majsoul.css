@@ -48,20 +48,22 @@
 }
 .kv-section:empty { display: none; }
 
-/* ---- Realistic Keyboard (Mahjong Soul Tatami Felt Mat + Floating Tiles) ---- */
+/* ---- Realistic Keyboard (Mahjong Soul Floating Tiles) — No Background Chassis Box ---- */
+.kv-section-kb,
+.kv-section-ms,
+.kv-real-mouse-wrap {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
 .kv-real-kb {
   display: flex;
   flex-direction: column;
   gap: var(--kv-key-gap);
-  padding: 12px 14px;
-  background: var(--ms-mat-bg);
-  border: 2px solid var(--ms-mat-border);
-  border-radius: 10px;
-  box-shadow:
-    inset 0 0 24px rgba(10, 18, 30, 0.85),
-    inset 0 1px 0 rgba(229, 192, 93, 0.35),
-    0 8px 0 #0a121e,
-    0 12px 28px rgba(0, 0, 0, 0.7);
+  padding: 0;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 .kv-real-row {
   display: flex;
@@ -281,14 +283,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  border: 2px solid var(--ms-mat-border);
-  border-radius: 10px;
-  background: var(--ms-mat-bg);
-  box-shadow:
-    inset 0 0 20px rgba(10, 18, 30, 0.8),
-    0 8px 0 #0a121e,
-    0 12px 28px rgba(0, 0, 0, 0.7);
+  padding: 0;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 .kv-gp-svg {
   width: 190px;

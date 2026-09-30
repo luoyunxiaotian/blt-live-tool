@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="90" viewBox="0 0 140 90" opacity="0.22">
+  <g transform="translate(100, 25) rotate(25)">
+    <path fill="#e87a90" d="M0,0 Q-6,-10 0,-16 Q6,-10 0,0"/>
+  </g>
+  <g transform="translate(120, 60) rotate(-35) scale(0.75)">
+    <path fill="#e87a90" d="M0,0 Q-6,-10 0,-16 Q6,-10 0,0"/>
+  </g>
+  <g transform="translate(75, 45) rotate(50) scale(0.6)">
+    <path fill="#e87a90" d="M0,0 Q-6,-10 0,-16 Q6,-10 0,0"/>
+  </g>
+  <g transform="translate(90, 75) rotate(15) scale(0.8)">
+    <path fill="#e87a90" d="M0,0 Q-6,-10 0,-16 Q6,-10 0,0"/>
+  </g>
+</svg>

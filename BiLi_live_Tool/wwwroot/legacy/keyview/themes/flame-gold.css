@@ -1,0 +1,230 @@
+/* Theme: flame-gold (炽焰电竞 · 黄金战皇)
+   Extracted from user's authentic fiery gold arcade gaming buttons (资源 1按钮示例.svg).
+   - Imperial gold chamfered metal rim with molten crimson energy core
+   - Multi-stage tactile punch with burning ignition glow
+   - Pure floating keys (no bottom frame) with amber telemetry mouse
+*/
+
+:root {
+  --kv-key-w: 40px;
+  --kv-key-h: 44px;
+  --kv-key-gap: 4px;
+
+  --fg-text-idle: #fff2d1;
+  --fg-text-active: #ffffff;
+  --fg-gold-glow: rgba(255, 178, 36, 0.85);
+  --fg-flame-glow: rgba(251, 35, 32, 0.9);
+  --fg-anim-t: calc(40ms / var(--kv-anim-speed, 1));
+}
+
+#kv {
+  bottom: 18px;
+  gap: 16px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 18px;
+}
+.kv-section:empty { display: none; }
+
+.kv-section-kb,
+.kv-section-ms,
+.kv-real-mouse-wrap {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 100% Pure Floating Keys - No Bottom Baseplate */
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 4px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.kv-real-row {
+  display: flex;
+  gap: var(--kv-key-gap);
+}
+
+/* Base 1U Golden Flame Keycap */
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url('./flame-gold/key-1u.svg');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: none !important;
+  border-radius: 8px !important;
+  color: var(--fg-text-idle);
+  font-size: 11.5px;
+  font-weight: 800;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 2px rgba(80, 0, 0, 0.9);
+  user-select: none;
+  cursor: default;
+  transition: transform var(--fg-anim-t) cubic-bezier(0.2, 0, 0.1, 1),
+              filter var(--fg-anim-t) ease-out,
+              color var(--fg-anim-t) ease-out;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.65));
+}
+
+/* Modifiers (Tab, Caps, Shift, Enter, Backspace) */
+.kv-real-key[data-w="1.25"],
+.kv-real-key[data-w="1.5"],
+.kv-real-key[data-w="1.75"],
+.kv-real-key[data-w="2"],
+.kv-real-key[data-w="2.25"],
+.kv-real-key[data-w="2.75"],
+.kv-real-key[data-code="8"],
+.kv-real-key[data-code="9"],
+.kv-real-key[data-code="13"],
+.kv-real-key[data-code="20"],
+.kv-real-key[data-code="160"],
+.kv-real-key[data-code="161"] {
+  background-image: url('./flame-gold/key-2u.svg');
+}
+
+/* Spacebar */
+.kv-real-key[data-w="6.25"],
+.kv-real-key[data-w="6"],
+.kv-real-key[data-code="32"] {
+  background-image: url('./flame-gold/key-space.svg');
+}
+
+/* Tactile Active Depression + Ignition Flare */
+.kv-real-key.active {
+  transform: translateY(3.5px);
+  background-image: url('./flame-gold/key-1u-active.svg') !important;
+  color: var(--fg-text-active);
+  text-shadow: 0 0 8px var(--fg-gold-glow), 0 1px 2px #000;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6))
+          drop-shadow(0 0 14px var(--fg-flame-glow)) brightness(1.15);
+}
+
+.kv-real-key[data-w="1.25"].active,
+.kv-real-key[data-w="1.5"].active,
+.kv-real-key[data-w="1.75"].active,
+.kv-real-key[data-w="2"].active,
+.kv-real-key[data-w="2.25"].active,
+.kv-real-key[data-w="2.75"].active,
+.kv-real-key[data-code="8"].active,
+.kv-real-key[data-code="9"].active,
+.kv-real-key[data-code="13"].active,
+.kv-real-key[data-code="20"].active,
+.kv-real-key[data-code="160"].active,
+.kv-real-key[data-code="161"].active {
+  background-image: url('./flame-gold/key-2u-active.svg') !important;
+}
+
+.kv-real-key[data-w="6.25"].active,
+.kv-real-key[data-w="6"].active,
+.kv-real-key[data-code="32"].active {
+  background-image: url('./flame-gold/key-space-active.svg') !important;
+}
+
+/* ---- Flame Gold Gaming Mouse ---- */
+.kv-real-mouse {
+  width: 90px;
+  height: 120px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.65));
+}
+.kv-real-mouse .kv-mouse-outline {
+  fill: none !important;
+  stroke: #e6a817;
+  stroke-width: 1.8;
+}
+.kv-real-mouse .kv-mouse-sep {
+  stroke: #ffd24d;
+  stroke-width: 1.2;
+}
+.kv-real-mouse .kv-mouse-l,
+.kv-real-mouse .kv-mouse-r {
+  fill: #b82601 !important;
+  stroke: #ffd24d;
+  stroke-width: 1.2;
+  transition: all var(--fg-anim-t);
+}
+.kv-real-mouse .kv-mouse-l.active,
+.kv-real-mouse .kv-mouse-r.active {
+  fill: #ff4500 !important;
+  filter: drop-shadow(0 0 12px #ff4500) brightness(1.25);
+}
+.kv-real-mouse .kv-mouse-wheel {
+  fill: #ffd24d !important;
+  stroke: #ff4500;
+  stroke-width: 1.2;
+  transition: all var(--fg-anim-t);
+}
+.kv-real-mouse .kv-mouse-wheel.active,
+.kv-real-mouse .kv-mouse-wheel-up.active,
+.kv-real-mouse .kv-mouse-wheel-down.active {
+  fill: #ffffff !important;
+  filter: drop-shadow(0 0 10px #ff4500);
+}
+.kv-real-mouse .kv-mouse-side {
+  fill: #b82601 !important;
+  stroke: #ffd24d;
+  stroke-width: 1.2;
+  transition: all var(--fg-anim-t);
+}
+.kv-real-mouse .kv-mouse-side.active {
+  fill: #ff4500 !important;
+  filter: drop-shadow(0 0 8px #ff4500);
+}
+.kv-real-mouse .kv-mouse-dir-arrow {
+  fill: #ffd24d;
+  filter: drop-shadow(0 0 6px #ffd24d);
+}
+.kv-mouse-label {
+  color: #ffd24d;
+  font-family: -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px #000;
+}
+
+/* ---- Gamepad: Flame Gold HUD ---- */
+.kv-gp-shell {
+  fill: #1c0808;
+  stroke: #ffcb84;
+  stroke-width: 2;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.75));
+}
+.kv-gp-dpad-center, .kv-gp-dpad-btn {
+  fill: #2b0b0a;
+  stroke: #df9a20;
+}
+.kv-gp-dpad-btn.active {
+  fill: #ff2200 !important;
+  filter: drop-shadow(0 0 10px #ff9f1c);
+}
+.kv-gp-face {
+  fill: #2b0b0a;
+  stroke: var(--face-c, #ffcb84);
+}
+.kv-gp-face.active {
+  fill: var(--face-c, #ff3b00) !important;
+  filter: drop-shadow(0 0 12px var(--face-c));
+}
+.kv-gp-trig {
+  stroke: #ff9f1c;
+}

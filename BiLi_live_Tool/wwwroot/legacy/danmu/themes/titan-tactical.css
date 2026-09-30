@@ -1,0 +1,167 @@
+/* Theme: 战术重工 · 钛金雷达 (titan-tactical) */
+/* 工业战术重工：钛金防爆装甲/指挥官冠冕头像框、重装甲羽翼、雷达十字星暗纹与碳素钢底盘卡片 */
+
+:root {
+  --theme-primary: #ff9f1c;
+  --theme-border: #ff9f1c;
+}
+
+#danmu-box {
+  background: rgba(18, 20, 23, 0.85) !important;
+  border: 1.5px solid rgba(85, 90, 96, 0.8) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), inset 0 0 20px rgba(255, 159, 28, 0.15) !important;
+}
+
+#danmu-stage {
+  padding-bottom: 14px !important;
+}
+
+.danmu-item {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative !important;
+  border-radius: 8px !important;
+  border-width: var(--danmu-border-width, 1.5px) !important;
+  border-style: solid !important;
+  border-color: var(--danmu-border-color, #4a5058) !important;
+  background-color: var(--danmu-bg-color, rgba(24, 26, 30, 0.94)) !important;
+  background-image: url('./titan-tactical/pattern.png') !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 140px auto !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6) !important;
+  padding: 8px 14px 8px 10px !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.danmu-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 159, 28, 0.35) !important;
+}
+
+.danmu-avatar-wrap {
+  position: relative !important;
+  overflow: visible !important;
+  flex-shrink: 0;
+}
+
+.danmu-avatar-wrap::before {
+  content: "";
+  position: absolute;
+  width: 165% !important;
+  height: 165% !important;
+  left: -32% !important;
+  top: -33% !important;
+  background: url('./titan-tactical/avatar-frame.png') no-repeat center !important;
+  background-size: contain !important;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.danmu-avatar {
+  border-radius: 6px !important;
+  border: 2px solid #ff9f1c !important;
+  position: relative;
+  z-index: 1;
+}
+
+.danmu-content {
+  position: relative !important;
+  padding-left: 12px !important;
+  z-index: 1;
+}
+
+.danmu-content::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 15%;
+  width: 4px;
+  height: 70%;
+  background: url('./titan-tactical/dot.png') repeat-y center;
+  background-size: contain;
+  opacity: 0.85;
+}
+
+.danmu-uname {
+  color: #ffb703 !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9) !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.danmu-uname::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background: url('./titan-tactical/name-side.png') no-repeat center;
+  background-size: contain;
+  vertical-align: middle;
+}
+
+.danmu-text {
+  color: #e5e7eb !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95) !important;
+}
+
+.danmu-item.is-admin .danmu-avatar-wrap::before {
+  background-image: url('./titan-tactical/admin-avatar.png') !important;
+  width: 175% !important;
+  height: 175% !important;
+  left: -37% !important;
+  top: -38% !important;
+}
+
+.danmu-item.is-admin::before {
+  content: "";
+  position: absolute;
+  left: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 25px;
+  background: url('./titan-tactical/wing-left.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.danmu-item.is-admin::after {
+  content: "";
+  position: absolute;
+  right: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 25px;
+  background: url('./titan-tactical/wing-right.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.danmu-item.guard-1 {
+  background: linear-gradient(135deg, rgba(45, 18, 22, 0.95), rgba(25, 22, 26, 0.92)) !important;
+  border-color: #ff4d6d !important;
+  box-shadow: 0 4px 22px rgba(255, 77, 109, 0.4) !important;
+}
+.danmu-item.guard-1 .danmu-uname { color: #ffccd5 !important; }
+
+.danmu-item.guard-2 {
+  background: linear-gradient(135deg, rgba(38, 20, 48, 0.95), rgba(25, 22, 28, 0.92)) !important;
+  border-color: #c77dff !important;
+  box-shadow: 0 4px 20px rgba(199, 125, 255, 0.35) !important;
+}
+.danmu-item.guard-2 .danmu-uname { color: #e0aaff !important; }
+
+.danmu-item.guard-3 {
+  background: linear-gradient(135deg, rgba(35, 28, 18, 0.95), rgba(24, 26, 30, 0.92)) !important;
+  border-color: #ff9f1c !important;
+  box-shadow: 0 4px 20px rgba(255, 159, 28, 0.35) !important;
+}
+.danmu-item.guard-3 .danmu-uname { color: #ffdda1 !important; }

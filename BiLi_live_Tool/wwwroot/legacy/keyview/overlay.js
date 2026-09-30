@@ -24,7 +24,7 @@
     if (typeof gpInstances !== 'undefined') gpInstances.clear();
     const isKnownLayoutTheme = currentTheme && (
       currentTheme.startsWith('heroui-') ||
-      ['mc-minerals', 'retro-typewriter', 'pixel-keycap', 'majsoul', 'real', 'glass'].includes(currentTheme)
+      ['metal-titan', 'cyber-violet', 'frost-crystal', 'capsule-matrix', 'pixel-obsidian', 'mc-minerals', 'retro-typewriter', 'pixel-keycap', 'majsoul', 'real', 'glass'].includes(currentTheme)
     );
     fetch('themes.manifest.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((manifest) => {
       const info = (manifest.themes || []).find((x) => x.id === currentTheme);
@@ -213,6 +213,7 @@
           if (key.l) el.setAttribute('data-label', key.l);
           el.setAttribute('data-col', colIdx);
           const w = key.w || 1;
+          el.setAttribute('data-w', w);
           el.style.width = (w * 36 + (w - 1) * 5) + 'px';
           rowEl.appendChild(el);
           keyByCode.set(key.c, el);
@@ -380,6 +381,7 @@
           el.className = 'kv-real-key';
           el.textContent = key.l;
           const w = key.w || 1;
+          el.setAttribute('data-w', w);
           el.style.width = (w * 36 + (w - 1) * 5) + 'px';
           rowEl.appendChild(el);
           keyByCode.set(key.c, el);

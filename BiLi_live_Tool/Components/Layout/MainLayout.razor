@@ -52,6 +52,7 @@
         </div>
         <div class="blt-navfold @FoldHide("obs")">
             <NavLink class="blt-navitem" href="/alert"><BltIcon Emoji="🖼" /> 提醒特效墙</NavLink>
+            <NavLink class="blt-navitem" href="/danmu"><BltIcon Emoji="💬" /> 弹幕显示浮层</NavLink>
             <NavLink class="blt-navitem" href="/widgets"><BltIcon Emoji="📋" /> 文字挂件</NavLink>
             <NavLink class="blt-navitem" href="/keyview"><BltIcon Emoji="🎮" /> 键鼠手柄可视化</NavLink>
             <NavLink class="blt-navitem" href="/lowerthirds"><BltIcon Emoji="🏷" /> 下三分之一字幕</NavLink>
@@ -83,6 +84,9 @@
                 <BltIcon Name="palette" /> 主题
                 <select class="blt-input" style="width:145px;padding:1px 6px;font-size:11px" value="@_theme" @onchange="OnThemeChanged">
                     <option value="classic">★ 经典默认（旧版）</option>
+                    <option value="cyber-violet">✦ 赛博紫晶</option>
+                    <option value="frost-crystal">✦ 凛冬冰魄</option>
+                    <option value="titan-metal">✦ 钛金重工</option>
                     <option value="heroui-dark">✦ HeroUI 极黑</option>
                     <option value="heroui-violet">✦ HeroUI 紫罗兰</option>
                     <option value="heroui-emerald">✦ HeroUI 翡翠</option>
@@ -417,7 +421,7 @@
         ("live", "直播控制", new[] { "/tts", "/autodanmu", "/pk", "/song" }),
         ("show", "实时与展示", new[] { "/realtime", "/gifts" }),
         ("logs", "日志记录", new[] { "/logs" }),
-        ("obs", "OBS 浮层", new[] { "/alert", "/widgets", "/keyview", "/lowerthirds" }),
+        ("obs", "OBS 浮层", new[] { "/alert", "/danmu", "/widgets", "/keyview", "/lowerthirds" }),
         ("sys", "设置", new[] { "/help", "/diagnostics", "/" }),
     };
 
@@ -532,6 +536,7 @@
     {
         "classic", "console", "neon", "workbench", "bili", "vibrancy", "brutal", "hud", "editorial",
         "heroui-dark", "heroui-violet", "heroui-emerald",
+        "cyber-violet", "frost-crystal", "titan-metal",
     };
 
     protected override void OnInitialized()

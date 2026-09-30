@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80">
+  <defs>
+    <linearGradient id="g2-bevel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff0d0"/>
+      <stop offset="30%" stop-color="#ffd080"/>
+      <stop offset="70%" stop-color="#df9a20"/>
+      <stop offset="100%" stop-color="#804a00"/>
+    </linearGradient>
+    <linearGradient id="g2-core" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fb2320"/>
+      <stop offset="60%" stop-color="#d91a18"/>
+      <stop offset="100%" stop-color="#8a0c0a"/>
+    </linearGradient>
+    <linearGradient id="g2-rim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffcb84"/>
+      <stop offset="50%" stop-color="#fde5c1"/>
+      <stop offset="100%" stop-color="#ffcb84"/>
+    </linearGradient>
+    <linearGradient id="g2-shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- 3D Shadow Base -->
+  <rect x="2" y="8" width="156" height="70" rx="16" fill="#4d0605"/>
+  <!-- Outer Gold Bevel -->
+  <rect x="2" y="2" width="156" height="72" rx="16" fill="url(#g2-bevel)" stroke="#663b00" stroke-width="1.5"/>
+  <!-- Gold Inner Rim -->
+  <rect x="5.5" y="5.5" width="149" height="65" rx="13" fill="none" stroke="url(#g2-rim)" stroke-width="1.2"/>
+  <!-- Crimson Core -->
+  <rect x="8" y="8" width="144" height="60" rx="11" fill="url(#g2-core)"/>
+  <!-- Gloss Top Highlight -->
+  <rect x="11" y="10" width="138" height="24" rx="8" fill="url(#g2-shine)"/>
+  <!-- Side Chevrons -->
+  <path d="M 22 36 L 28 40 L 22 44" stroke="#ffd080" stroke-width="1.8" fill="none" opacity="0.7"/>
+  <path d="M 138 36 L 132 40 L 138 44" stroke="#ffd080" stroke-width="1.8" fill="none" opacity="0.7"/>
+</svg>

@@ -40,11 +40,22 @@ public sealed class LiveEvent
     // gifts_merged (GiftAggregator output)
     public long TotalNum { get; set; }
     public List<GiftItem>? Gifts { get; set; }
+    // 表情包与富文本元素 (Emoticons / Emots)
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, EmoteInfo>? Emotes { get; set; }
     // pk (raw cmd + payload kept for the tracker)
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Cmd { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonNode? Data { get; set; }
+}
+
+public sealed class EmoteInfo
+{
+    public string Emoji { get; set; } = "";
+    public string Url { get; set; } = "";
+    public int Width { get; set; }
+    public int Height { get; set; }
 }
 
 /// <summary>Connection status snapshot — field names match status in Bin/server.js:178.</summary>

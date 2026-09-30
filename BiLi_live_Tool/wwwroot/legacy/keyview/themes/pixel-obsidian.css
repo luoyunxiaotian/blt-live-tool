@@ -1,0 +1,370 @@
+/* Theme: pixel-obsidian (曜石像素 · 机械切角) — Built from user's custom SVG pixel keycaps.
+   Features:
+   - 3-tier precision SVG keycaps: 1U Square (key-1u.svg), 2U Mid-length (key-2u.svg), Spacebar (key-space.svg)
+   - Dual-state active visual feedback: dark obsidian slate to glowing amber-gold mechanical punch
+   - Pixel-art beveling with crisp pixelated rendering
+   - Cohesive obsidian pixel mouse with responsive gold-halo button action
+   - Seamless compatibility with Full, Compact, Alpha, and Minimal layouts
+*/
+
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+
+  /* Palette - Derived directly from custom SVG */
+  --po-bg-outer: #0f0e0e;      /* cls-4: 外层纯黑像素描边 */
+  --po-bevel: #525454;         /* cls-2: 次外层灰斜角边 */
+  --po-corner-hl: #878888;     /* cls-1: 像素高光内角点 */
+  --po-cap-body: #313434;      /* cls-3: 曜石核心按键面 */
+
+  /* Active Press Palette: Amber Gold Core Ignition */
+  --po-act-body: #443722;
+  --po-act-bevel: #996515;
+  --po-act-hl: #ffb703;
+  --po-act-glow: rgba(255, 183, 3, 0.85);
+
+  /* Typography */
+  --po-text-idle: #e2e8f0;
+  --po-text-active: #ffd166;
+
+  --po-anim-t: calc(35ms / var(--kv-anim-speed, 1));
+}
+
+#kv {
+  bottom: 18px;
+  gap: 14px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 16px;
+}
+.kv-section:empty { display: none; }
+
+/* ---- Realistic Keyboard (Pixel Obsidian Keycaps) ---- */
+.kv-section-kb,
+.kv-section-ms,
+.kv-real-mouse-wrap {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 6px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.kv-real-row {
+  display: flex;
+  gap: var(--kv-key-gap);
+}
+
+/* =========================================================================
+   1. Base Pixel Keycap (Default 1U Square from key-1u.svg)
+   ========================================================================= */
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Custom 1U Square SVG */
+  background-image: url('./pixel-obsidian/key-1u.svg');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-color: transparent;
+  border: none !important;
+  border-radius: 0 !important;
+
+  /* Pixel text typography */
+  color: var(--po-text-idle);
+  font-size: 11px;
+  font-weight: 800;
+  font-family: "Press Start 2P", "Fusion Pixel", "Minecraft", "Consolas", "Courier New", monospace;
+  letter-spacing: -0.2px;
+  text-shadow: 1px 1px 0 #000;
+  user-select: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+
+  /* Mechanical Bottom-Out Shadow */
+  filter: drop-shadow(0 3px 0 #080707) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.45));
+  transition: transform var(--po-anim-t) step-end,
+              filter var(--po-anim-t) step-end,
+              color var(--po-anim-t) step-end;
+}
+
+/* 1U Keycap Active State */
+.kv-real-key.active {
+  transform: translateY(3px);
+  background-image: url('./pixel-obsidian/key-1u-active.svg') !important;
+  color: var(--po-text-active);
+  text-shadow: 0 0 6px var(--po-act-glow), 1px 1px 0 #000;
+  filter: drop-shadow(0 1px 0 #080707) drop-shadow(0 0 10px var(--po-act-glow));
+}
+
+/* =========================================================================
+   2. Medium / Extended Keycaps (2U ~ 2.5U from key-2u.svg)
+   Shift, Enter, Backspace, Caps, Tab, Ctrl, Alt, \
+   ========================================================================= */
+.kv-real-key[data-code="8"],    /* Backspace */
+.kv-real-key[data-code="9"],    /* Tab */
+.kv-real-key[data-code="13"],   /* Enter */
+.kv-real-key[data-code="20"],   /* Caps Lock */
+.kv-real-key[data-code="160"],  /* LShift */
+.kv-real-key[data-code="161"],  /* RShift */
+.kv-real-key[data-code="162"],  /* LCtrl */
+.kv-real-key[data-code="163"],  /* RCtrl */
+.kv-real-key[data-code="164"],  /* LAlt */
+.kv-real-key[data-code="165"],  /* RAlt */
+.kv-real-key[data-code="220"]   /* \ */
+{
+  background-image: url('./pixel-obsidian/key-2u.svg');
+  font-size: 10px;
+}
+
+.kv-real-key[data-code="8"].active,
+.kv-real-key[data-code="9"].active,
+.kv-real-key[data-code="13"].active,
+.kv-real-key[data-code="20"].active,
+.kv-real-key[data-code="160"].active,
+.kv-real-key[data-code="161"].active,
+.kv-real-key[data-code="162"].active,
+.kv-real-key[data-code="163"].active,
+.kv-real-key[data-code="164"].active,
+.kv-real-key[data-code="165"].active,
+.kv-real-key[data-code="220"].active
+{
+  background-image: url('./pixel-obsidian/key-2u-active.svg') !important;
+}
+
+/* =========================================================================
+   3. Spacebar Key (Long Space from key-space.svg)
+   ========================================================================= */
+.kv-real-key[data-code="32"] {
+  background-image: url('./pixel-obsidian/key-space.svg');
+}
+
+.kv-real-key[data-code="32"]::before {
+  content: '▪▪▪ SPACE ▪▪▪';
+  font-size: 9.5px;
+  letter-spacing: 1.5px;
+  opacity: 0.8;
+}
+
+.kv-real-key[data-code="32"].active {
+  background-image: url('./pixel-obsidian/key-space-active.svg') !important;
+}
+
+.kv-real-key[data-code="32"].active::before {
+  color: var(--po-text-active);
+  text-shadow: 0 0 6px var(--po-act-glow);
+  opacity: 1;
+}
+
+.kv-real-spacer {
+  width: 24px;
+  flex: 0 0 auto;
+}
+
+/* =========================================================================
+   4. Recent Stream Mode (.kv-key in recent ticker renderer)
+   ========================================================================= */
+.kv-key {
+  height: 40px;
+  min-width: 40px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url('./pixel-obsidian/key-1u.svg');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: var(--po-text-idle);
+  font-size: 13px;
+  font-weight: 800;
+  font-family: "Press Start 2P", "Fusion Pixel", "Minecraft", monospace;
+  filter: drop-shadow(0 3px 0 #080707) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5));
+}
+.kv-key.kv-key-down {
+  transform: translateY(3px);
+  background-image: url('./pixel-obsidian/key-1u-active.svg') !important;
+  color: var(--po-text-active);
+  text-shadow: 0 0 6px var(--po-act-glow);
+  filter: drop-shadow(0 1px 0 #080707) drop-shadow(0 0 12px var(--po-act-glow));
+}
+
+/* =========================================================================
+   5. Cohesive Obsidian Pixel Mouse (.kv-real-mouse)
+   ========================================================================= */
+.kv-real-mouse-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.kv-real-mouse {
+  width: 96px;
+  height: 116px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 4px 0 #080707) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.55));
+  transition: transform calc(50ms / var(--kv-anim-speed)) step-end;
+}
+
+.kv-mouse-part {
+  fill: var(--po-cap-body);
+  stroke: var(--po-bg-outer);
+  stroke-width: 2;
+  transition: fill var(--po-anim-t) step-end;
+}
+
+.kv-mouse-outline {
+  fill: none;
+  stroke: var(--po-bevel);
+  stroke-width: 2.5;
+}
+
+.kv-mouse-sep {
+  stroke: var(--po-bg-outer);
+  stroke-width: 2;
+}
+
+.kv-mouse-wheel {
+  fill: #1a1c1e;
+  stroke: var(--po-corner-hl);
+  stroke-width: 1.5;
+  transition: fill var(--po-anim-t) step-end;
+}
+
+.kv-mouse-wheel-half {
+  fill: transparent;
+  transition: fill var(--po-anim-t) step-end;
+}
+
+/* Mouse Buttons Active States */
+.kv-mouse-l.active {
+  fill: var(--po-act-hl) !important;
+  filter: drop-shadow(0 0 8px var(--po-act-glow));
+}
+
+.kv-mouse-r.active {
+  fill: var(--po-act-hl) !important;
+  filter: drop-shadow(0 0 8px var(--po-act-glow));
+}
+
+.kv-mouse-wheel.active,
+.kv-mouse-wheel-up.active,
+.kv-mouse-wheel-down.active {
+  fill: var(--po-act-hl) !important;
+  filter: drop-shadow(0 0 8px var(--po-act-glow));
+}
+
+.kv-mouse-side {
+  fill: var(--po-bevel);
+  stroke: var(--po-bg-outer);
+  stroke-width: 1.5;
+  transition: fill var(--po-anim-t) step-end;
+}
+
+.kv-mouse-side.active {
+  fill: var(--po-act-hl) !important;
+  filter: drop-shadow(0 0 8px var(--po-act-glow));
+}
+
+.kv-mouse-dir {
+  opacity: 0;
+  transition: opacity calc(60ms / var(--kv-anim-speed)) step-end;
+}
+.kv-mouse-dir.active { opacity: 1; }
+.kv-mouse-dir-arrow {
+  fill: var(--po-act-hl);
+  filter: drop-shadow(0 0 6px var(--po-act-glow));
+}
+
+/* Mouse Info Label */
+.kv-mouse-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 10px;
+  background-image: url('./pixel-obsidian/key-2u.svg');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: var(--po-act-hl);
+  font-size: 11px;
+  font-weight: 800;
+  font-family: "Press Start 2P", "Fusion Pixel", "Minecraft", monospace;
+  text-shadow: 0 0 4px var(--po-act-glow), 1px 1px 0 #000;
+  min-height: 14px;
+  filter: drop-shadow(0 2px 0 #080707);
+}
+
+/* Mouse Ripples (in stream / click mode) */
+.kv-ripple {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--po-act-hl);
+  border-radius: 0; /* 纯正方形像素冲击波 */
+  box-shadow: 0 0 8px var(--po-act-glow);
+  transform: translate(-50%, -50%) scale(0.2);
+  animation: po-ripple 0.5s ease-out forwards;
+}
+
+@keyframes po-ripple {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+}
+
+/* =========================================================================
+   6. Gamepad Pixel Skin (.kv-gp)
+   ========================================================================= */
+.kv-gp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: none !important;
+  background: transparent !important;
+}
+
+.kv-gp-btn {
+  width: 32px;
+  height: 32px;
+  background-image: url('./pixel-obsidian/key-1u.svg');
+  background-size: 100% 100%;
+  border-radius: 0;
+  color: var(--po-text-idle);
+  font-family: "Press Start 2P", "Minecraft", monospace;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 0 #080707);
+}
+
+.kv-gp-btn.active {
+  transform: translateY(2px);
+  background-image: url('./pixel-obsidian/key-1u-active.svg') !important;
+  color: var(--po-text-active);
+  text-shadow: 0 0 6px var(--po-act-glow);
+  filter: drop-shadow(0 0 8px var(--po-act-glow));
+}

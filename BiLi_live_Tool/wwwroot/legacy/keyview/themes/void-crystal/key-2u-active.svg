@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80">
+  <defs>
+    <linearGradient id="vc2-bevel-act" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#fd9eff"/>
+      <stop offset="80%" stop-color="#a540f7"/>
+      <stop offset="100%" stop-color="#4b0f7d"/>
+    </linearGradient>
+    <linearGradient id="vc2-plasma-core" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00f0ff"/>
+      <stop offset="40%" stop-color="#00bfff"/>
+      <stop offset="100%" stop-color="#1c7e99"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="5" width="156" height="73" rx="14" fill="#05010a"/>
+  <rect x="2" y="5" width="156" height="71" rx="14" fill="url(#vc2-bevel-act)" stroke="#00f0ff" stroke-width="1.8"/>
+  <rect x="7" y="10" width="146" height="61" rx="10" fill="url(#vc2-plasma-core)"/>
+  <circle cx="80" cy="40" r="26" fill="#ffffff" opacity="0.4"/>
+</svg>

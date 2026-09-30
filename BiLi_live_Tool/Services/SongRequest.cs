@@ -92,8 +92,9 @@ public static partial class MusicApi
             foreach (var s in arr ?? new JsonArray())
             {
                 var artists = string.Join("/", ((s?["singer"] as JsonArray) ?? new JsonArray()).Select(x => Safe(x?["name"])));
-                // QQ 的 pay.payplay / paydownload 是数字（0/1），旧代码按 bool 解析永远失败 → VIP 歌被标成免费
-                bool vip = ToFlag(s?["pay"]?["payplay"]) > 0 || ToFlag(s?["pay"]?["paydownload"]) > 0 || ToFlag(s?["pay"]?["price_track"]) > 1;
+                // QQ 的 pay.payplay 是数字（0/1），1 代表需要 VIP 才能在线播放；payalbum 代表数字专辑；price_track > 1 代表单曲付费。
+                // 注意：切勿包含 paydownload（离线下载限制），否则会导致大量可免 VIP 播放的歌曲（如万乘奇《爆裂飞车》）被误判为 VIP。
+                bool vip = ToFlag(s?["pay"]?["payplay"]) > 0 || ToFlag(s?["pay"]?["payalbum"]) > 0 || ToFlag(s?["pay"]?["price_track"]) > 1;
                 var albumMid = Safe(s?["albummid"]);
                 if (string.IsNullOrEmpty(albumMid)) albumMid = Safe(s?["album"]?["mid"]);
                 var singerMid = (s?["singer"] as JsonArray)?[0] is JsonObject so ? Safe(so["mid"]) : "";
@@ -268,8 +269,21 @@ public static partial class MusicApi
             if (Safe(g?["result_type"]) != "video") continue;
             foreach (var v in (g?["data"] as JsonArray) ?? new JsonArray()) videos.Add(v);
         }
-        var filtered = videos
-            .Where(v => upSet.Contains(Safe(v?["mid"])))
+        // 搜索推荐逻辑：
+        // 1) 若配置了 UP 白名单，且命中了白名单 UP 的视频，优先使用白名单视频；
+        // 2) 若白名单未命中或未配置白名单，则直接按综合搜索结果展示，绝不出现“一条都搜不出来”的落空。
+        List<JsonNode?> candidates;
+        if (upSet.Count > 0)
+        {
+            var matched = videos.Where(v => upSet.Contains(Safe(v?["mid"]))).ToList();
+            candidates = matched.Count > 0 ? matched : videos;
+        }
+        else
+        {
+            candidates = videos;
+        }
+
+        var filtered = candidates
             .OrderByDescending(v => v?["play"]?.GetValue<long?>() ?? 0)
             .Take(limit > 0 ? limit : 5)
             .Select(v => {
@@ -296,9 +310,23 @@ public static partial class MusicApi
         var pcode = play?["code"]?.GetValue<long?>() ?? -1;
         if (pcode != 0) throw new Exception("获取播放URL失败: " + (Safe(play?["message"]) is var m && m.Length > 0 ? m : "code=" + pcode));
         var audios = ((play?["data"]?["dash"]?["audio"] as JsonArray) ?? new JsonArray()).ToList();
-        if (audios.Count == 0) return new PlayUrl("", true, pic);
-        var best = audios.OrderByDescending(a => a?["bandwidth"]?.GetValue<long?>() ?? 0).First();
-        return new PlayUrl(Safe(best?["baseUrl"]), false, pic);
+        if (audios.Count > 0)
+        {
+            var best = audios.OrderByDescending(a => a?["bandwidth"]?.GetValue<long?>() ?? 0).First();
+            var streamUrl = Safe(best?["baseUrl"]);
+            if (string.IsNullOrEmpty(streamUrl) && best?["backupUrl"] is JsonArray bks && bks.Count > 0)
+                streamUrl = Safe(bks[0]);
+            if (!string.IsNullOrEmpty(streamUrl))
+                return new PlayUrl(streamUrl, false, pic);
+        }
+        var durls = ((play?["data"]?["durl"] as JsonArray) ?? new JsonArray()).ToList();
+        if (durls.Count > 0)
+        {
+            var durl = Safe(durls[0]?["url"]);
+            if (!string.IsNullOrEmpty(durl))
+                return new PlayUrl(durl, false, pic);
+        }
+        return new PlayUrl("", true, pic);
     }
 
     // ─── migu ───

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80">
+  <defs>
+    <linearGradient id="vc2-bevel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#da9bfa"/>
+      <stop offset="35%" stop-color="#9d17c2"/>
+      <stop offset="70%" stop-color="#4b0f7d"/>
+      <stop offset="100%" stop-color="#1e0638"/>
+    </linearGradient>
+    <linearGradient id="vc2-core" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a0d4a"/>
+      <stop offset="50%" stop-color="#140624"/>
+      <stop offset="100%" stop-color="#08020f"/>
+    </linearGradient>
+    <linearGradient id="vc2-cyan-core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00f0ff"/>
+      <stop offset="50%" stop-color="#1c7e99"/>
+      <stop offset="100%" stop-color="#0e3f4d"/>
+    </linearGradient>
+    <linearGradient id="vc2-shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#fd9eff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="8" width="156" height="70" rx="14" fill="#0c0317"/>
+  <rect x="2" y="2" width="156" height="72" rx="14" fill="url(#vc2-bevel)" stroke="#7121b3" stroke-width="1.5"/>
+  <rect x="5.5" y="5.5" width="149" height="65" rx="11" fill="none" stroke="url(#vc2-cyan-core)" stroke-width="1.2" opacity="0.85"/>
+  <rect x="8" y="8" width="144" height="60" rx="9" fill="url(#vc2-core)"/>
+  <rect x="11" y="10" width="138" height="22" rx="6" fill="url(#vc2-shine)"/>
+  <!-- Winged Crystal Energy Accents (from 资源 16按键) -->
+  <polygon points="16,40 28,30 28,50" fill="#00f0ff" opacity="0.7"/>
+  <polygon points="144,40 132,30 132,50" fill="#00f0ff" opacity="0.7"/>
+</svg>

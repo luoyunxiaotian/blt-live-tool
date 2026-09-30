@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <defs>
+    <linearGradient id="gold-bevel-act" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="30%" stop-color="#ffe8a0"/>
+      <stop offset="70%" stop-color="#ffb224"/>
+      <stop offset="100%" stop-color="#b36200"/>
+    </linearGradient>
+    <linearGradient id="flame-core-act" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff5500"/>
+      <stop offset="50%" stop-color="#ff2200"/>
+      <stop offset="100%" stop-color="#b30000"/>
+    </linearGradient>
+    <linearGradient id="gold-rim-act" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#ffe8b0"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+  <!-- Compressed 3D Shadow Base -->
+  <rect x="2" y="5" width="76" height="73" rx="16" fill="#330403"/>
+  <!-- Depressed Gold Bevel -->
+  <rect x="2" y="5" width="76" height="71" rx="16" fill="url(#gold-bevel-act)" stroke="#ffb224" stroke-width="1.8"/>
+  <rect x="5.5" y="8" width="69" height="65" rx="13" fill="none" stroke="url(#gold-rim-act)" stroke-width="1.5"/>
+  <!-- Supercharged Molten Core -->
+  <rect x="8" y="10.5" width="64" height="60" rx="11" fill="url(#flame-core-act)"/>
+  <!-- Glowing Center Flare -->
+  <circle cx="40" cy="40" r="18" fill="#ffcc00" opacity="0.35"/>
+</svg>

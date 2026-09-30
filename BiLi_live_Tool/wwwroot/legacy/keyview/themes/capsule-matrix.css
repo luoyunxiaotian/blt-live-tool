@@ -1,0 +1,202 @@
+/* Theme: capsule-matrix (矩阵胶囊 · 缤纷像素)
+   Built with user's 15-color pill buttons.
+   Functional color zones:
+   - Letters: Crisp Mint Cyan (capsule-50)
+   - Numbers: Electric Violet (capsule-56)
+   - Function & Nav: Sunset Flame (capsule-60)
+   - Modifiers: Forest Emerald / Golden Sun (capsule-49 / capsule-61)
+   - Spacebar: Pastel Rainbow Pill (capsule-54)
+*/
+
+:root {
+  --kv-key-w: 36px;
+  --kv-key-h: 36px;
+  --kv-key-gap: 5px;
+
+  --cm-text-idle: #ffffff;
+  --cm-text-active: #ffffff;
+  --cm-anim-t: calc(35ms / var(--kv-anim-speed, 1));
+}
+
+#kv {
+  bottom: 18px;
+  gap: 16px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 18px;
+}
+.kv-section:empty { display: none; }
+
+.kv-section-kb,
+.kv-section-ms,
+.kv-real-mouse-wrap {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 4px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.kv-real-row {
+  display: flex;
+  gap: var(--kv-key-gap);
+}
+
+/* Base Pill Keycap (Pure Borderless Capsule) */
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url('./capsule-matrix/capsule-50-1u.svg');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: none !important;
+  border-radius: 9999px !important;
+  color: var(--cm-text-idle);
+  font-size: 11.5px;
+  font-weight: 800;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  user-select: none;
+  cursor: default;
+  box-shadow: none !important;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.45));
+  transition: transform var(--cm-anim-t) cubic-bezier(0.3, 1.5, 0.7, 1), filter var(--cm-anim-t) ease-out;
+}
+
+/* Zone 1: Number Row (Row 1) - Electric Violet Capsule */
+.kv-real-row:first-child .kv-real-key {
+  background-image: url('./capsule-matrix/capsule-56-1u.svg');
+}
+
+/* Zone 2: Modifiers (Tab, Caps, Shift, Ctrl, Alt, Enter, Backspace) - Sunset Flame */
+.kv-real-key[data-w="1.25"],
+.kv-real-key[data-w="1.5"],
+.kv-real-key[data-w="1.75"] {
+  background-image: url('./capsule-matrix/capsule-60-mod.svg');
+}
+.kv-real-key[data-w="2"],
+.kv-real-key[data-w="2.25"],
+.kv-real-key[data-w="2.75"] {
+  background-image: url('./capsule-matrix/capsule-61-wide.svg');
+}
+
+/* Zone 3: Spacebar - Pastel Rainbow Long Capsule */
+.kv-real-key[data-w="6.25"],
+.kv-real-key[data-w="6"] {
+  background-image: url('./capsule-matrix/capsule-54-space.svg');
+}
+
+/* Active Press: Bounce compression + Glow */
+.kv-real-key.active {
+  transform: translateY(2.5px) scale(0.97);
+  background-image: url('./capsule-matrix/capsule-57-1u.svg') !important;
+  filter: drop-shadow(0 0 10px rgba(226, 0, 98, 0.85)) brightness(1.2) !important;
+}
+
+.kv-real-key[data-w="1.25"].active,
+.kv-real-key[data-w="1.5"].active,
+.kv-real-key[data-w="1.75"].active,
+.kv-real-key[data-w="2"].active,
+.kv-real-key[data-w="2.25"].active,
+.kv-real-key[data-w="2.75"].active {
+  background-image: url('./capsule-matrix/capsule-57-mod.svg') !important;
+}
+
+.kv-real-key[data-w="6.25"].active,
+.kv-real-key[data-w="6"].active {
+  background-image: url('./capsule-matrix/capsule-55-space.svg') !important;
+  filter: drop-shadow(0 0 14px #fe6613) brightness(1.2) !important;
+}
+
+/* Capsule Pill Mouse - Colorful Pill Palette */
+.kv-real-mouse-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.kv-real-mouse {
+  width: 86px;
+  height: 114px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+}
+.kv-real-mouse .kv-mouse-outline {
+  fill: none !important;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+.kv-real-mouse .kv-mouse-sep {
+  stroke: #ffffff;
+  stroke-width: 1.2;
+}
+.kv-real-mouse .kv-mouse-l,
+.kv-real-mouse .kv-mouse-r {
+  fill: #00cba2 !important;
+  stroke: #ffffff;
+  stroke-width: 1.2;
+  transition: all var(--cm-anim-t);
+}
+.kv-real-mouse .kv-mouse-l.active,
+.kv-real-mouse .kv-mouse-r.active {
+  fill: #e20062 !important;
+  filter: drop-shadow(0 0 10px #e20062);
+}
+.kv-real-mouse .kv-mouse-wheel {
+  fill: #fc9512 !important;
+  stroke: #ffffff;
+  stroke-width: 1.2;
+  transition: all var(--cm-anim-t);
+}
+.kv-real-mouse .kv-mouse-wheel.active,
+.kv-real-mouse .kv-mouse-wheel-up.active,
+.kv-real-mouse .kv-mouse-wheel-down.active {
+  fill: #ffffff !important;
+  filter: drop-shadow(0 0 10px #fc9512);
+}
+.kv-real-mouse .kv-mouse-side {
+  fill: #ffbd33 !important;
+  stroke: #ffffff;
+  stroke-width: 1.2;
+  transition: all var(--cm-anim-t);
+}
+.kv-real-mouse .kv-mouse-side.active {
+  fill: #fc9512 !important;
+  filter: drop-shadow(0 0 8px #fc9512);
+}
+.kv-real-mouse .kv-mouse-dir-arrow {
+  fill: #00cba2;
+  filter: drop-shadow(0 0 6px #00cba2);
+}
+.kv-mouse-label {
+  color: #00cba2;
+  background: rgba(20, 24, 34, 0.85);
+  border: 1px solid rgba(0, 203, 162, 0.4);
+  border-radius: 9999px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px #000;
+}

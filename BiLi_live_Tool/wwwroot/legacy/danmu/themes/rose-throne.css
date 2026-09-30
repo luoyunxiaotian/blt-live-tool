@@ -1,0 +1,226 @@
+/* Theme: 蔷薇王座 · 哥特绯红 */
+/* 哥特暗黑绯红王座：荆棘蔷薇皇冠头像框、黑金蔷薇双翼底架、血蔷薇暗纹与十字角标 */
+
+:root {
+  --theme-primary: #f5d77f;
+  --theme-border: #b82035;
+}
+
+#danmu-box {
+  background: rgba(28, 12, 16, 0.65) !important;
+  border: 1.5px solid rgba(218, 165, 32, 0.7) !important;
+  box-shadow: 0 8px 32px rgba(180, 20, 40, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+#danmu-stage {
+  padding-bottom: 14px !important;
+}
+
+/* 卡片通用样式：梦幻渐变 + 专属精美暗纹水印切图 */
+.danmu-item {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative !important;
+  border-radius: 14px !important;
+  border-width: var(--danmu-border-width, 1.5px) !important;
+  border-style: solid !important;
+  border-color: var(--danmu-border-color, #b82035) !important;
+  background-color: var(--danmu-bg-color, rgba(38, 14, 20, 0.94)) !important;
+  background-image: url('./rose-throne/pattern.png') !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 140px auto !important;
+  box-shadow: 0 4px 18px rgba(180, 20, 40, 0.35) !important;
+  padding: 8px 14px 8px 10px !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.danmu-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* 观众头像容器：外覆专属主题头像框切图 */
+.danmu-avatar-wrap {
+  position: relative !important;
+  overflow: visible !important;
+  flex-shrink: 0;
+}
+
+/* 普通观众专属头像框 */
+.danmu-avatar-wrap::before {
+  content: "";
+  position: absolute;
+  width: 165% !important;
+  height: 165% !important;
+  left: -32% !important;
+  top: -33% !important;
+  background: url('./rose-throne/avatar-frame.png') no-repeat center !important;
+  background-size: contain !important;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* 头像本体 */
+.danmu-avatar {
+  border-radius: 50% !important;
+  border: 2px solid #b82035 !important;
+  position: relative;
+  z-index: 1;
+}
+
+/* 头像与弹幕内容之间的专属流苏分割线 */
+.danmu-content {
+  position: relative !important;
+  padding-left: 12px !important;
+  z-index: 1;
+}
+
+.danmu-content::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 15%;
+  width: 4px;
+  height: 70%;
+  background: url('./rose-throne/dot.png') repeat-y center;
+  background-size: contain;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+/* 昵称区域与专属两侧羽翼/角标 */
+.danmu-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.danmu-uname {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  background: linear-gradient(90deg, transparent 0%, rgba(55, 18, 25, 0.88) 20%, rgba(55, 18, 25, 0.88) 80%, transparent 100%) !important;
+  border-radius: 4px;
+  color: #f5d77f !important;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.danmu-uname::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: url('./rose-throne/name-side.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+}
+
+.danmu-uname::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: url('./rose-throne/name-side.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+}
+
+/* 弹幕正文颜色 */
+.danmu-text {
+  color: #fff0f3 !important;
+  font-weight: 500;
+}
+
+/* ── 舰长 / 提督 / 总督 大航海专属华丽双翼底架 ── */
+.danmu-item.is-guard {
+  border-color: var(--danmu-guard3-border, var(--danmu-border-color, #e63946)) !important;
+  background-color: var(--danmu-guard3-bg, var(--danmu-bg-color, rgba(48, 12, 22, 0.95))) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* 大航海专属总督/提督/舰长头像框升级为专属豪华冠 */
+.danmu-item.is-guard .danmu-avatar-wrap::before {
+  background-image: url('./rose-throne/admin-avatar.png') !important;
+  width: 165% !important;
+  height: 165% !important;
+  left: -32% !important;
+  top: -33% !important;
+}
+
+.danmu-item.is-guard .danmu-uname {
+  color: var(--danmu-guard3-text, #ffd166) !important;
+}
+
+/* 舰长卡片底角：左侧专属华丽双翼挂件 */
+.danmu-item.is-guard::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  bottom: -10px;
+  width: 135px;
+  height: 46px;
+  background: url('./rose-throne/wing-left.png') no-repeat left bottom;
+  background-size: contain;
+  pointer-events: none;
+  opacity: 0.95;
+  z-index: 2;
+}
+
+/* 舰长卡片底角：右侧专属华丽双翼挂件 */
+.danmu-item.is-guard::after {
+  content: "";
+  position: absolute;
+  right: 6px;
+  bottom: -10px;
+  width: 135px;
+  height: 46px;
+  background: url('./rose-throne/wing-right.png') no-repeat right bottom;
+  background-size: contain;
+  pointer-events: none;
+  opacity: 0.95;
+  z-index: 2;
+}
+
+/* 提督与总督专属色彩覆盖 */
+.danmu-item.guard-level-1 {
+  border-color: var(--danmu-guard1-border, var(--danmu-border-color, #ff4d6d)) !important;
+  background-color: var(--danmu-guard1-bg, var(--danmu-bg-color, rgba(48, 12, 22, 0.95))) !important;
+}
+.danmu-item.guard-level-1 .danmu-uname {
+  color: var(--danmu-guard1-text, #ff4d6d) !important;
+}
+
+.danmu-item.guard-level-2 {
+  border-color: var(--danmu-guard2-border, var(--danmu-border-color, #ba88eb)) !important;
+  background-color: var(--danmu-guard2-bg, var(--danmu-bg-color, rgba(48, 12, 22, 0.95))) !important;
+}
+.danmu-item.guard-level-2 .danmu-uname {
+  color: var(--danmu-guard2-text, #c77dff) !important;
+}
+
+/* 勋章与舰长标签色彩 */
+.danmu-badge.guard {
+  background: linear-gradient(135deg, #e63946, #800f2f) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+  color: #fff !important;
+}
+
+.danmu-badge.medal {
+  background: rgba(218, 165, 32, 0.25) !important;
+  color: #f5d77f !important;
+  border: 1px solid rgba(218, 165, 32, 0.6) !important;
+}

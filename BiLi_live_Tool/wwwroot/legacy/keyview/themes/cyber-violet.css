@@ -1,0 +1,182 @@
+/* Theme: cyber-violet (暗夜极客 · 赛博晶核)
+   Derived from high-voltage Cyberpunk UI suite (紫晶面板 + 电光青晶核).
+*/
+
+:root {
+  --kv-key-w: 38px;
+  --kv-key-h: 38px;
+  --kv-key-gap: 5px;
+
+  --cv-neon-purple: #a540f7;
+  --cv-neon-magenta: #ff44fe;
+  --cv-neon-cyan: #00f0ff;
+  --cv-glow: rgba(165, 64, 247, 0.85);
+
+  --cv-text-idle: #e0d0ff;
+  --cv-text-active: #ffffff;
+  --cv-anim-t: calc(35ms / var(--kv-anim-speed, 1));
+}
+
+#kv {
+  bottom: 18px;
+  gap: 16px;
+  align-items: center;
+}
+#kv.kv-layout {
+  left: 50%;
+  transform: translateX(-50%) scale(var(--kv-scale));
+  transform-origin: bottom center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 18px;
+}
+.kv-section:empty { display: none; }
+
+.kv-section-kb,
+.kv-section-ms,
+.kv-real-mouse-wrap {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.kv-real-kb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kv-key-gap);
+  padding: 4px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.kv-real-row {
+  display: flex;
+  gap: var(--kv-key-gap);
+}
+
+.kv-real-key {
+  height: var(--kv-key-h);
+  min-width: var(--kv-key-w);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url('./cyber-violet/key-1u.svg');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: none !important;
+  border-radius: 4px !important;
+  color: var(--cv-text-idle);
+  font-size: 11px;
+  font-weight: 800;
+  font-family: "Consolas", "Courier New", monospace;
+  letter-spacing: -0.2px;
+  text-shadow: 0 0 4px var(--cv-neon-purple);
+  user-select: none;
+  cursor: default;
+  transition: transform var(--cv-anim-t) ease-out, filter var(--cv-anim-t) ease-out;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.kv-real-key[data-w="1.25"],
+.kv-real-key[data-w="1.5"],
+.kv-real-key[data-w="1.75"],
+.kv-real-key[data-w="2"],
+.kv-real-key[data-w="2.25"],
+.kv-real-key[data-w="2.75"] {
+  background-image: url('./cyber-violet/key-2u.svg');
+}
+
+.kv-real-key[data-w="6.25"],
+.kv-real-key[data-w="6"] {
+  background-image: url('./cyber-violet/key-space.svg');
+}
+
+.kv-real-key.active {
+  transform: translateY(2px) scale(0.96);
+  background-image: url('./cyber-violet/key-1u-active.svg');
+  color: var(--cv-text-active);
+  filter: drop-shadow(0 0 12px var(--cv-neon-cyan)) brightness(1.2);
+  text-shadow: 0 0 8px var(--cv-neon-cyan);
+}
+
+.kv-real-key[data-w="1.25"].active,
+.kv-real-key[data-w="1.5"].active,
+.kv-real-key[data-w="1.75"].active,
+.kv-real-key[data-w="2"].active,
+.kv-real-key[data-w="2.25"].active,
+.kv-real-key[data-w="2.75"].active {
+  background-image: url('./cyber-violet/key-2u-active.svg');
+}
+
+.kv-real-key[data-w="6.25"].active,
+.kv-real-key[data-w="6"].active {
+  background-image: url('./cyber-violet/key-space-active.svg');
+}
+
+/* Cyber Mouse */
+.kv-real-mouse {
+  width: 78px;
+  height: 122px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.65));
+}
+.kv-real-mouse .kv-mouse-outline {
+  fill: none !important;
+  stroke: #a540f7;
+  stroke-width: 1.8;
+}
+.kv-real-mouse .kv-mouse-sep {
+  stroke: #00f0ff;
+  stroke-width: 1.2;
+}
+.kv-real-mouse .kv-mouse-l,
+.kv-real-mouse .kv-mouse-r {
+  fill: #48126b !important;
+  stroke: #a540f7;
+  stroke-width: 1.2;
+  transition: all var(--cv-anim-t);
+}
+.kv-real-mouse .kv-mouse-l.active,
+.kv-real-mouse .kv-mouse-r.active {
+  fill: #ff44fe !important;
+  filter: drop-shadow(0 0 12px #ff44fe);
+}
+.kv-real-mouse .kv-mouse-wheel {
+  fill: #00f0ff !important;
+  stroke: #ffffff;
+  stroke-width: 1.2;
+  transition: all var(--cv-anim-t);
+}
+.kv-real-mouse .kv-mouse-wheel.active,
+.kv-real-mouse .kv-mouse-wheel-up.active,
+.kv-real-mouse .kv-mouse-wheel-down.active {
+  fill: #ffffff !important;
+  filter: drop-shadow(0 0 10px #00f0ff);
+}
+.kv-real-mouse .kv-mouse-side {
+  fill: #48126b !important;
+  stroke: #a540f7;
+  stroke-width: 1.2;
+  transition: all var(--cv-anim-t);
+}
+.kv-real-mouse .kv-mouse-side.active {
+  fill: #00f0ff !important;
+  filter: drop-shadow(0 0 8px #00f0ff);
+}
+.kv-real-mouse .kv-mouse-dir-arrow {
+  fill: #00f0ff !important;
+  filter: drop-shadow(0 0 6px #00f0ff);
+}
+.kv-mouse-label {
+  color: #00f0ff;
+  font-family: "Consolas", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-shadow: 0 0 6px #00f0ff;
+}
+

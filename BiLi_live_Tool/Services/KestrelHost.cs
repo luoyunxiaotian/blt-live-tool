@@ -282,7 +282,7 @@ public sealed class KestrelHost
         });
 
         // Original root-level overlay URLs keep working after migration.
-        foreach (var dir in new[] { "alert", "lyrics", "widgets", "keyview", "sounds", "skins", "lower-thirds", "now-playing" })
+        foreach (var dir in new[] { "alert", "lyrics", "widgets", "keyview", "sounds", "skins", "lower-thirds", "now-playing", "danmu" })
         {
             var full = Path.Combine(AppConfig.LegacyRoot, dir);
             if (Directory.Exists(full))
@@ -670,17 +670,39 @@ public sealed class KestrelHost
         app.MapGet("/api/song-request/bilibili-audio", async (HttpContext ctx) =>
         {
             var audioUrl = ctx.Request.Query["u"].ToString();
-            if (audioUrl.Length == 0 || !Regex.IsMatch(audioUrl, "^https?://.+bilivideo\\.com/"))
+            if (string.IsNullOrWhiteSpace(audioUrl) || !Regex.IsMatch(audioUrl, @"^https?://[^/:]+\.(bilivideo\.(com|cn)|bilibili\.com|szbdyd\.com|acgvideo\.com)(:\d+)?/", RegexOptions.IgnoreCase))
                 return Results.Json(new { error = "无效的音频URL" }, JsonWeb, statusCode: 400);
             try
             {
                 using var req = new HttpRequestMessage(HttpMethod.Get, audioUrl);
-                req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-                req.Headers.TryAddWithoutValidation("Referer", "https://www.bilibili.com");
-                using var resp = await _proxy.GetAsync(req.RequestUri!, HttpCompletionOption.ResponseHeadersRead, ctx.RequestAborted);
+                req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                req.Headers.TryAddWithoutValidation("Referer", "https://www.bilibili.com/");
+                req.Headers.TryAddWithoutValidation("Origin", "https://www.bilibili.com");
+
+                // 透传客户端的 Range 头以支持 seek 与分段秒播
+                if (ctx.Request.Headers.TryGetValue("Range", out var rangeVal) && !string.IsNullOrWhiteSpace(rangeVal))
+                {
+                    req.Headers.TryAddWithoutValidation("Range", (string)rangeVal!);
+                }
+
+                using var resp = await _proxy.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ctx.RequestAborted);
                 if (!resp.IsSuccessStatusCode)
                     return Results.Json(new { error = "B站音频流返回: " + (int)resp.StatusCode }, JsonWeb, statusCode: 502);
-                ctx.Response.ContentType = "audio/mp4";
+
+                ctx.Response.StatusCode = (int)resp.StatusCode;
+                ctx.Response.ContentType = resp.Content.Headers.ContentType?.ToString() ?? "audio/mp4";
+
+                if (resp.Headers.TryGetValues("Accept-Ranges", out var ar))
+                    ctx.Response.Headers["Accept-Ranges"] = string.Join(", ", ar);
+                else
+                    ctx.Response.Headers["Accept-Ranges"] = "bytes";
+
+                if (resp.Content.Headers.ContentRange != null)
+                    ctx.Response.Headers["Content-Range"] = resp.Content.Headers.ContentRange.ToString();
+
+                if (resp.Content.Headers.ContentLength.HasValue)
+                    ctx.Response.ContentLength = resp.Content.Headers.ContentLength.Value;
+
                 await resp.Content.CopyToAsync(ctx.Response.Body, ctx.RequestAborted);
                 return Results.Empty;
             }
@@ -845,6 +867,56 @@ public sealed class KestrelHost
                 _config.ReplaceFrom(doc);
                 _hub.PublishOutbound("widgets", null);   // overlay pages hot-reload
                 return Results.Json(new { ok = true, widgets = cleaned }, JsonWeb);
+            }
+            catch (Exception e) { return Results.Json(new { error = e.Message }, JsonWeb, statusCode: 500); }
+        });
+
+        // ---- danmu overlay (OBS 弹幕显示浮层) ----
+        app.MapGet("/api/danmu-overlay/config", () =>
+        {
+            var node = _config.GetNode("danmuOverlay");
+            return Results.Json(new { ok = true, config = node ?? GetDefaultDanmuOverlayConfig() }, JsonWeb);
+        });
+        app.MapPost("/api/danmu-overlay/config", async (HttpContext ctx) =>
+        {
+            try
+            {
+                var body = await ReadJsonObject(ctx);
+                if (body?["config"] is not JsonObject cfg) return Results.Json(new { error = "缺少 config" }, JsonWeb, statusCode: 400);
+                var doc = _config.Snapshot();
+                doc["danmuOverlay"] = cfg.DeepClone();
+                _config.ReplaceFrom(doc);
+                _hub.PublishOutbound("danmu_config_update", cfg);
+                return Results.Json(new { ok = true, config = cfg }, JsonWeb);
+            }
+            catch (Exception e) { return Results.Json(new { error = e.Message }, JsonWeb, statusCode: 500); }
+        });
+        app.MapPost("/api/danmu-overlay/test", async (HttpContext ctx) =>
+        {
+            try
+            {
+                var body = await ReadJsonObject(ctx);
+                var text = body?["text"]?.GetValue<string>() ?? "这是一条测试弹幕 666～";
+                var uname = body?["uname"]?.GetValue<string>() ?? "小帮手体验官";
+                var isGuard = body?["isGuard"]?.GetValue<bool>() ?? false;
+                var now = DateTime.Now;
+                var testEv = new LiveEvent
+                {
+                    Type = "danmu",
+                    Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+                    Uid = "888888",
+                    Uname = uname,
+                    Msg = text,
+                    Uface = "https://i0.hdslb.com/bfs/face/member/noface.jpg",
+                    MedalLevel = 20,
+                    HonorLevel = 25,
+                    IsGuard = isGuard,
+                    GuardLevel = isGuard ? 3 : 0,
+                };
+                _hub.Publish(testEv);
+                _hub.PublishOutbound("danmu_test", testEv);
+                return Results.Json(new { ok = true }, JsonWeb);
             }
             catch (Exception e) { return Results.Json(new { error = e.Message }, JsonWeb, statusCode: 500); }
         });
@@ -1941,6 +2013,44 @@ public sealed class KestrelHost
         }
         IsRunning = false;
     }
+
+    public static JsonObject GetDefaultDanmuOverlayConfig() => new JsonObject
+    {
+        ["enabled"] = true,
+        ["theme"] = "classic-glass",
+        ["displayMode"] = "card",
+        ["nicknameFont"] = "system-ui",
+        ["nicknameColor"] = "#ffd04b",
+        ["nicknameOpacity"] = 100,
+        ["nicknameSize"] = 14,
+        ["nicknameBold"] = true,
+        ["showMedal"] = true,
+        ["danmuFont"] = "system-ui",
+        ["danmuColor"] = "#ffffff",
+        ["danmuOpacity"] = 100,
+        ["danmuSize"] = 16,
+        ["danmuLineHeight"] = 1.4,
+        ["danmuStroke"] = "shadow",
+        ["bgColor"] = "#1e222d",
+        ["bgOpacity"] = 75,
+        ["cardRadius"] = 10,
+        ["cardPadding"] = 8,
+        ["cardGap"] = 8,
+        ["showBorder"] = true,
+        ["borderColor"] = "#3a4256",
+        ["borderOpacity"] = 60,
+        ["borderWidth"] = 1,
+        ["showAvatar"] = true,
+        ["avatarSize"] = 36,
+        ["avatarShape"] = "circle",
+        ["showAvatarBorder"] = true,
+        ["avatarBorderColor"] = "#ffffff",
+        ["avatarBorderOpacity"] = 40,
+        ["avatarBorderWidth"] = 2,
+        ["animation"] = "slide",
+        ["stayDuration"] = 15,
+        ["maxCount"] = 15
+    };
 
     private sealed record ConnectBody(string? RoomId, string? Cookie);
 }

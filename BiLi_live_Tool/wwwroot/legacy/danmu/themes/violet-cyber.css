@@ -1,0 +1,167 @@
+/* Theme: 幻紫电竞 · 赛博光环 (violet-cyber) */
+/* 赛博电竞风格：八边形机甲视窗/脉冲光环头像框、气动航模翼、微电路暗纹与深紫晶荧光卡片 */
+
+:root {
+  --theme-primary: #a540f7;
+  --theme-border: #ff44fe;
+}
+
+#danmu-box {
+  background: rgba(14, 8, 24, 0.8) !important;
+  border: 1.5px solid rgba(165, 64, 247, 0.75) !important;
+  box-shadow: 0 8px 32px rgba(165, 64, 247, 0.3), inset 0 0 20px rgba(0, 240, 255, 0.2) !important;
+}
+
+#danmu-stage {
+  padding-bottom: 14px !important;
+}
+
+.danmu-item {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative !important;
+  border-radius: 10px !important;
+  border-width: var(--danmu-border-width, 1.5px) !important;
+  border-style: solid !important;
+  border-color: var(--danmu-border-color, #a540f7) !important;
+  background-color: var(--danmu-bg-color, rgba(20, 10, 36, 0.94)) !important;
+  background-image: url('./violet-cyber/pattern.png') !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 140px auto !important;
+  box-shadow: 0 4px 18px rgba(165, 64, 247, 0.35) !important;
+  padding: 8px 14px 8px 10px !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.danmu-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 68, 254, 0.4) !important;
+}
+
+.danmu-avatar-wrap {
+  position: relative !important;
+  overflow: visible !important;
+  flex-shrink: 0;
+}
+
+.danmu-avatar-wrap::before {
+  content: "";
+  position: absolute;
+  width: 165% !important;
+  height: 165% !important;
+  left: -32% !important;
+  top: -33% !important;
+  background: url('./violet-cyber/avatar-frame.png') no-repeat center !important;
+  background-size: contain !important;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.danmu-avatar {
+  border-radius: 4px !important;
+  border: 2px solid #a540f7 !important;
+  position: relative;
+  z-index: 1;
+}
+
+.danmu-content {
+  position: relative !important;
+  padding-left: 12px !important;
+  z-index: 1;
+}
+
+.danmu-content::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 15%;
+  width: 4px;
+  height: 70%;
+  background: url('./violet-cyber/dot.png') repeat-y center;
+  background-size: contain;
+  opacity: 0.85;
+}
+
+.danmu-uname {
+  color: #ff44fe !important;
+  font-weight: 700 !important;
+  text-shadow: 0 0 6px rgba(255, 68, 254, 0.75) !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.danmu-uname::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background: url('./violet-cyber/name-side.png') no-repeat center;
+  background-size: contain;
+  vertical-align: middle;
+}
+
+.danmu-text {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9) !important;
+}
+
+.danmu-item.is-admin .danmu-avatar-wrap::before {
+  background-image: url('./violet-cyber/admin-avatar.png') !important;
+  width: 175% !important;
+  height: 175% !important;
+  left: -37% !important;
+  top: -38% !important;
+}
+
+.danmu-item.is-admin::before {
+  content: "";
+  position: absolute;
+  left: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 25px;
+  background: url('./violet-cyber/wing-left.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.danmu-item.is-admin::after {
+  content: "";
+  position: absolute;
+  right: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 25px;
+  background: url('./violet-cyber/wing-right.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.danmu-item.guard-1 {
+  background: linear-gradient(135deg, rgba(45, 10, 30, 0.95), rgba(25, 8, 40, 0.92)) !important;
+  border-color: #ff007f !important;
+  box-shadow: 0 4px 22px rgba(255, 0, 127, 0.45) !important;
+}
+.danmu-item.guard-1 .danmu-uname { color: #ff85c0 !important; }
+
+.danmu-item.guard-2 {
+  background: linear-gradient(135deg, rgba(30, 10, 50, 0.95), rgba(15, 8, 35, 0.92)) !important;
+  border-color: #b37feb !important;
+  box-shadow: 0 4px 20px rgba(179, 127, 235, 0.4) !important;
+}
+.danmu-item.guard-2 .danmu-uname { color: #d3adf7 !important; }
+
+.danmu-item.guard-3 {
+  background: linear-gradient(135deg, rgba(12, 22, 50, 0.95), rgba(18, 10, 36, 0.92)) !important;
+  border-color: #00f0ff !important;
+  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4) !important;
+}
+.danmu-item.guard-3 .danmu-uname { color: #87e8de !important; }

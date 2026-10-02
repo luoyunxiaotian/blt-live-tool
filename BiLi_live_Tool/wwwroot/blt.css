@@ -403,5 +403,86 @@ input.blt-input::-webkit-calendar-picker-indicator{filter:invert(.75)}
   background:var(--panel);border:1px solid var(--line-2);border-left:3px solid var(--amber)}
 .blt-platform-bar .lbl{font-size:12px;color:var(--ink-2);letter-spacing:.5px}
 .blt-platform-bar .opts{display:flex;gap:6px;flex-wrap:wrap}
-.blt-platform-bar .opts .blt-btn.on{background:var(--amber);border-color:var(--amber);color:var(--accent-ink);font-weight:700}
 .blt-platform-bar .tip{font-size:11.5px;color:var(--ink-3);flex:1 0 100%}
+
+/* Full-width Search Bar */
+.blt-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 0 0 12px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-left: 3px solid var(--accent, #fb7299);
+  transition: all 0.2s ease;
+}
+.blt-search-bar:focus-within {
+  border-color: var(--accent, #fb7299);
+  box-shadow: 0 2px 12px rgba(251, 114, 153, 0.12);
+}
+.blt-search-bar .lbl {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.blt-search-bar .type-select {
+  width: 112px;
+  flex: none;
+  font-size: 12.5px;
+}
+.blt-search-bar .search-input-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.blt-search-bar .search-input {
+  width: 100%;
+  padding-right: 30px;
+}
+.blt-search-bar .clear-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-3);
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px;
+}
+.blt-search-bar .clear-btn:hover {
+  color: var(--ink);
+}
+
+/* Full-width Search Results Dropdown/Drawer */
+.blt-search-results-panel {
+  margin: -6px 0 14px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  padding: 10px 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+.blt-search-result-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  border-bottom: 1px dashed var(--line);
+  transition: background 0.15s ease;
+}
+.blt-search-result-row:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+}
+.blt-search-result-row:last-child {
+  border-bottom: none;
+}
+

@@ -104,7 +104,8 @@ public sealed class AutoDanmu
     private const int FollowCap = 5000;
 
     private readonly object _lock = new();
-    private readonly Dictionary<string, long> _lastWelcome = new();
+    private readonly Dictionary<string, long> _lastWelcomeUid = new();
+    private readonly Dictionary<string, long> _lastWelcomeName = new();
     private readonly HashSet<string> _followedUids = new();
     private readonly List<string> _followOrder = new();
     private readonly Func<long, string, Task> _send;   // (roomId, msg)
@@ -183,10 +184,14 @@ public sealed class AutoDanmu
         {
             if (ev.MsgType == 2)
             {
-                var r = HandleFollow(ev);
-                if (r == "sent" || r == "skip") return;
+                HandleFollow(ev);
+                return;   // 关注事件处理完毕后直接退出，严禁掉落进入进房欢迎！
             }
-            Welcome(ev);
+            // 只有进入直播间 (msgType=1) 或进场特效 (msgType=0) 才触发欢迎进房；分享/点赞等其他互动不触发欢迎
+            if (ev.MsgType == 1 || ev.MsgType == 0)
+            {
+                Welcome(ev);
+            }
         }
         else if (ev.Type == "guard")
         {
@@ -251,21 +256,31 @@ public sealed class AutoDanmu
         // 下限判定：min > 0 时，仅当用户等级严格小于下限才过滤（即等级 >= min 的用户正常欢迎）
         if (honorMin > 0 && ev.HonorLevel < honorMin) return;
         if (medalMin > 0 && ev.MedalLevel < medalMin) return;
+
+        var uidKey = (ev.Uid ?? "").Trim();
+        var rawName = (ev.Uname ?? "").Trim();
+        var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+        // 双向复合冷却：UID 或 Uname 在 60 秒内已欢迎过的，直接拦截，彻底杜绝重复欢迎弹幕
         lock (_lock)
         {
-            var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            if (_lastWelcome.TryGetValue(ev.Uid, out var last) && now - last < 60000) return;
-            _lastWelcome[ev.Uid] = now;
+            var hasRecentUid = uidKey.Length > 0 && uidKey != "0" && _lastWelcomeUid.TryGetValue(uidKey, out var lastU) && (now - lastU < 60000);
+            var hasRecentName = rawName.Length > 0 && !rawName.StartsWith("用户") && _lastWelcomeName.TryGetValue(rawName, out var lastN) && (now - lastN < 60000);
+            if (hasRecentUid || hasRecentName) return;
+
+            if (uidKey.Length > 0 && uidKey != "0") _lastWelcomeUid[uidKey] = now;
+            if (rawName.Length > 0 && !rawName.StartsWith("用户")) _lastWelcomeName[rawName] = now;
         }
+
         var isGuard = ev.IsGuard || ev.Type == "guard";
-        var uname = ev.Uname ?? "";
-        if (string.IsNullOrWhiteSpace(uname) || uname == "用户" + ev.Uid || (uname.StartsWith("用户") && long.TryParse(uname.Substring(2), out _)))
+        var uname = rawName;
+        if (string.IsNullOrWhiteSpace(uname) || uname == "用户" + uidKey || (uname.StartsWith("用户") && long.TryParse(uname.Substring(2), out _)))
         {
-            if (BiliApi.UserCache.TryGet(ev.Uid, out var cached) && !string.IsNullOrWhiteSpace(cached))
+            if (BiliApi.UserCache.TryGet(uidKey, out var cached) && !string.IsNullOrWhiteSpace(cached))
             {
                 uname = cached;
             }
-            else if (long.TryParse(ev.Uid, out var uidNum) && uidNum > 0)
+            else if (long.TryParse(uidKey, out var uidNum) && uidNum > 0)
             {
                 try
                 {
@@ -278,12 +293,18 @@ public sealed class AutoDanmu
             }
         }
         if (string.IsNullOrWhiteSpace(uname))
-            uname = ev.Uid.Length > 0 ? "用户" + ev.Uid : "观众";
+            uname = uidKey.Length > 0 ? "用户" + uidKey : "观众";
+
+        // 获取到真实昵称（含日语等特殊语言昵称）后，同步刷新/补充冷却记录
+        if (!string.IsNullOrWhiteSpace(uname) && !uname.StartsWith("用户") && uname != "观众")
+        {
+            lock (_lock) _lastWelcomeName[uname] = now;
+        }
 
         var pool = isGuard ? guardTexts : texts;
         var tpl = Pick(pool, Random.Shared);
         if (tpl.Length == 0) tpl = isGuard ? guardTexts[0] : texts[0];
-        var msg = Fill(tpl, new Dictionary<string, string> { ["uname"] = uname, ["uid"] = ev.Uid, ["levelName"] = ev.LevelName });
+        var msg = Fill(tpl, new Dictionary<string, string> { ["uname"] = uname, ["uid"] = uidKey, ["levelName"] = ev.LevelName });
         var gap = isGuard ? 1200 : (rate > 0 ? rate * 1000 : 150);
         QueueSend(msg, gap);
     }
@@ -423,6 +444,10 @@ public sealed class AutoDanmu
 
     public void Reset()
     {
-        lock (_lock) _lastWelcome.Clear();
+        lock (_lock)
+        {
+            _lastWelcomeUid.Clear();
+            _lastWelcomeName.Clear();
+        }
     }
 }

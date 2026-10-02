@@ -842,7 +842,8 @@ public static class BiliNormalize
             if (cmd.StartsWith("INTERACT_WORD", StringComparison.Ordinal) || cmd.StartsWith("ENTRY_EFFECT", StringComparison.Ordinal))
             {
                 if (!msg.TryGetProperty("data", out var d) || d.ValueKind != JsonValueKind.Object) return null;
-                var fromDeep = DeepFindUser(msg);
+                // 深度查找限制在 data 对象内，避免误提取到消息根部的房间名或主播自身昵称/UID
+                var fromDeep = DeepFindUser(d);
                 var pbUid = "";
                 var pbUname = "";
                 if (GetProp(d, "pb") is var pbEl && pbEl.ValueKind == JsonValueKind.String)
@@ -857,15 +858,25 @@ public static class BiliNormalize
                 }
                 var g = DetectGuard(d);
                 var tier = ExtractTier(d);
-                var msgType = GetLong(d, "msg_type") != 0 ? GetLong(d, "msg_type") : GetLong(msg, "msg_type");
+                var rawMsgType = GetLong(d, "msg_type") != 0 ? GetLong(d, "msg_type") : GetLong(msg, "msg_type");
+                // ENTRY_EFFECT 属于进场特效（进房），若协议未标明 msg_type 则归一化为 1 (进房)
+                var msgType = rawMsgType != 0 ? rawMsgType : (cmd.StartsWith("ENTRY_EFFECT", StringComparison.Ordinal) ? 1 : 0);
+
                 var uid = GetProp(d, "uid") switch
                 {
                     { ValueKind: JsonValueKind.Number } n => n.GetRawText(),
                     { ValueKind: JsonValueKind.String } s => s.GetString() ?? "",
                     _ => pbUid.Length > 0 ? pbUid : fromDeep.Uid,
                 };
-                if (string.IsNullOrWhiteSpace(uid))
-                    uid = FirstNonEmpty(GetNestedStr(d, "uinfo", "uid"), GetNestedStr(d, "user_info", "uid"), fromDeep.Uid);
+                if (string.IsNullOrWhiteSpace(uid) || uid == "0")
+                {
+                    uid = FirstNonEmpty(
+                        GetNestedStr(d, "uinfo", "uid"),
+                        GetNestedStr(d, "user_info", "uid"),
+                        Plain(GetProp(d, "target_id")),
+                        fromDeep.Uid
+                    );
+                }
 
                 var directUname = FirstNonEmpty(
                     GetStr(d, "uname"),

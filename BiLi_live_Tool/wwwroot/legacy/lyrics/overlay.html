@@ -13,17 +13,30 @@
     --lrc-active-color: #ffffff;
     --lrc-text-color: rgba(255,255,255,.4);
     --lrc-glow: rgba(251,114,153,.35);
+
+    /* Desktop & stroke variables */
+    --lrc-font-alpha: 1;
+    --lrc-stroke-rgb: 0, 0, 0;
+    --lrc-stroke-alpha: 0.85;
+    --lrc-stroke-width: 2px;
+    --lrc-border-rgb: 255, 255, 255;
+    --lrc-border-alpha: 0.15;
+    --lrc-border-width: 1px;
+    --lrc-border-style: solid;
+    --lrc-align: center;
+    --lrc-text-align: center;
   }
   /* 外层只负责把窄条居中，背景全透明 */
   #ly-wrap{position:fixed;inset:0;display:flex;align-items:stretch;justify-content:center;}
-  /* 竖条卡片：宽度贴合歌词内容（fit-content），不再铺满浏览器源；上限 48vh 保证竖向比例 */
+  /* 竖条卡片（滚动模式默认）：宽度贴合歌词内容（fit-content），不再铺满浏览器源 */
   #ly-stage{position:relative;display:flex;flex-direction:column;align-items:center;box-sizing:border-box;
     height:100%;width:fit-content;min-width:min(100%,24vh);max-width:min(100%,48vh);
     padding:2.2vh 2.8vh;color:#fff;opacity:0;transition:opacity .45s ease;
     background:linear-gradient(180deg,rgba(var(--lrc-bg-rgb),var(--lrc-bg-alpha-top)),rgba(var(--lrc-bg-rgb),var(--lrc-bg-alpha)) 18%,rgba(var(--lrc-bg-rgb),var(--lrc-bg-alpha)) 82%,rgba(var(--lrc-bg-rgb),var(--lrc-bg-alpha-top)));
-    border-radius:min(2.4vh,18px);box-shadow:0 6px 26px rgba(0,0,0,.35);}
+    border-radius:min(2.4vh,18px);box-shadow:0 6px 26px rgba(0,0,0,.35);
+    border:var(--lrc-border-width) var(--lrc-border-style) rgba(var(--lrc-border-rgb),var(--lrc-border-alpha));}
   #ly-stage.show{opacity:1;}
-  #ly-head{flex:0 0 auto;width:100%;text-align:center;padding-bottom:1.1vh;}
+  #ly-head{flex:0 0 auto;width:100%;text-align:var(--lrc-text-align);padding-bottom:1.1vh;}
   #ly-name{font-size:clamp(13px,2.4vh,24px);font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.7);
     max-width:44vh;margin:0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #ly-artist{font-size:clamp(10px,1.5vh,16px);color:rgba(255,255,255,.62);margin-top:.5vh;
@@ -34,12 +47,9 @@
     -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 16%,#000 84%,transparent 100%);
     mask-image:linear-gradient(180deg,transparent 0,#000 16%,#000 84%,transparent 100%);}
   #ly-track{width:100%;will-change:transform;transition:transform .55s cubic-bezier(.22,.61,.36,1);}
-  /* 左右留出 13% 内边距：当前句放大 1.3 倍后仍在视窗内，不会被 #ly-viewport 的
-     overflow:hidden 从两侧裁掉（1.3 × (100-26)% = 96%） */
-  .lrc-line{text-align:center;padding:.7vh 13%;line-height:1.35;color:var(--lrc-text-color);
+  .lrc-line{text-align:var(--lrc-text-align);padding:.7vh 13%;line-height:1.35;color:var(--lrc-text-color);
     font-size:var(--lrc-font-size);transition:color .35s,transform .35s,text-shadow .35s;}
   .lrc-line.near{color:rgba(255,255,255,.66);}
-  /* 当前句用 scale 放大（不影响布局高度，居中计算才准确） */
   .lrc-line.cur{color:var(--lrc-active-color);font-weight:700;transform:scale(1.3);
     text-shadow:0 2px 14px rgba(0,0,0,.8),0 0 24px var(--lrc-glow);}
   .lrc-none{display:block;text-align:center;color:rgba(255,255,255,.5);font-size:clamp(11px,1.7vh,18px);padding:2vh 0;}
@@ -48,6 +58,54 @@
   #ly-bar{height:100%;width:0%;background:linear-gradient(90deg,#fb7299,#fc8bab);border-radius:2px;transition:width .3s linear;}
   #ly-time{text-align:center;font-size:clamp(9px,1.4vh,14px);color:rgba(255,255,255,.55);
     margin-top:.7vh;font-variant-numeric:tabular-nums;}
+
+  /* 桌面歌词 (Desktop Modes: single line & double line) */
+  #ly-desktop{display:none;width:100%;box-sizing:border-box;flex-direction:column;align-items:var(--lrc-align);text-align:var(--lrc-text-align);gap:6px;}
+  
+  body.mode-desktop #ly-wrap{align-items:center;padding:12px 20px;}
+  body.mode-desktop #ly-stage{
+    height:auto;min-height:unset;width:fit-content;max-width:96vw;min-width:min(100%,360px);
+    padding:12px 28px;border-radius:12px;
+  }
+  body.mode-desktop #ly-viewport{display:none;}
+  body.mode-desktop #ly-desktop{display:flex;}
+  body.mode-desktop #ly-head{
+    display:flex;align-items:center;justify-content:var(--lrc-align);gap:10px;
+    padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  body.mode-desktop #ly-name{font-size:13px;max-width:280px;margin:0;}
+  body.mode-desktop #ly-artist{font-size:12px;max-width:180px;margin:0;}
+  body.mode-desktop #ly-req{font-size:11px;margin:0;}
+  body.mode-desktop #ly-foot{padding-top:8px;}
+
+  .desk-line{
+    font-size:var(--lrc-font-size);line-height:1.35;font-weight:700;letter-spacing:.5px;word-break:break-word;
+    paint-order:stroke fill;
+    -webkit-text-stroke:var(--lrc-stroke-width) rgba(var(--lrc-stroke-rgb),var(--lrc-stroke-alpha));
+    text-shadow:0 2px 10px rgba(0,0,0,.85),0 0 18px var(--lrc-glow);
+    transition:all .3s cubic-bezier(.22,.61,.36,1);
+  }
+  .desk-line.cur{
+    color:var(--lrc-active-color);opacity:var(--lrc-font-alpha);
+  }
+  .desk-line.next{
+    font-size:calc(var(--lrc-font-size) * .82);
+    color:rgba(255,255,255,.72);
+    opacity:calc(var(--lrc-font-alpha) * .65);
+  }
+  body.mode-single .desk-line.next{display:none;}
+
+  /* 纯字幕无边框模式优化 */
+  body.mode-noborder #ly-stage{
+    background:transparent !important;
+    border:none !important;
+    box-shadow:none !important;
+  }
+  body.mode-noborder #ly-head,
+  body.mode-noborder #ly-foot{
+    opacity:.85;
+  }
+
   #ly-status{position:fixed;left:0;right:0;bottom:0;padding:6px 12px;font-size:12px;text-align:center;
     color:rgba(255,255,255,.75);background:rgba(10,11,14,.6);display:none;}
   #ly-debug{position:fixed;top:8px;left:8px;max-width:520px;padding:8px 10px;font:12px/1.5 Consolas,monospace;
@@ -63,6 +121,10 @@
       <div id="ly-req"></div>
     </div>
     <div id="ly-viewport"><div id="ly-track"></div></div>
+    <div id="ly-desktop">
+      <div id="ly-desk-cur" class="desk-line cur"></div>
+      <div id="ly-desk-next" class="desk-line next"></div>
+    </div>
     <div id="ly-foot">
       <div id="ly-bar-wrap"><div id="ly-bar"></div></div>
       <div id="ly-time">00:00 / 00:00</div>
@@ -70,6 +132,6 @@
   </div>
 </div>
 <div id="ly-status"></div>
-<script src="./overlay.js?v=20260926a"></script>
+<script src="./overlay.js?v=20261001a"></script>
 </body>
 </html>

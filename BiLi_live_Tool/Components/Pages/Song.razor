@@ -49,199 +49,75 @@
     <span class="tip">这个平台同时用于「弹幕点歌」和「手动搜索」；观众发送「@KeywordText() + 歌名」即点歌。当前：<b>@PlatName(_platform)</b>@( _enabled ? "" : " · 已停用")</span>
 </div>
 
-<div class="blt-grid blt-cols-2">
-    @* ── 左列：设置 / 搜索 / 黑名单 ── *@
-    <div>
-        <div class="blt-panel">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="⚙" />点歌设置</span><span class="en">SETTINGS</span>
-                <span class="right"><span>songRequest · POST /api/config</span></span>
-            </div>
-            <div class="blt-panel-body">
-                @* Master switch (songRequest.enabled): promoted from the page header to the top of this card. *@
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 14px">
-                    <div>
-                        <label class="blt-label">触发关键词</label>
-                        <input class="blt-input" @bind="_keyword" @bind:after="SaveSettingsTextSoon" placeholder="点歌" />
-                    </div>
-                    <div>
-                        <label class="blt-label">每日上限（0=不限）</label>
-                        <input class="blt-input" type="number" min="0" @bind="_maxDaily" @bind:after="SaveSettingsTextSoon" />
-                    </div>
-                    <div>
-                        <label class="blt-label">全局冷却（秒）</label>
-                        <input class="blt-input" type="number" min="0" @bind="_cooldownSec" @bind:after="SaveSettingsTextSoon" />
-                    </div>
-                    <div>
-                        <label class="blt-label">每用户冷却（秒）</label>
-                        <input class="blt-input" type="number" min="0" @bind="_userCooldownSec" @bind:after="SaveSettingsTextSoon" />
-                    </div>
-                    <div>
-                        <label class="blt-label">最低粉丝勋章</label>
-                        <input class="blt-input" type="number" min="0" @bind="_fanMedalMin" @bind:after="SaveSettingsTextSoon" />
-                    </div>
-                    <div>
-                        <label class="blt-label">最低荣誉等级</label>
-                        <input class="blt-input" type="number" min="0" @bind="_honorLevelMin" @bind:after="SaveSettingsTextSoon" />
-                    </div>
-                    <div>
-                        <label class="blt-label">仅舰长可点</label>
-                        <span class="blt-switch @OnOff(_guardOnly)" @onclick="ToggleGuardOnly">
-                            <span class="track"></span>@OnOffText(_guardOnly)
-                        </span>
-                    </div>
-                    <div>
-                        <label class="blt-label">去重（分钟内不重复）</label>
-                        <div style="display:flex;gap:8px;align-items:center">
-                            <span class="blt-switch @OnOff(_dedupEnabled)" @onclick="ToggleDedup">
-                                <span class="track"></span>@OnOffText(_dedupEnabled)
-                            </span>
-                            <input class="blt-input" type="number" min="0" style="width:72px" @bind="_dedupMin" @bind:after="SaveSettingsTextSoon" disabled="@(!_dedupEnabled)" />
-                        </div>
-                    </div>
-                </div>
-                @* 保存设置 button replaced by the auto-save status line (every edit writes through immediately). *@
-                <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">
-                    <span class="blt-hint" style="margin:0">@AutoSaveText()</span>
-                    <span class="blt-hint" style="margin:0">改动即时生效 · 回写整份配置，黑名单 / Cookie / UP 名单等未展示字段原样保留</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="blt-panel">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="🔍" /> 手动搜索</span><span class="en">SEARCH</span>
-                <span class="right"><span>POST /api/song-request/search</span></span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:flex;gap:8px">
-                    <select class="blt-input" style="width:112px;flex:none" @bind="_searchType">
-                        <option value="smart">智能搜索</option>
-                        <option value="song">按歌名</option>
-                        <option value="artist">按歌手</option>
-                        <option value="lyric">按歌词</option>
-                    </select>
-                    <input class="blt-input" @bind="_searchKeyword" @bind:event="oninput" @onkeydown="OnSearchKey"
-                           placeholder="歌曲名 / 歌手 / 歌词片段" />
-                    <button class="blt-btn primary" style="flex:none" @onclick="DoSearch" disabled="@_busy">搜索</button>
-                </div>
-                @if (_searching)
-                {
-                    <div class="blt-empty">搜索中…（走当前平台，可能需要数秒）</div>
-                }
-                else if (_results.Count == 0)
-                {
-                    <div class="blt-empty">暂无搜索结果 · 命中后点「添加」进入播放列表</div>
-                }
-                else
-                {
-                    <div style="margin-top:10px">
-                        @foreach (var r in _searchRows)
-                        {
-                            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)">
-                                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@r.Title</span>
-                                <span class="blt-badge @r.PlatformBadgeCls">@r.PlatformBadgeName</span>
-                                <span class="blt-badge @r.VipBadgeCls">@r.VipBadgeText</span>
-                                <button class="blt-btn" style="padding:3px 10px;flex:none" @onclick="r.Add" disabled="@_busy">添加</button>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-
-        <div class="blt-panel">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="🚫" /> 黑名单</span><span class="en">BLACKLIST</span>
-                <span class="right"><span>共 @_blacklist.Count 条 · 包含匹配</span></span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:flex;gap:8px">
-                    <select class="blt-input" style="width:96px;flex:none" @bind="_blType">
-                        <option value="song">歌曲</option>
-                        <option value="artist">歌手</option>
-                    </select>
-                    <input class="blt-input" @bind="_blValue" @bind:event="oninput" @onkeydown="OnBlacklistKey"
-                           placeholder="歌曲名或歌手名" />
-                    <button class="blt-btn" style="flex:none" @onclick="AddBlacklist" disabled="@_busy">添加</button>
-                </div>
-                @if (_blacklist.Count == 0)
-                {
-                    <div class="blt-empty">黑名单为空</div>
-                }
-                else
-                {
-                    <div style="margin-top:8px">
-                        @foreach (var b in _blacklistRows)
-                        {
-                            <div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line)">
-                                <span class="blt-badge @b.TypeCls" style="flex:none">@b.TypeText</span>
-                                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@b.Value</span>
-                                <button class="blt-btn" style="padding:3px 10px" @onclick="b.Remove" disabled="@_busy">删除</button>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
+@* ── 通栏手动搜索栏（横着的一长条） ── *@
+<div class="blt-search-bar">
+    <span class="lbl"><BltIcon Emoji="🔍" /> 手动搜索</span>
+    <select class="blt-input type-select" @bind="_searchType">
+        <option value="smart">智能搜索</option>
+        <option value="song">按歌名</option>
+        <option value="artist">按歌手</option>
+        <option value="lyric">按歌词</option>
+    </select>
+    <div class="search-input-wrap">
+        <input class="blt-input search-input" @bind="_searchKeyword" @bind:event="oninput" @onkeydown="OnSearchKey"
+               placeholder="输入歌曲名 / 歌手 / 歌词片段，按 Enter 直接搜索..." />
+        @if (!string.IsNullOrEmpty(_searchKeyword))
+        {
+            <button class="clear-btn" @onclick="ClearSearchKeyword" title="清空搜索词">✕</button>
+        }
     </div>
+    <button class="blt-btn primary" style="flex:none;padding:5px 16px" @onclick="DoSearch" disabled="@_busy">
+        @(_searching ? "搜索中…" : "搜索")
+    </button>
+    @if (_results.Count > 0)
+    {
+        <button class="blt-btn" style="flex:none" @onclick="ToggleSearchResults">
+            @(_showSearchResults ? "收起结果 (" + _results.Count + ")" : "展开结果 (" + _results.Count + ")")
+        </button>
+    }
+</div>
 
-    @* ── 右列：播放列表 / Cookie / 最近点歌 ── *@
-    <div>
-        <div class="blt-panel">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="🎵" /> 播放列表</span><span class="en">PLAYLIST</span>
-                <span class="right">
-                    <span>@_playlist.Count 首 · idx @(_currentIndex)</span>
-                    <button class="blt-btn" style="padding:2px 10px" @onclick="SkipCurrent" disabled="@_busy">跳过当前</button>
-                    <button class="blt-btn" style="padding:2px 10px" @onclick="ClearPlaylist" disabled="@_busy">清空</button>
-                </span>
-            </div>
-            <div class="blt-panel-body" style="padding:4px 0">
-                @if (_playlist.Count == 0)
-                {
-                    <div class="blt-empty">播放列表为空 · 弹幕「@KeywordText() + 歌名」或在此手动搜索添加</div>
-                }
-                else
-                {
-                    @foreach (var row in _playlistRows)
-                    {
-                        @* draggable + data-index are the contract of wwwroot/blt-drag.js; the
-                           ↑ / ↓ buttons stay as the accessible / no-JS fallback. *@
-                        <div style="@row.RowStyle" draggable="true" data-index="@row.Index" data-blt-drag="playlist"
-                             title="拖动调整播放顺序（也可用 ↑ / ↓ 按钮）">
-                            <span style="@row.NoStyle">@row.NoText</span>
-                            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                                @row.Title<span style="color:var(--ink-3)"> - @row.Artist</span>
-                                <span class="blt-badge @row.PlatformBadgeCls">@row.PlatformBadgeName</span>
-                                <span class="blt-badge @row.VipBadgeCls">@row.VipBadgeText</span>
-                                @if (row.IsCurrent)
-                                {
-                                    <span class="blt-badge amber">当前</span>
-                                }
-                                @if (row.Index == Player.PlayingIndex)
-                                {
-                                    <span class="blt-badge @(Player.IsPlaying ? "green" : "off")">@(Player.IsPlaying ? "播放中" : "已暂停")</span>
-                                }
-                            </span>
-                            <span style="width:104px;flex:none;color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@row.Requester</span>
-                            <span style="flex:none;display:flex;gap:6px">
-                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.Play">▶</button>
-                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.MoveUp" disabled="@(!row.CanUp || _busy)">↑</button>
-                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.MoveDown" disabled="@(!row.CanDown || _busy)">↓</button>
-                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.Remove" disabled="@_busy">删除</button>
-                            </span>
-                        </div>
-                    }
-                    <div class="blt-hint" style="padding:6px 12px 0;margin:0">拖动行可直接调整播放顺序 · 也可用 ↑ / ↓ 按钮逐行移动</div>
-                }
+@* ── 搜索结果折叠/展开区域 ── *@
+@if (_showSearchResults && (_searching || _results.Count > 0))
+{
+    <div class="blt-search-results-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)">
+            <span style="font-size:12.5px;font-weight:700">搜索结果（@_results.Count 条 · 平台：@PlatName(_platform)）</span>
+            <div style="display:flex;gap:6px">
+                <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="ClearSearchResults">清除结果</button>
+                <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="ToggleSearchResults">收起</button>
             </div>
         </div>
+        @if (_searching)
+        {
+            <div class="blt-empty">搜索中…（走当前平台曲库，可能需要数秒）</div>
+        }
+        else
+        {
+            <div style="max-height:280px;overflow-y:auto">
+                @foreach (var r in _searchRows)
+                {
+                    <div class="blt-search-result-row">
+                        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">
+                            @r.Title
+                        </span>
+                        <span class="blt-badge @r.PlatformBadgeCls">@r.PlatformBadgeName</span>
+                        <span class="blt-badge @r.VipBadgeCls">@r.VipBadgeText</span>
+                        <button class="blt-btn primary" style="padding:3px 12px;flex:none" @onclick="r.Add" disabled="@_busy">添加点歌</button>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
 
-        @* ── 播放器 ── *@
+<div class="blt-grid blt-cols-2">
+    @* ── 左列：主播前台播控与曲目队列（放歌、看词、管队列） ── *@
+    <div>
+        @* ── 面板 1：▶ 正在播放与实时歌词 ── *@
         <div class="blt-panel">
             <div class="blt-panel-head">
-                <span class="t">▶ 播放器</span><span class="en">PLAYER</span>
+                <span class="t">▶ 正在播放与实时歌词</span><span class="en">PLAYER & LYRICS</span>
                 <span class="right">
                     <span>@PlayerStateText()</span>
                     <span class="blt-badge @PlatCls(Player.CurrentPlatform)">@(Player.CurrentPlatform.Length > 0 ? PlatName(Player.CurrentPlatform) : "—")</span>
@@ -283,13 +159,175 @@
                            style="flex:1;accent-color:var(--amber)" @onchange="OnSeekChanged" />
                     <span class="blt-hint" style="font-family:var(--mono);color:var(--ink-2);flex:none;margin:0">@MmSs(Player.Current) / @MmSs(Player.Duration)</span>
                 </div>
-                <p class="blt-hint">
-                    播放走新版内建音频链路（/api/song-request/song-url + blt-audio.js），进度同时上报 OBS 歌词浮层。
-                </p>
+
+                @* 实时歌词嵌入区域 *@
+                <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                        <span style="font-size:12px;font-weight:700;color:var(--ink-2)"><BltIcon Emoji="📜" /> 实时滚动歌词</span>
+                        <span class="blt-hint" style="margin:0;font-size:11px">@LyricSourceText()</span>
+                    </div>
+                    @if (_lyricLoading)
+                    {
+                        <div class="blt-empty" style="padding:16px 0">歌词加载中…</div>
+                    }
+                    else if (_lyricLines.Count == 0)
+                    {
+                        <div class="blt-empty" style="padding:16px 0">
+                            @LyricEmptyReason()
+                            <div style="display:flex;justify-content:center;gap:8px;margin-top:6px">
+                                <button class="blt-btn" style="padding:2px 10px;font-size:11.5px" @onclick="LoadLyricsAsync" disabled="@_lyricLoading">重试加载歌词</button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        var active = ActiveLyricIndex();
+                        <div id="blt-lyric-box" style="height:220px;overflow-y:auto;padding:4px 8px;scroll-behavior:smooth;background:var(--bg-2);border-radius:6px;border:1px solid var(--line-2)">
+                            @for (var i = 0; i < _lyricLines.Count; i++)
+                            {
+                                <div class="@(i == active ? "blt-lyric-on" : "")" style="@LyricLineStyle(i, active)">@_lyricLines[i].Text</div>
+                            }
+                        </div>
+                    }
+                </div>
             </div>
         </div>
 
-        @* ── 媒体感知与 OBS 音乐浮层 (Now Playing) ── *@
+        @* ── 面板 2：🎵 播放列表 ── *@
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="🎵" /> 播放列表</span><span class="en">PLAYLIST</span>
+                <span class="right">
+                    <span>@_playlist.Count 首 · idx @(_currentIndex)</span>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="SkipCurrent" disabled="@_busy">跳过当前</button>
+                    <button class="blt-btn" style="padding:2px 10px" @onclick="ClearPlaylist" disabled="@_busy">清空</button>
+                </span>
+            </div>
+            <div class="blt-panel-body" style="padding:4px 0">
+                @if (_playlist.Count == 0)
+                {
+                    <div class="blt-empty">播放列表为空 · 弹幕发送「@KeywordText() + 歌名」或在上方搜索框添加</div>
+                }
+                else
+                {
+                    @foreach (var row in _playlistRows)
+                    {
+                        <div style="@row.RowStyle" draggable="true" data-index="@row.Index" data-blt-drag="playlist"
+                             title="拖动调整播放顺序（也可用 ↑ / ↓ 按钮）">
+                            <span style="@row.NoStyle">@row.NoText</span>
+                            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                @row.Title<span style="color:var(--ink-3)"> - @row.Artist</span>
+                                <span class="blt-badge @row.PlatformBadgeCls">@row.PlatformBadgeName</span>
+                                <span class="blt-badge @row.VipBadgeCls">@row.VipBadgeText</span>
+                                @if (row.IsCurrent)
+                                {
+                                    <span class="blt-badge amber">当前</span>
+                                }
+                                @if (row.Index == Player.PlayingIndex)
+                                {
+                                    <span class="blt-badge @(Player.IsPlaying ? "green" : "off")">@(Player.IsPlaying ? "播放中" : "已暂停")</span>
+                                }
+                            </span>
+                            <span style="width:104px;flex:none;color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@row.Requester</span>
+                            <span style="flex:none;display:flex;gap:6px">
+                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.Play">▶</button>
+                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.MoveUp" disabled="@(!row.CanUp || _busy)">↑</button>
+                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.MoveDown" disabled="@(!row.CanDown || _busy)">↓</button>
+                                <button class="blt-btn" style="padding:3px 8px" @onclick="row.Remove" disabled="@_busy">删除</button>
+                            </span>
+                        </div>
+                    }
+                    <div class="blt-hint" style="padding:6px 12px 0;margin:0">拖动行可直接调整播放顺序 · 也可用 ↑ / ↓ 按钮逐行移动</div>
+                }
+            </div>
+        </div>
+
+        @* ── 面板 3：🕒 最近点歌 ── *@
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="🕒" /> 最近点歌流水</span><span class="en">RECENT</span>
+                <span class="right"><span>最近 @(_recentRows.Count) 条 · 自动记录</span></span>
+            </div>
+            <div class="blt-panel-body" style="padding:6px 0">
+                @if (_recentRows.Count == 0)
+                {
+                    <div class="blt-empty">暂无点歌记录</div>
+                }
+                else
+                {
+                    <div class="blt-log" style="max-height:240px">
+                        @foreach (var r in _recentRows)
+                        {
+                            <div class="blt-logrow">
+                                <span class="t">@r.Time</span>
+                                <span class="tag @r.StatusCls">@r.StatusText</span>
+                                <span class="txt"><span class="u">@r.Uname</span> @r.Song</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ── 右列：后台规则配置与集成外设（规则、账号、OBS联动） ── *@
+    <div>
+        @* ── 面板 1：⚙ 点歌规则设置 ── *@
+        <div class="blt-panel">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="⚙" /> 点歌规则设置</span><span class="en">SETTINGS</span>
+                <span class="right"><span>songRequest · 自动回写</span></span>
+            </div>
+            <div class="blt-panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 14px">
+                    <div>
+                        <label class="blt-label">触发关键词</label>
+                        <input class="blt-input" @bind="_keyword" @bind:after="SaveSettingsTextSoon" placeholder="点歌" />
+                    </div>
+                    <div>
+                        <label class="blt-label">每日上限（0=不限）</label>
+                        <input class="blt-input" type="number" min="0" @bind="_maxDaily" @bind:after="SaveSettingsTextSoon" />
+                    </div>
+                    <div>
+                        <label class="blt-label">全局冷却（秒）</label>
+                        <input class="blt-input" type="number" min="0" @bind="_cooldownSec" @bind:after="SaveSettingsTextSoon" />
+                    </div>
+                    <div>
+                        <label class="blt-label">每用户冷却（秒）</label>
+                        <input class="blt-input" type="number" min="0" @bind="_userCooldownSec" @bind:after="SaveSettingsTextSoon" />
+                    </div>
+                    <div>
+                        <label class="blt-label">最低粉丝勋章</label>
+                        <input class="blt-input" type="number" min="0" @bind="_fanMedalMin" @bind:after="SaveSettingsTextSoon" />
+                    </div>
+                    <div>
+                        <label class="blt-label">最低荣誉等级</label>
+                        <input class="blt-input" type="number" min="0" @bind="_honorLevelMin" @bind:after="SaveSettingsTextSoon" />
+                    </div>
+                    <div>
+                        <label class="blt-label">仅舰长可点</label>
+                        <span class="blt-switch @OnOff(_guardOnly)" @onclick="ToggleGuardOnly">
+                            <span class="track"></span>@OnOffText(_guardOnly)
+                        </span>
+                    </div>
+                    <div>
+                        <label class="blt-label">去重（分钟内不重复）</label>
+                        <div style="display:flex;gap:8px;align-items:center">
+                            <span class="blt-switch @OnOff(_dedupEnabled)" @onclick="ToggleDedup">
+                                <span class="track"></span>@OnOffText(_dedupEnabled)
+                            </span>
+                            <input class="blt-input" type="number" min="0" style="width:72px" @bind="_dedupMin" @bind:after="SaveSettingsTextSoon" disabled="@(!_dedupEnabled)" />
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">
+                    <span class="blt-hint" style="margin:0">@AutoSaveText()</span>
+                    <span class="blt-hint" style="margin:0">改动即时生效 · 回写整份配置，黑名单 / Cookie / UP 名单等未展示字段原样保留</span>
+                </div>
+            </div>
+        </div>
+
+        @* ── 面板 2：🎧 媒体感知与 OBS 音乐浮层 (Now Playing) ── *@
         <div class="blt-panel">
             <div class="blt-panel-head">
                 <span class="t"><BltIcon Emoji="🎧" /> 媒体感知与 OBS 音乐浮层 (Now Playing)</span><span class="en">NOW PLAYING</span>
@@ -303,11 +341,11 @@
                 <div style="display:flex;align-items:center;gap:12px">
                     @if (!string.IsNullOrEmpty(MediaService.CurrentTrack.CoverUrl))
                     {
-                        <img src="@GetMediaCoverDisplayUrl()" style="width:54px;height:54px;border-radius:6px;object-fit:cover;border:1px solid var(--line);flex:none;box-shadow:0 2px 8px rgba(0,0,0,0.15)" alt="cover" />
+                        <img src="@GetMediaCoverDisplayUrl()" style="width:52px;height:52px;border-radius:6px;object-fit:cover;border:1px solid var(--line);flex:none;box-shadow:0 2px 8px rgba(0,0,0,0.15)" alt="cover" />
                     }
                     else
                     {
-                        <div style="width:54px;height:54px;border-radius:6px;background:var(--bg-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;flex:none">
+                        <div style="width:52px;height:52px;border-radius:6px;background:var(--bg-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;flex:none">
                             🎵
                         </div>
                     }
@@ -325,10 +363,10 @@
                                 <span class="blt-badge" style="background:rgba(251,114,153,0.15);color:#fb7299;border:1px solid rgba(251,114,153,0.3)">点歌: @MediaService.CurrentTrack.Requester</span>
                             }
                         </div>
-                        <div style="font-weight:700;font-size:14px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        <div style="font-weight:700;font-size:13.5px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                             @(MediaService.CurrentTrack.HasSong ? MediaService.CurrentTrack.Title : "暂无正在播放的歌曲")
                         </div>
-                        <div style="color:var(--ink-2);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        <div style="color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                             @(MediaService.CurrentTrack.HasSong ? (MediaService.CurrentTrack.Artist + (string.IsNullOrEmpty(MediaService.CurrentTrack.Album) ? "" : $" · {MediaService.CurrentTrack.Album}")) : "本程序点歌或外部网易云/QQ音乐/Spotify播放时自动感知")
                         </div>
                     </div>
@@ -345,227 +383,214 @@
                     </div>
                 }
 
-                @if (MediaService.CurrentTrack.HasSong && MediaService.CurrentTrack.VolumePeak > 0)
-                {
-                    <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
-                        <span class="blt-hint" style="margin:0;font-size:11px">WASAPI 混音峰值</span>
-                        <div style="flex:1;height:5px;background:var(--bg-3);border-radius:2.5px;overflow:hidden">
-                            <div style="height:100%;width:@(Math.Round(MediaService.CurrentTrack.VolumePeak * 100))%;background:var(--green);transition:width 0.3s"></div>
-                        </div>
-                        <span class="mono" style="font-size:10.5px;color:var(--ink-2)">@(Math.Round(MediaService.CurrentTrack.VolumePeak * 100))%</span>
-                    </div>
-                }
-
-                @* ── 过滤与优先级配置 ── *@
-                <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-                    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer" title="点歌列表中播放时优先展示本程序曲目">
+                <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;cursor:pointer" title="点歌列表中播放时优先展示本程序曲目">
                         <input type="checkbox" checked="@MediaService.PreferInternalPlayer" @onchange="TogglePreferInternal" />
                         <span>优先本程序点歌</span>
                     </label>
-                    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer" title="过滤Edge/Chrome等浏览器播放的视频，仅捕获专业音乐播放器">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;cursor:pointer" title="过滤Edge/Chrome等浏览器播放的视频，仅捕获专业音乐播放器">
                         <input type="checkbox" checked="@MediaService.IgnoreBrowsers" @onchange="ToggleIgnoreBrowsers" />
-                        <span>过滤浏览器视频 (推荐勾选)</span>
+                        <span>过滤浏览器视频 (推荐)</span>
                     </label>
                 </div>
 
-                @* ── Now Playing OBS 浮层风格与参数定制 ── *@
-                <div style="margin-top:12px;padding:12px;background:var(--bg-2);border-radius:8px;border:1px solid var(--line)">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                        <span style="font-size:12.5px;font-weight:700">📺 Now Playing OBS 音乐浮层定制</span>
-                        <span class="blt-badge blue" style="font-size:11px">参数即时联动</span>
-                    </div>
-
-                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+                <div style="margin-top:10px;padding:10px;background:var(--bg-2);border-radius:6px;border:1px solid var(--line-2)">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
                         <div>
-                            <label class="blt-label">浮层视觉风格 (Style)</label>
+                            <label class="blt-label">浮层视觉风格</label>
                             <select class="blt-input" value="@_npStyle" @onchange="OnNpStyleChanged">
-                                <option value="vinyl">💿 黑胶唱片 (精美旋转)</option>
-                                <option value="card">🗂 现代卡片 (大尺寸毛玻璃)</option>
-                                <option value="compact">🏷 极简横条 (角落角标)</option>
+                                <option value="vinyl">💿 黑胶唱片 (旋转)</option>
+                                <option value="card">🗂 现代卡片 (毛玻璃)</option>
+                                <option value="compact">🏷 极简横条 (角标)</option>
                             </select>
                         </div>
                         <div>
-                            <label class="blt-label">主题配色 (Theme)</label>
+                            <label class="blt-label">主题配色</label>
                             <select class="blt-input" value="@_npTheme" @onchange="OnNpThemeChanged">
                                 <option value="dark">🌙 暗黑深色</option>
                                 <option value="light">☀️ 清爽浅色</option>
-                                <option value="glass">🧊 晶莹磨砂玻璃</option>
+                                <option value="glass">🧊 磨砂玻璃</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="blt-label">画面缩放 (Scale)</label>
-                            <select class="blt-input" value="@_npScaleStr" @onchange="OnNpScaleChanged">
-                                <option value="0.75">75% (超小)</option>
-                                <option value="0.85">85% (紧凑)</option>
-                                <option value="1.0">100% (标准默认)</option>
-                                <option value="1.15">115% (放大)</option>
-                                <option value="1.25">125% (清晰特大)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="blt-label">停播自动隐藏 (AutoHide)</label>
-                            <div style="margin-top:4px">
-                                <span class="blt-switch @(_npAutoHide ? "on" : "")" @onclick="ToggleNpAutoHide">
-                                    <span class="track"></span>@(_npAutoHide ? "开启" : "关闭")
-                                </span>
-                            </div>
-                        </div>
                     </div>
-
-                    <div style="margin-top:12px">
-                        <label class="blt-label">OBS 浏览器源地址 (自动拼接定制参数)</label>
-                        <div style="display:flex;gap:8px;align-items:center">
-                            <input class="blt-input mono" readonly value="@GetNowPlayingOverlayUrl()" style="font-size:11.5px;flex:1" />
-                            <button class="blt-btn" @onclick="CopyNowPlayingUrl">复制地址</button>
-                            <button class="blt-btn primary" @onclick="OpenNowPlayingOverlay">打开预览</button>
-                        </div>
-                    </div>
-
-                    <div class="blt-hint" style="margin:8px 0 0;font-size:11.5px">
-                        💡 OBS 添加提示：来源 → 添加「浏览器」→ 粘贴上方地址。<br/>
-                        推荐画布分辨率：黑胶唱片 <b>580×160</b>，现代卡片 <b>520×150</b>，极简横条 <b>460×76</b>。
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <input class="blt-input mono" readonly value="@GetNowPlayingOverlayUrl()" style="font-size:11px;flex:1" />
+                        <button class="blt-btn" style="padding:3px 10px;font-size:11.5px" @onclick="CopyNowPlayingUrl">复制</button>
+                        <button class="blt-btn primary" style="padding:3px 10px;font-size:11.5px" @onclick="OpenNowPlayingOverlay">预览</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        @* ── OBS 歌词浮层（原版 lyrics/overlay.html，OBS 里加浏览器源指向该地址） ── *@
+        @* ── 面板 3：📜 OBS 歌词浮层定制（多模式 + 全套字体/描边/边框参数） ── *@
         <div class="blt-panel">
             <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="📜" /> OBS 歌词浮层</span><span class="en">OBS OVERLAY</span>
-                <span class="right"><span>OBS 浏览器源 · 参数即时联动</span></span>
+                <span class="t"><BltIcon Emoji="📜" /> OBS 歌词浮层定制</span><span class="en">OBS LYRICS OVERLAY</span>
+                <span class="right"><span>参数即时联动 · 复制即用</span></span>
             </div>
             <div class="blt-panel-body">
-                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;margin-bottom:14px">
+                <div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:10px 14px;margin-bottom:12px">
                     <div>
-                        <label class="blt-label">歌词字号 (@(_lrcFontSize)px)</label>
-                        <input class="blt-input mono" type="number" min="12" max="36" step="1" @bind="_lrcFontSize" @bind:after="SaveLyricsOverlaySoon" />
+                        <label class="blt-label">歌词呈现形式 (Mode)</label>
+                        <select class="blt-input" @bind="_lrcMode" @bind:after="SaveLyricsOverlaySoon">
+                            <option value="scroll">📜 经典垂直滚动 (适合侧边栏竖屏)</option>
+                            <option value="single">💬 桌面歌词·单行横条 (适合画面底部/顶部)</option>
+                            <option value="double">💬 桌面歌词·双行卡拉OK (当前句+预告句)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="blt-label">文字对齐方式 (Align)</label>
+                        <select class="blt-input" @bind="_lrcAlign" @bind:after="SaveLyricsOverlaySoon">
+                            <option value="center">居中对齐 (推荐)</option>
+                            <option value="left">靠左对齐</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:10px 12px;margin-bottom:12px">
+                    <div>
+                        <label class="blt-label">字体字号 (@(_lrcFontSize)px)</label>
+                        <input class="blt-input mono" type="number" min="12" max="60" step="1" @bind="_lrcFontSize" @bind:after="SaveLyricsOverlaySoon" />
+                    </div>
+                    <div>
+                        <label class="blt-label">字体颜色</label>
+                        <div style="display:flex;gap:4px;align-items:center">
+                            <input type="color" class="blt-input" style="width:36px;padding:2px;cursor:pointer;height:30px" @bind="_lrcActiveColor" @bind:after="SaveLyricsOverlaySoon" />
+                            <input class="blt-input mono" style="font-size:11px;flex:1" @bind="_lrcActiveColor" @bind:after="SaveLyricsOverlaySoon" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">字体透明度 (@(_lrcFontAlpha)%)</label>
+                        <input class="blt-input" type="range" min="10" max="100" step="5" @bind="_lrcFontAlpha" @bind:after="SaveLyricsOverlaySoon" style="height:30px;cursor:pointer" />
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:10px 12px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:6px;border:1px solid var(--line-2)">
+                    <div>
+                        <label class="blt-label">描边粗细 (@(_lrcStrokeWidth)px)</label>
+                        <input class="blt-input mono" type="number" min="0" max="8" step="1" @bind="_lrcStrokeWidth" @bind:after="SaveLyricsOverlaySoon" />
+                    </div>
+                    <div>
+                        <label class="blt-label">描边颜色</label>
+                        <div style="display:flex;gap:4px;align-items:center">
+                            <input type="color" class="blt-input" style="width:36px;padding:2px;cursor:pointer;height:30px" @bind="_lrcStrokeColor" @bind:after="SaveLyricsOverlaySoon" />
+                            <input class="blt-input mono" style="font-size:11px;flex:1" @bind="_lrcStrokeColor" @bind:after="SaveLyricsOverlaySoon" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">描边透明度 (@(_lrcStrokeAlpha)%)</label>
+                        <input class="blt-input" type="range" min="0" max="100" step="5" @bind="_lrcStrokeAlpha" @bind:after="SaveLyricsOverlaySoon" style="height:30px;cursor:pointer" />
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:10px 12px;margin-bottom:12px;padding:10px;background:var(--bg-2);border-radius:6px;border:1px solid var(--line-2)">
+                    <div>
+                        <label class="blt-label">无边框透明模式</label>
+                        <div style="margin-top:4px">
+                            <span class="blt-switch @(_lrcNoBorder ? "on" : "")" @onclick="ToggleLrcNoBorder">
+                                <span class="track"></span>@(_lrcNoBorder ? "开启(纯字幕)" : "关闭(保留底盒)")
+                            </span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">边框颜色</label>
+                        <div style="display:flex;gap:4px;align-items:center">
+                            <input type="color" class="blt-input" style="width:36px;padding:2px;cursor:pointer;height:30px" @bind="_lrcBorderColor" @bind:after="SaveLyricsOverlaySoon" disabled="@_lrcNoBorder" />
+                            <input class="blt-input mono" style="font-size:11px;flex:1" @bind="_lrcBorderColor" @bind:after="SaveLyricsOverlaySoon" disabled="@_lrcNoBorder" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="blt-label">边框透明度 (@(_lrcBorderAlpha)%)</label>
+                        <input class="blt-input" type="range" min="0" max="100" step="5" @bind="_lrcBorderAlpha" @bind:after="SaveLyricsOverlaySoon" style="height:30px;cursor:pointer" disabled="@_lrcNoBorder" />
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-bottom:12px">
+                    <div>
+                        <label class="blt-label">背景颜色</label>
+                        <div style="display:flex;gap:4px;align-items:center">
+                            <input type="color" class="blt-input" style="width:36px;padding:2px;cursor:pointer;height:30px" @bind="_lrcBgColor" @bind:after="SaveLyricsOverlaySoon" disabled="@_lrcNoBorder" />
+                            <input class="blt-input mono" style="font-size:11px;flex:1" @bind="_lrcBgColor" @bind:after="SaveLyricsOverlaySoon" disabled="@_lrcNoBorder" />
+                        </div>
                     </div>
                     <div>
                         <label class="blt-label">背景透明度 (@(_lrcBgAlpha)%)</label>
-                        <input class="blt-input" type="range" min="0" max="100" step="5" @bind="_lrcBgAlpha" @bind:after="SaveLyricsOverlaySoon" style="height:32px;cursor:pointer" />
-                    </div>
-                    <div>
-                        <label class="blt-label">背景颜色</label>
-                        <div style="display:flex;gap:6px;align-items:center">
-                            <input type="color" class="blt-input" style="width:40px;padding:2px;cursor:pointer;height:32px" @bind="_lrcBgColor" @bind:after="SaveLyricsOverlaySoon" />
-                            <input class="blt-input mono" style="font-size:11.5px;flex:1" @bind="_lrcBgColor" @bind:after="SaveLyricsOverlaySoon" />
-                        </div>
-                    </div>
-                    <div>
-                        <label class="blt-label">歌词高亮颜色</label>
-                        <div style="display:flex;gap:6px;align-items:center">
-                            <input type="color" class="blt-input" style="width:40px;padding:2px;cursor:pointer;height:32px" @bind="_lrcActiveColor" @bind:after="SaveLyricsOverlaySoon" />
-                            <input class="blt-input mono" style="font-size:11.5px;flex:1" @bind="_lrcActiveColor" @bind:after="SaveLyricsOverlaySoon" />
-                        </div>
+                        <input class="blt-input" type="range" min="0" max="100" step="5" @bind="_lrcBgAlpha" @bind:after="SaveLyricsOverlaySoon" style="height:30px;cursor:pointer" disabled="@_lrcNoBorder" />
                     </div>
                 </div>
 
                 <div class="blt-kv">
-                    <span class="k">浮层地址</span>
+                    <span class="k">OBS 浮层地址</span>
                     <span class="v"><span class="mono" style="font-size:11.5px">@OverlayUrl</span></span>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
                     <button class="blt-btn" @onclick="CopyOverlayUrl">复制定制地址</button>
-                    <button class="blt-btn primary" @onclick="OpenOverlay">在浏览器里预览</button>
+                    <button class="blt-btn primary" @onclick="OpenOverlay">在浏览器中预览</button>
                     <button class="blt-btn" @onclick="ResetLyricsOverlay">恢复默认外观</button>
                 </div>
-                <div class="blt-hint" style="margin-top:10px">
-                    OBS：来源 → 浏览器 → 粘贴上面的地址，建议竖屏比例（如 420×760）。<br/>
-                    💡 <b>现已全面支持 Now Playing 外部播放器！</b>不管是程序内点歌，还是在电脑上使用网易云音乐、QQ音乐、酷狗、Spotify 等外部播放器放歌，均会自动抓取歌词并同步高亮滚动（优先程序内点歌，停止时自动切换外部音乐）。
+                <div class="blt-hint" style="margin-top:10px;line-height:1.6">
+                    💡 <b>@GetLyricsCanvasHint()</b><br/>
+                    OBS 操作：来源 → 添加「浏览器」→ 粘贴上方地址。<br/>
+                    支持本程序点歌与外部音乐软件（网易云/QQ音乐/酷狗/Spotify等播放时均自动抓词高亮）。
                 </div>
             </div>
         </div>
 
-        @* ── 歌词 ── *@
+        @* ── 面板 4：🍪 平台 Cookie 与 UP 主白名单 ── *@
         <div class="blt-panel">
             <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="📜" /> 歌词</span><span class="en">LYRICS</span>
-                <span class="right"><span>GET /api/lyrics · @LyricSourceText()</span></span>
-            </div>
-            <div class="blt-panel-body" style="padding:8px">
-                @if (_lyricLoading)
-                {
-                    <div class="blt-empty">歌词加载中…</div>
-                }
-                else if (_lyricLines.Count == 0)
-                {
-                    <div class="blt-empty">@LyricEmptyReason()</div>
-                    <div style="display:flex;justify-content:center;gap:8px;margin-top:8px">
-                        <button class="blt-btn" @onclick="LoadLyricsAsync" disabled="@_lyricLoading">重试</button>
-                        <button class="blt-btn" @onclick="CopyOverlayUrl" title="复制 OBS 歌词浮层地址">复制浮层地址</button>
-                    </div>
-                }
-                else
-                {
-                    var active = ActiveLyricIndex();
-                    <div id="blt-lyric-box" style="height:300px;overflow-y:auto;padding:2px 4px;scroll-behavior:smooth">
-                        @for (var i = 0; i < _lyricLines.Count; i++)
-                        {
-                            <div class="@(i == active ? "blt-lyric-on" : "")" style="@LyricLineStyle(i, active)">@_lyricLines[i].Text</div>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-
-        <div class="blt-panel">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="🍪" />平台 Cookie</span><span class="en">COOKIE</span>
-                <span class="right"><span>VIP 歌曲需要登录态</span></span>
+                <span class="t"><BltIcon Emoji="🍪" /> 平台 Cookie 与账号</span><span class="en">COOKIE</span>
+                <span class="right"><span>VIP 歌曲需登录态</span></span>
             </div>
             <div class="blt-panel-body">
                 <div class="blt-kv">
                     <span class="k">QQ音乐</span>
                     <span class="v"><span class="blt-badge @CkCls(_ckQq)">@CkText(_ckQq)</span></span>
                 </div>
-                <div style="display:flex;gap:8px;margin:6px 0 12px">
-                    <BltSecretInput @bind-Value="_cookieQq" Placeholder="粘贴 QQ音乐 Cookie（留空保存 = 清除）" />
+                <div style="display:flex;gap:6px;margin:6px 0 10px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:180px">
+                        <BltSecretInput @bind-Value="_cookieQq" Placeholder="粘贴 QQ音乐 Cookie（留空保存 = 清除）" />
+                    </div>
                     <button class="blt-btn" style="flex:none" @onclick="SaveQqCookie" disabled="@_busy">保存</button>
-                    <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
-                            @onclick="LoginQq"><BltIcon Emoji="🌐" /> 应用内登录</button>
-                    <button class="blt-btn" style="flex:none" title="查询是否已捕获到该平台的登录态"
-                            @onclick="CheckQq">检测</button>
-                    <button class="blt-btn" style="flex:none" title="清除该平台已保存的 Cookie"
-                            @onclick="ClearQq">清除</button>
+                    <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页扫码登录" @onclick="LoginQq"><BltIcon Emoji="🌐" /> 应用内登录</button>
+                    <button class="blt-btn" style="flex:none" @onclick="CheckQq">检测</button>
+                    <button class="blt-btn" style="flex:none" @onclick="ClearQq">清除</button>
                 </div>
 
                 <div class="blt-kv">
                     <span class="k">网易云音乐</span>
                     <span class="v"><span class="blt-badge @CkCls(_ckNetease)">@CkText(_ckNetease)</span></span>
                 </div>
-                <div style="display:flex;gap:8px;margin:6px 0 12px">
-                    <BltSecretInput @bind-Value="_cookieNetease" Placeholder="粘贴 网易云 Cookie（MUSIC_U=...）" />
+                <div style="display:flex;gap:6px;margin:6px 0 10px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:180px">
+                        <BltSecretInput @bind-Value="_cookieNetease" Placeholder="粘贴 网易云 Cookie（MUSIC_U=...）" />
+                    </div>
                     <button class="blt-btn" style="flex:none" @onclick="SaveNeteaseCookie" disabled="@_busy">保存</button>
-                    <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
-                            @onclick="LoginNetease"><BltIcon Emoji="🌐" /> 应用内登录</button>
-                    <button class="blt-btn" style="flex:none" title="查询是否已捕获到该平台的登录态"
-                            @onclick="CheckNetease">检测</button>
-                    <button class="blt-btn" style="flex:none" title="清除该平台已保存的 Cookie"
-                            @onclick="ClearNetease">清除</button>
+                    <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页扫码登录" @onclick="LoginNetease"><BltIcon Emoji="🌐" /> 应用内登录</button>
+                    <button class="blt-btn" style="flex:none" @onclick="CheckNetease">检测</button>
+                    <button class="blt-btn" style="flex:none" @onclick="ClearNetease">清除</button>
                 </div>
 
                 <div class="blt-kv">
                     <span class="k">酷狗音乐</span>
                     <span class="v"><span class="blt-badge @CkCls(_ckKugou)">@CkText(_ckKugou)</span></span>
                 </div>
-                <div style="display:flex;gap:8px;margin:6px 0 12px">
-                    <BltSecretInput @bind-Value="_cookieKugou" Placeholder="粘贴 酷狗 Cookie（留空保存 = 清除）" />
+                <div style="display:flex;gap:6px;margin:6px 0 10px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:180px">
+                        <BltSecretInput @bind-Value="_cookieKugou" Placeholder="粘贴 酷狗 Cookie（留空保存 = 清除）" />
+                    </div>
                     <button class="blt-btn" style="flex:none" @onclick="SaveKugouCookie" disabled="@_busy">保存</button>
-                    <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页，扫码/登录后自动抓取 Cookie 并保存"
-                            @onclick="LoginKugou"><BltIcon Emoji="🌐" /> 应用内登录</button>
-                    <button class="blt-btn" style="flex:none" title="查询是否已捕获到该平台的登录态"
-                            @onclick="CheckKugou">检测</button>
-                    <button class="blt-btn" style="flex:none" title="清除该平台已保存的 Cookie"
-                            @onclick="ClearKugou">清除</button>
+                    <button class="blt-btn" style="flex:none" title="在内置浏览器打开登录页扫码登录" @onclick="LoginKugou"><BltIcon Emoji="🌐" /> 应用内登录</button>
+                    <button class="blt-btn" style="flex:none" @onclick="CheckKugou">检测</button>
+                    <button class="blt-btn" style="flex:none" @onclick="ClearKugou">清除</button>
                 </div>
 
                 <div class="blt-kv">
                     <span class="k">咪咕音乐</span>
                     <span class="v"><span class="blt-badge blue">免登录</span></span>
                 </div>
-                <div style="font-size:12px;opacity:.65;margin:6px 0 12px">
-                    咪咕的免费曲库无需登录即可播放（会员歌曲只有 60 秒试听，会标为 VIP）；歌词与播放地址都取自咪咕曲库，不需要 Cookie。
+                <div style="font-size:11.5px;color:var(--ink-3);margin:4px 0 10px">
+                    咪咕免费曲库无需登录；歌词与播放地址直接取自曲库，不需要 Cookie。
                 </div>
 
                 @if (_musicLoginMsg.Length > 0)
@@ -576,12 +601,12 @@
                     <span class="k">B站</span>
                     <span class="v"><span class="blt-badge @CkCls(_ckBili)">@CkText(_ckBili)</span></span>
                 </div>
-                <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-                    <button class="blt-btn" @onclick="OpenBiliBrowser">打开B站浏览器</button>
-                    <span class="blt-hint" style="margin:0">登录后自动捕获并同步 B站 Cookie（SESSDATA / bili_jct）</span>
+                <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+                    <button class="blt-btn" @onclick="OpenBiliBrowser">打开B站浏览器登录</button>
+                    <span class="blt-hint" style="margin:0">登录后自动捕获并同步 B站 Cookie</span>
                 </div>
 
-                <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">
+                <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)">
                     <label class="blt-label">B站 UP 主名单 · 仅搜索名单内 UP 主的视频</label>
                     <div style="display:flex;gap:8px">
                         <input class="blt-input mono" @bind="_newUid" @bind:event="oninput" @onkeydown="OnUidKey" placeholder="输入 UP 主 UID（纯数字）" />
@@ -589,16 +614,16 @@
                     </div>
                     @if (_upList.Count == 0)
                     {
-                        <div class="blt-empty">名单为空 · B站平台将搜索不到任何结果</div>
+                        <div class="blt-empty" style="padding:10px 0">名单为空 · B站平台将搜索不到任何结果</div>
                     }
                     else
                     {
-                        <div style="margin-top:8px;max-height:220px;overflow-y:auto">
+                        <div style="margin-top:8px;max-height:180px;overflow-y:auto">
                             @foreach (var u in _upRows)
                             {
                                 <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line)">
                                     <span style="flex:1;font-family:var(--mono);font-size:12px">@u.Uid</span>
-                                    <button class="blt-btn" style="padding:3px 10px" @onclick="u.Remove" disabled="@_busy">删除</button>
+                                    <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="u.Remove" disabled="@_busy">删除</button>
                                 </div>
                             }
                         </div>
@@ -607,25 +632,35 @@
             </div>
         </div>
 
+        @* ── 面板 5：🚫 黑名单 ── *@
         <div class="blt-panel">
             <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="🕒" /> 最近点歌</span><span class="en">RECENT</span>
-                <span class="right"><span>最近 @(_recentRows.Count) 条 · GET /api/song-request/recent</span></span>
+                <span class="t"><BltIcon Emoji="🚫" /> 黑名单管理</span><span class="en">BLACKLIST</span>
+                <span class="right"><span>共 @_blacklist.Count 条 · 包含匹配过滤</span></span>
             </div>
-            <div class="blt-panel-body" style="padding:6px 0">
-                @if (_recentRows.Count == 0)
+            <div class="blt-panel-body">
+                <div style="display:flex;gap:8px">
+                    <select class="blt-input" style="width:96px;flex:none" @bind="_blType">
+                        <option value="song">歌曲</option>
+                        <option value="artist">歌手</option>
+                    </select>
+                    <input class="blt-input" @bind="_blValue" @bind:event="oninput" @onkeydown="OnBlacklistKey"
+                           placeholder="歌曲名或歌手名" />
+                    <button class="blt-btn" style="flex:none" @onclick="AddBlacklist" disabled="@_busy">添加</button>
+                </div>
+                @if (_blacklist.Count == 0)
                 {
-                    <div class="blt-empty">暂无点歌记录</div>
+                    <div class="blt-empty">黑名单为空</div>
                 }
                 else
                 {
-                    <div class="blt-log" style="max-height:260px">
-                        @foreach (var r in _recentRows)
+                    <div style="margin-top:8px;max-height:180px;overflow-y:auto">
+                        @foreach (var b in _blacklistRows)
                         {
-                            <div class="blt-logrow">
-                                <span class="t">@r.Time</span>
-                                <span class="tag @r.StatusCls">@r.StatusText</span>
-                                <span class="txt"><span class="u">@r.Uname</span> @r.Song</span>
+                            <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line)">
+                                <span class="blt-badge @b.TypeCls" style="flex:none">@b.TypeText</span>
+                                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@b.Value</span>
+                                <button class="blt-btn" style="padding:2px 8px;font-size:11px" @onclick="b.Remove" disabled="@_busy">删除</button>
                             </div>
                         }
                     </div>
@@ -666,18 +701,55 @@
     private string _dedupMin = "5";
 
     // ---------- OBS 歌词浮层外观定制 ----------
+    private string _lrcMode = "scroll";        // scroll | single | double
     private int _lrcFontSize = 18;
-    private int _lrcBgAlpha = 75;
-    private string _lrcBgColor = "#0c0d12";
     private string _lrcActiveColor = "#ffffff";
+    private int _lrcFontAlpha = 100;
+    private int _lrcStrokeWidth = 2;
+    private string _lrcStrokeColor = "#000000";
+    private int _lrcStrokeAlpha = 85;
+    private bool _lrcNoBorder = false;
+    private string _lrcBorderColor = "#ffffff";
+    private int _lrcBorderAlpha = 15;
+    private string _lrcBgColor = "#0c0d12";
+    private int _lrcBgAlpha = 75;
+    private string _lrcAlign = "center";       // center | left
+
+    private string GetLyricsCanvasHint() => _lrcMode switch
+    {
+        "single" => "桌面单行建议 OBS 画布尺寸：宽 800~1200，高 70~90 px（居底或居顶）",
+        "double" => "桌面双行建议 OBS 画布尺寸：宽 800~1200，高 110~140 px（卡拉OK对唱风格）",
+        _ => "经典垂直滚动建议 OBS 画布尺寸：宽 400~600，高 500~800 px（侧边栏排版）"
+    };
+
+    private void ToggleLrcNoBorder()
+    {
+        _lrcNoBorder = !_lrcNoBorder;
+        SaveLyricsOverlaySoon();
+    }
 
     private string GetLyricsOverlayUrl()
     {
         var sb = new StringBuilder($"http://127.0.0.1:{Api.Port}/lyrics/overlay.html?");
-        sb.Append($"fontSize={_lrcFontSize}");
-        sb.Append($"&bgAlpha={_lrcBgAlpha}");
-        sb.Append($"&bgColor={Uri.EscapeDataString(_lrcBgColor.TrimStart('#'))}");
+        sb.Append($"mode={_lrcMode}");
+        sb.Append($"&fontSize={_lrcFontSize}");
         sb.Append($"&activeColor={Uri.EscapeDataString(_lrcActiveColor.TrimStart('#'))}");
+        sb.Append($"&fontAlpha={_lrcFontAlpha}");
+        sb.Append($"&strokeWidth={_lrcStrokeWidth}");
+        sb.Append($"&strokeColor={Uri.EscapeDataString(_lrcStrokeColor.TrimStart('#'))}");
+        sb.Append($"&strokeAlpha={_lrcStrokeAlpha}");
+        if (_lrcNoBorder)
+        {
+            sb.Append("&noBorder=1");
+        }
+        else
+        {
+            sb.Append($"&borderColor={Uri.EscapeDataString(_lrcBorderColor.TrimStart('#'))}");
+            sb.Append($"&borderAlpha={_lrcBorderAlpha}");
+            sb.Append($"&bgColor={Uri.EscapeDataString(_lrcBgColor.TrimStart('#'))}");
+            sb.Append($"&bgAlpha={_lrcBgAlpha}");
+        }
+        sb.Append($"&align={_lrcAlign}");
         return sb.ToString();
     }
 
@@ -692,10 +764,19 @@
 
     private void ResetLyricsOverlay()
     {
+        _lrcMode = "scroll";
         _lrcFontSize = 18;
-        _lrcBgAlpha = 75;
-        _lrcBgColor = "#0c0d12";
         _lrcActiveColor = "#ffffff";
+        _lrcFontAlpha = 100;
+        _lrcStrokeWidth = 2;
+        _lrcStrokeColor = "#000000";
+        _lrcStrokeAlpha = 85;
+        _lrcNoBorder = false;
+        _lrcBorderColor = "#ffffff";
+        _lrcBorderAlpha = 15;
+        _lrcBgColor = "#0c0d12";
+        _lrcBgAlpha = 75;
+        _lrcAlign = "center";
         SaveLyricsOverlaySoon();
     }
 
@@ -825,6 +906,7 @@
     private HttpClient? _http;
     private bool _busy;
     private bool _searching;
+    private bool _showSearchResults;
     private string _feedback = "";
     private string _feedbackCls = "off";
 
@@ -1371,10 +1453,19 @@
         _dedupMin = Math.Max(0, (long)Math.Round(Jl(sr, "dedupMs", 300000) / 60000.0)).ToString();
         if (sr["lyricsOverlay"] is JsonObject lo)
         {
+            if (lo["mode"]?.GetValue<string?>() is string m && (m == "scroll" || m == "single" || m == "double")) _lrcMode = m;
             if (lo["fontSize"]?.GetValue<int?>() is int fs && fs >= 10 && fs <= 60) _lrcFontSize = fs;
-            if (lo["bgAlpha"]?.GetValue<int?>() is int ba && ba >= 0 && ba <= 100) _lrcBgAlpha = ba;
-            if (lo["bgColor"]?.GetValue<string?>() is string bg && bg.Length > 0) _lrcBgColor = bg.StartsWith("#") ? bg : "#" + bg;
             if (lo["activeColor"]?.GetValue<string?>() is string ac && ac.Length > 0) _lrcActiveColor = ac.StartsWith("#") ? ac : "#" + ac;
+            if (lo["fontAlpha"]?.GetValue<int?>() is int fa && fa >= 0 && fa <= 100) _lrcFontAlpha = fa;
+            if (lo["strokeWidth"]?.GetValue<int?>() is int sw && sw >= 0 && sw <= 20) _lrcStrokeWidth = sw;
+            if (lo["strokeColor"]?.GetValue<string?>() is string sc && sc.Length > 0) _lrcStrokeColor = sc.StartsWith("#") ? sc : "#" + sc;
+            if (lo["strokeAlpha"]?.GetValue<int?>() is int sa && sa >= 0 && sa <= 100) _lrcStrokeAlpha = sa;
+            if (lo["noBorder"]?.GetValue<bool?>() is bool nb) _lrcNoBorder = nb;
+            if (lo["borderColor"]?.GetValue<string?>() is string bc && bc.Length > 0) _lrcBorderColor = bc.StartsWith("#") ? bc : "#" + bc;
+            if (lo["borderAlpha"]?.GetValue<int?>() is int ba && ba >= 0 && ba <= 100) _lrcBorderAlpha = ba;
+            if (lo["bgColor"]?.GetValue<string?>() is string bg && bg.Length > 0) _lrcBgColor = bg.StartsWith("#") ? bg : "#" + bg;
+            if (lo["bgAlpha"]?.GetValue<int?>() is int bga && bga >= 0 && bga <= 100) _lrcBgAlpha = bga;
+            if (lo["align"]?.GetValue<string?>() is string al && (al == "center" || al == "left")) _lrcAlign = al;
         }
     }
 
@@ -1533,12 +1624,23 @@
 
     // ---------- search ----------
 
+    private void ClearSearchKeyword() => _searchKeyword = "";
+    private void ToggleSearchResults() => _showSearchResults = !_showSearchResults;
+    private void ClearSearchResults()
+    {
+        _results.Clear();
+        _searchRows.Clear();
+        _showSearchResults = false;
+        StateHasChanged();
+    }
+
     private async Task DoSearch()
     {
         var kw = _searchKeyword.Trim();
         if (kw.Length == 0) { SetMsg("请输入搜索关键词", "amber"); StateHasChanged(); return; }
         _busy = true;
         _searching = true;
+        _showSearchResults = true;
         try
         {
             var resp = await PostJson("/api/song-request/search", new JsonObject { ["keyword"] = kw, ["type"] = _searchType });
@@ -1546,6 +1648,7 @@
             if (resp?["results"] is JsonArray arr)
                 foreach (var n in arr) if (n is JsonObject o) _results.Add(o);
             BuildSearchRows();
+            _showSearchResults = _results.Count > 0;
             SetMsg(_results.Count == 0 ? "未找到与「" + kw + "」匹配的歌曲" : "搜索到 " + _results.Count + " 条结果",
                 _results.Count == 0 ? "amber" : "green");
         }
@@ -1671,10 +1774,19 @@
             sr["dedupMs"] = JsonValue.Create(ParseLong(_dedupMin, 5) * 60000L);
             var lo = sr["lyricsOverlay"] as JsonObject ?? new JsonObject();
             sr["lyricsOverlay"] = lo;
+            lo["mode"] = _lrcMode;
             lo["fontSize"] = _lrcFontSize;
-            lo["bgAlpha"] = _lrcBgAlpha;
-            lo["bgColor"] = _lrcBgColor;
             lo["activeColor"] = _lrcActiveColor;
+            lo["fontAlpha"] = _lrcFontAlpha;
+            lo["strokeWidth"] = _lrcStrokeWidth;
+            lo["strokeColor"] = _lrcStrokeColor;
+            lo["strokeAlpha"] = _lrcStrokeAlpha;
+            lo["noBorder"] = _lrcNoBorder;
+            lo["borderColor"] = _lrcBorderColor;
+            lo["borderAlpha"] = _lrcBorderAlpha;
+            lo["bgColor"] = _lrcBgColor;
+            lo["bgAlpha"] = _lrcBgAlpha;
+            lo["align"] = _lrcAlign;
             var resp = await PostJson("/api/config", doc);
             ApplySettings((resp as JsonObject)?["songRequest"] as JsonObject);
             _saveMsg = "";

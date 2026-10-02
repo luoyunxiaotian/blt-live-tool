@@ -22,6 +22,8 @@ public sealed class TtsSpeaker
 
     private readonly object _lock = new();
     private readonly List<Item> _queue = new();
+    private readonly Dictionary<string, long> _lastWelcomeUid = new();
+    private readonly Dictionary<string, long> _lastWelcomeName = new();
     private bool _speaking;
     private string _currentText = "";
     private readonly Dictionary<string, int> _fails = new();
@@ -113,7 +115,12 @@ public sealed class TtsSpeaker
     /// <summary>Drops everything still waiting (the item being spoken keeps playing).</summary>
     public void ClearQueue()
     {
-        lock (_lock) _queue.Clear();
+        lock (_lock)
+        {
+            _queue.Clear();
+            _lastWelcomeUid.Clear();
+            _lastWelcomeName.Clear();
+        }
         Changed?.Invoke();
     }
 
@@ -130,13 +137,64 @@ public sealed class TtsSpeaker
                 "danmu" => "danmu",
                 "gifts" or "gifts_merged" => "gift",
                 "superchat" => "superchat",
-                "interact" or "guard" => "welcome",
+                // 仅进入直播间 (msgType=1) 或进场特效 (msgType=0) 触发欢迎语音，过滤点赞、分享、关注等其它互动
+                "interact" when (ev.MsgType == 1 || ev.MsgType == 0) => "welcome",
+                "guard" => "welcome",
                 _ => null,
             };
             if (typeKey == null) return;
             if (!ShouldSpeak(cfg, typeKey, ev)) return;
+
+            if (typeKey == "welcome")
+            {
+                var uidKey = (ev.Uid ?? "").Trim();
+                var rawName = (ev.Uname ?? "").Trim();
+                var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+                lock (_lock)
+                {
+                    // 超过 1000 项时清理过期项，防内存增长
+                    if (_lastWelcomeUid.Count > 1000)
+                    {
+                        var expU = _lastWelcomeUid.Where(kv => now - kv.Value > 120000).Select(kv => kv.Key).ToList();
+                        foreach (var k in expU) _lastWelcomeUid.Remove(k);
+                    }
+                    if (_lastWelcomeName.Count > 1000)
+                    {
+                        var expN = _lastWelcomeName.Where(kv => now - kv.Value > 120000).Select(kv => kv.Key).ToList();
+                        foreach (var k in expN) _lastWelcomeName.Remove(k);
+                    }
+
+                    var hasRecentUid = uidKey.Length > 0 && uidKey != "0" && _lastWelcomeUid.TryGetValue(uidKey, out var lastU) && (now - lastU < 60000);
+                    var hasRecentName = rawName.Length > 0 && !rawName.StartsWith("用户") && _lastWelcomeName.TryGetValue(rawName, out var lastN) && (now - lastN < 60000);
+                    if (hasRecentUid || hasRecentName) return;
+
+                    // 立即占位冷却，拦截伴随的 ENTRY_EFFECT 等高频并发消息
+                    if (uidKey.Length > 0 && uidKey != "0") _lastWelcomeUid[uidKey] = now;
+                    if (rawName.Length > 0 && !rawName.StartsWith("用户")) _lastWelcomeName[rawName] = now;
+                }
+            }
+
             var text = BuildText(cfg, typeKey, ev);
             if (string.IsNullOrWhiteSpace(text)) return;
+
+            if (typeKey == "welcome")
+            {
+                var resolvedName = ResolveUnameForTts(cfg, typeKey, ev);
+                if (!string.IsNullOrWhiteSpace(resolvedName) && !resolvedName.StartsWith("用户") && resolvedName != "观众")
+                {
+                    var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                    lock (_lock)
+                    {
+                        if (_lastWelcomeName.TryGetValue(resolvedName, out var lastN) && (now - lastN < 60000) && lastN != now)
+                        {
+                            return;
+                        }
+                        _lastWelcomeName[resolvedName] = now;
+                    }
+                }
+            }
+
             Enqueue(cfg, text, typeKey, ev);
             _ = PumpAsync();
         }
@@ -161,11 +219,31 @@ public sealed class TtsSpeaker
         return true;
     }
 
+    private static string ResolveUnameForTts(Settings cfg, string typeKey, LiveEvent ev)
+    {
+        cfg.Types.TryGetValue(typeKey, out var tc);
+        if (tc?.SayUid != true) return "";
+        var uname = (ev.Uname ?? "").Trim();
+        var uid = (ev.Uid ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(uname) || uname == "用户" + uid || (uname.StartsWith("用户") && long.TryParse(uname.Substring(2), out _)) || long.TryParse(uname, out _))
+        {
+            if (!string.IsNullOrWhiteSpace(uid) && BiliApi.UserCache.TryGet(uid, out var cached) && !string.IsNullOrWhiteSpace(cached))
+            {
+                uname = cached.Trim();
+            }
+            else if (long.TryParse(uname, out _))
+            {
+                uname = "";
+            }
+        }
+        return uname;
+    }
+
     private static string BuildText(Settings cfg, string typeKey, LiveEvent ev)
     {
         cfg.Types.TryGetValue(typeKey, out var tc);
-        // 「念昵称」开关（UID 数字永不念，隐私）
-        var uname = (tc?.SayUid == true && !string.IsNullOrWhiteSpace(ev.Uname)) ? ev.Uname.Trim() : "";
+        // 「念昵称」开关（UID 数字永不念，隐私；多语言昵称友好）
+        var uname = ResolveUnameForTts(cfg, typeKey, ev);
 
         switch (typeKey)
         {

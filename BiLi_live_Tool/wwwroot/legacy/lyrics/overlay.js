@@ -14,43 +14,35 @@
  * 诊断：地址后加 ?debug=1 显示实时状态。
  */
 (function () {
-  // 自定义样式参数解析（fontSize, bgAlpha, bgColor, activeColor, textColor）
+  let overlayMode = 'scroll'; // 'scroll' | 'single' | 'double'
+
+  // 自定义样式与模式参数解析（mode, fontSize, fontAlpha, stroke, border, bg, align 等）
   (function applyCustomStyle() {
     try {
       const p = new URLSearchParams(window.location.search);
       const root = document.documentElement;
 
+      // 1) 模式选择：scroll (垂直多行滚动) | single (桌面单行横条) | double (桌面双行卡拉OK)
+      const m = p.get('mode');
+      if (m === 'single' || m === 'double') {
+        overlayMode = m;
+        document.body.classList.add('mode-desktop', 'mode-' + m);
+      } else {
+        overlayMode = 'scroll';
+        document.body.classList.add('mode-scroll');
+      }
+
+      // 2) 字体字号
       const fs = p.get('fontSize') || p.get('font_size');
       if (fs) {
         const num = parseInt(fs, 10);
-        if (!isNaN(num) && num >= 10 && num <= 60) {
+        if (!isNaN(num) && num >= 10 && num <= 80) {
           root.style.setProperty('--lrc-font-size', num + 'px');
         }
       }
 
-      const bgAlpha = p.get('bgAlpha') || p.get('opacity');
-      if (bgAlpha != null && bgAlpha !== '') {
-        let num = parseFloat(bgAlpha);
-        if (!isNaN(num)) {
-          if (num > 1) num = num / 100;
-          num = Math.max(0, Math.min(1, num));
-          root.style.setProperty('--lrc-bg-alpha', String(num));
-          root.style.setProperty('--lrc-bg-alpha-top', String(Math.min(1, +(num * 1.35).toFixed(2))));
-        }
-      }
-
-      const bgColor = p.get('bgColor') || p.get('bg');
-      if (bgColor) {
-        const hex = bgColor.replace(/^#/, '');
-        if (/^[0-9a-fA-F]{6}$/.test(hex)) {
-          const r = parseInt(hex.slice(0, 2), 16);
-          const g = parseInt(hex.slice(2, 4), 16);
-          const b = parseInt(hex.slice(4, 6), 16);
-          root.style.setProperty('--lrc-bg-rgb', `${r}, ${g}, ${b}`);
-        }
-      }
-
-      const actColor = p.get('activeColor') || p.get('color');
+      // 3) 字体颜色 (主字色 / 激活高亮色)
+      const actColor = p.get('activeColor') || p.get('textColor') || p.get('color');
       if (actColor) {
         const col = actColor.startsWith('#') ? actColor : '#' + actColor;
         root.style.setProperty('--lrc-active-color', col);
@@ -63,10 +55,118 @@
         }
       }
 
-      const txtColor = p.get('textColor');
-      if (txtColor) {
-        const col = txtColor.startsWith('#') ? txtColor : '#' + txtColor;
-        root.style.setProperty('--lrc-text-color', col);
+      // 4) 字体透明度 (fontAlpha / textAlpha: 0~100)
+      const fontAlpha = p.get('fontAlpha') || p.get('textAlpha');
+      if (fontAlpha != null && fontAlpha !== '') {
+        let num = parseFloat(fontAlpha);
+        if (!isNaN(num)) {
+          if (num > 1) num = num / 100;
+          num = Math.max(0, Math.min(1, num));
+          root.style.setProperty('--lrc-font-alpha', String(num));
+        }
+      }
+
+      // 5) 描边颜色 (strokeColor)
+      const strokeColor = p.get('strokeColor');
+      if (strokeColor) {
+        const hex = strokeColor.replace(/^#/, '');
+        if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+          const r = parseInt(hex.slice(0, 2), 16);
+          const g = parseInt(hex.slice(2, 4), 16);
+          const b = parseInt(hex.slice(4, 6), 16);
+          root.style.setProperty('--lrc-stroke-rgb', `${r}, ${g}, ${b}`);
+        }
+      }
+
+      // 6) 描边粗细 (strokeWidth: 0~10px)
+      const strokeWidth = p.get('strokeWidth');
+      if (strokeWidth != null && strokeWidth !== '') {
+        const num = parseInt(strokeWidth, 10);
+        if (!isNaN(num) && num >= 0 && num <= 12) {
+          root.style.setProperty('--lrc-stroke-width', num + 'px');
+        }
+      }
+
+      // 7) 描边透明度 (strokeAlpha: 0~100)
+      const strokeAlpha = p.get('strokeAlpha');
+      if (strokeAlpha != null && strokeAlpha !== '') {
+        let num = parseFloat(strokeAlpha);
+        if (!isNaN(num)) {
+          if (num > 1) num = num / 100;
+          num = Math.max(0, Math.min(1, num));
+          root.style.setProperty('--lrc-stroke-alpha', String(num));
+        }
+      }
+
+      // 8) 无边框设置 (noBorder: 1 或 border: 0)
+      const noBorder = p.get('noBorder') === '1' || p.get('border') === '0';
+      if (noBorder) {
+        root.style.setProperty('--lrc-border-style', 'none');
+        document.body.classList.add('mode-noborder');
+      } else {
+        root.style.setProperty('--lrc-border-style', 'solid');
+      }
+
+      // 9) 边框颜色与粗细
+      const borderColor = p.get('borderColor');
+      if (borderColor) {
+        const hex = borderColor.replace(/^#/, '');
+        if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+          const r = parseInt(hex.slice(0, 2), 16);
+          const g = parseInt(hex.slice(2, 4), 16);
+          const b = parseInt(hex.slice(4, 6), 16);
+          root.style.setProperty('--lrc-border-rgb', `${r}, ${g}, ${b}`);
+        }
+      }
+      const borderWidth = p.get('borderWidth');
+      if (borderWidth != null && borderWidth !== '') {
+        const num = parseInt(borderWidth, 10);
+        if (!isNaN(num) && num >= 0 && num <= 8) {
+          root.style.setProperty('--lrc-border-width', num + 'px');
+        }
+      }
+
+      // 10) 边框透明度 (borderAlpha: 0~100)
+      const borderAlpha = p.get('borderAlpha');
+      if (borderAlpha != null && borderAlpha !== '') {
+        let num = parseFloat(borderAlpha);
+        if (!isNaN(num)) {
+          if (num > 1) num = num / 100;
+          num = Math.max(0, Math.min(1, num));
+          root.style.setProperty('--lrc-border-alpha', String(num));
+        }
+      }
+
+      // 11) 背景透明度与颜色
+      const bgAlpha = p.get('bgAlpha') || p.get('opacity');
+      if (bgAlpha != null && bgAlpha !== '') {
+        let num = parseFloat(bgAlpha);
+        if (!isNaN(num)) {
+          if (num > 1) num = num / 100;
+          num = Math.max(0, Math.min(1, num));
+          root.style.setProperty('--lrc-bg-alpha', String(num));
+          root.style.setProperty('--lrc-bg-alpha-top', String(Math.min(1, +(num * 1.35).toFixed(2))));
+        }
+      }
+      const bgColor = p.get('bgColor') || p.get('bg');
+      if (bgColor) {
+        const hex = bgColor.replace(/^#/, '');
+        if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+          const r = parseInt(hex.slice(0, 2), 16);
+          const g = parseInt(hex.slice(2, 4), 16);
+          const b = parseInt(hex.slice(4, 6), 16);
+          root.style.setProperty('--lrc-bg-rgb', `${r}, ${g}, ${b}`);
+        }
+      }
+
+      // 12) 对齐方式 (align: center | left)
+      const align = p.get('align');
+      if (align === 'left') {
+        root.style.setProperty('--lrc-align', 'flex-start');
+        root.style.setProperty('--lrc-text-align', 'left');
+      } else {
+        root.style.setProperty('--lrc-align', 'center');
+        root.style.setProperty('--lrc-text-align', 'center');
       }
     } catch (e) {
       console.warn('Failed to apply lyrics custom style:', e);
@@ -75,7 +175,8 @@
 
   const $ = (s) => document.getElementById(s);
   const stage = $('ly-stage'), nameEl = $('ly-name'), artistEl = $('ly-artist'), reqEl = $('ly-req'),
-    timeEl = $('ly-time'), track = $('ly-track'), viewport = $('ly-viewport'), barEl = $('ly-bar'), statusEl = $('ly-status');
+    timeEl = $('ly-time'), track = $('ly-track'), viewport = $('ly-viewport'), barEl = $('ly-bar'), statusEl = $('ly-status'),
+    deskEl = $('ly-desktop'), deskCurEl = $('ly-desk-cur'), deskNextEl = $('ly-desk-next');
 
   const DEBUG = /[?&]debug=1/.test(location.search);
 
@@ -118,6 +219,30 @@
     return out;
   }
 
+  function updateDesktopLyrics(idx) {
+    if (!deskCurEl) return;
+    if (idx >= 0 && lrcLines[idx]) {
+      deskCurEl.textContent = lrcLines[idx].text;
+      if (deskNextEl) {
+        deskNextEl.textContent = (idx + 1 < lrcLines.length) ? lrcLines[idx + 1].text : '';
+      }
+    } else {
+      if (lrcSource === 'loading') {
+        deskCurEl.textContent = '♪ 歌词加载中…';
+      } else if (lrcSource === 'none') {
+        deskCurEl.textContent = '♪ 暂无歌词（伴奏/纯音乐或未匹配到曲库歌词）';
+      } else if (lrcLines.length > 0 && idx < 0) {
+        // 前奏阶段：第一行显示曲目信息，第二行显示第一句歌词预告
+        deskCurEl.textContent = '♪ ' + (song ? (song.name + (song.artist ? ' - ' + song.artist : '')) : '…');
+        if (deskNextEl) deskNextEl.textContent = lrcLines[0] ? lrcLines[0].text : '';
+        return;
+      } else {
+        deskCurEl.textContent = '';
+      }
+      if (deskNextEl) deskNextEl.textContent = '';
+    }
+  }
+
   // 重建歌词列表（整首一次性渲染，靠 transform 滚动）
   function buildTrack() {
     curIdx = -1;
@@ -126,9 +251,11 @@
       track.innerHTML = lrcSource === 'loading'
         ? '<span class="lrc-none">♪ 歌词加载中…</span>'
         : (lrcSource === 'none' ? '<span class="lrc-none">♪ 暂无歌词（伴奏/纯音乐或未匹配到曲库歌词）</span>' : '');
+      updateDesktopLyrics(-1);
       return;
     }
     track.innerHTML = lrcLines.map((l, i) => '<div class="lrc-line" data-i="' + i + '">' + esc(l.text) + '</div>').join('');
+    updateDesktopLyrics(-1);
   }
 
   // 把第 idx 行滚到视窗正中
@@ -152,6 +279,7 @@
       el.classList.toggle('near', Math.abs(i - idx) === 1);
     }
     centerOn(idx, true);
+    updateDesktopLyrics(idx);
   }
 
   function currentIndexFor(pos) {
@@ -217,9 +345,12 @@
     }
 
     timeEl.textContent = fmtTime(position) + ' / ' + fmtTime(duration);
-    const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
     barEl.style.width = pct.toFixed(1) + '%';
-    if (lrcLines.length) setCurrent(currentIndexFor(position));
+    if (lrcLines.length) {
+      setCurrent(currentIndexFor(position));
+    } else {
+      updateDesktopLyrics(-1);
+    }
   }
 
   // 连接状态条：只在「连不上管理面板」时出现

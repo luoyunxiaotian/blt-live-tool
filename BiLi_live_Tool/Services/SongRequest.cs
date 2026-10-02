@@ -462,6 +462,7 @@ public static partial class MusicApi
     // 「有词/暂无歌词」之间闪。这里缓存同一首歌的结果 15 分钟；上次是 none 才允许重试。
     private static readonly Dictionary<string, (string Source, string Lrc, DateTime At)> LyricCache = new();
     private static readonly TimeSpan LyricCacheTtl = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan LyricNegativeCacheTtl = TimeSpan.FromSeconds(15);
 
     /// <summary>清空歌词缓存（强制下次重取）。</summary>
     public static void ClearLyricCache() { lock (LyricCache) LyricCache.Clear(); }
@@ -473,9 +474,14 @@ public static partial class MusicApi
         var key = string.Join("|", (song ?? "").Trim().ToLowerInvariant(), (artist ?? "").Trim().ToLowerInvariant(), platform, id);
         lock (LyricCache)
         {
-            if (LyricCache.TryGetValue(key, out var hit) &&
-                (hit.Lrc.Length > 0 || DateTime.UtcNow - hit.At < LyricCacheTtl))
-                return (hit.Source, hit.Lrc);
+            if (LyricCache.TryGetValue(key, out var hit))
+            {
+                // 成功取得歌词缓存 15 分钟；上次失败（空歌词）仅短冷却 15 秒，允许用户切歌或稍后重试
+                if (hit.Lrc.Length > 0 && DateTime.UtcNow - hit.At < LyricCacheTtl)
+                    return (hit.Source, hit.Lrc);
+                if (hit.Lrc.Length == 0 && DateTime.UtcNow - hit.At < LyricNegativeCacheTtl)
+                    return (hit.Source, hit.Lrc);
+            }
         }
         var res = await GetLyricsUncachedAsync(song, artist, platform, id, dataDir, ct);
         lock (LyricCache)
@@ -555,20 +561,25 @@ public static partial class MusicApi
             var migu = await MiguLyricsByNameAsync(song, artist, ct);
             if (migu.Length > 0) return ("migu", migu);
         }
-        // 兜底：按歌名到酷狗匹配。覆盖三种情况——B站视频（没有平台歌词分支）、
-        // 条目缺 id（仅网易云/QQ 需要 id）、上面各平台取词失败。
+        // 兜底第一层：QQ 音乐按歌名/歌手智能搜索（覆盖范围最广，支持抖音/汽水/腾讯流行曲库）
+        if (song.Length > 0)
+        {
+            var qq = await QqLyricsByNameAsync(song, artist, ct);
+            if (qq.Length > 0) return ("qq", qq);
+        }
+        // 兜底第二层：按歌名到酷狗匹配
         if (song.Length > 0)
         {
             var kugou = await KugouLyricsAsync(song, artist, "", ct);
             if (kugou.Length > 0) return ("kugou", kugou);
         }
-        // 第二层兜底：网易云按歌名搜索取 id 再取词（酷狗对部分关键词返回 0 候选，例如「起风了」）
+        // 兜底第三层：网易云按歌名与歌手搜索取 id 再取词
         if (song.Length > 0)
         {
             var nt = await NeteaseLyricsByNameAsync(song, artist, ct);
             if (nt.Length > 0) return ("netease", nt);
         }
-        // 第三层兜底：咪咕曲库自带 LRC，命中范围与酷狗/网易云互补
+        // 兜底第四层：咪咕曲库自带 LRC，命中范围与各平台互补
         if (song.Length > 0)
         {
             var mg = await MiguLyricsByNameAsync(song, artist, ct);
@@ -589,7 +600,60 @@ public static partial class MusicApi
         return a.Contains(b) || b.Contains(a);
     }
 
-    /// <summary>网易云按歌名兜底：搜索取首个（优先歌手匹配）→ 用 id 取歌词。失败返回空串。</summary>
+    /// <summary>QQ音乐按歌名/歌手检索取词：通过 SmartBox 搜索匹配曲目取 songmid，再拉取解码 LRC 歌词。</summary>
+    private static async Task<string> QqLyricsByNameAsync(string song, string artist, CancellationToken ct)
+    {
+        try
+        {
+            var kw = string.IsNullOrWhiteSpace(artist) ? song : $"{song} {artist}";
+            var url = "https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg?key=" + Uri.EscapeDataString(kw) + "&format=json";
+            var headers = new Dictionary<string, string> { ["User-Agent"] = "Mozilla/5.0", ["Referer"] = "https://y.qq.com/" };
+            var j = await FetchJsonAsync(url, null, null, headers, ct);
+            var items = j?["data"]?["song"]?["itemlist"] as JsonArray;
+            if (items == null || items.Count == 0)
+            {
+                if (!string.IsNullOrWhiteSpace(artist))
+                {
+                    var u2 = "https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg?key=" + Uri.EscapeDataString(song) + "&format=json";
+                    var j2 = await FetchJsonAsync(u2, null, null, headers, ct);
+                    items = j2?["data"]?["song"]?["itemlist"] as JsonArray;
+                }
+            }
+            if (items == null || items.Count == 0) return "";
+
+            JsonNode? hit = null;
+            if (!string.IsNullOrWhiteSpace(artist))
+            {
+                hit = items.FirstOrDefault(x => Safe(x?["singer"]).Contains(artist, StringComparison.OrdinalIgnoreCase));
+            }
+            hit ??= items.FirstOrDefault(x => NameMatches(Safe(x?["name"]), song));
+            hit ??= items[0];
+
+            var mid = Safe(hit?["mid"]);
+            if (string.IsNullOrWhiteSpace(mid)) return "";
+
+            var lrcUrl = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=" + Uri.EscapeDataString(mid) +
+                         "&g_tk=5381&loginUin=0&hostUin=0&format=json&inCharset=utf8&outCharset=utf-8&notice=0&platform=yqq.json&needNewCode=0";
+            var lj = await FetchJsonAsync(lrcUrl, null, null, headers, ct);
+            var raw = lj is JsonValue v ? v.GetValue<string>() : null;
+            if (raw != null)
+            {
+                var start = raw.IndexOf('(');
+                var end = raw.LastIndexOf(')');
+                if (start >= 0 && end > start) lj = JsonNode.Parse(raw[(start + 1)..end]);
+            }
+            var b64 = Safe(lj?["lyric"]);
+            if (!string.IsNullOrWhiteSpace(b64))
+            {
+                var lrc = Encoding.UTF8.GetString(Convert.FromBase64String(b64)).Trim();
+                if (lrc.Length > 0) return lrc;
+            }
+        }
+        catch { }
+        return "";
+    }
+
+    /// <summary>网易云按歌名兜底：搜索取候选（优先歌手匹配，支持多版本重试防空歌词）→ 用 id 取歌词。失败返回空串。</summary>
     private static async Task<string> NeteaseLyricsByNameAsync(string song, string artist, CancellationToken ct)
     {
         try
@@ -601,20 +665,26 @@ public static partial class MusicApi
             if (arr == null || arr.Count == 0) return "";
             var named = arr.Where(x => NameMatches(Safe(x?["name"]), song)).ToList();
             if (named.Count == 0) return "";
-            JsonNode? hit = null;
             if (artist.Length > 0)
-                hit = named.FirstOrDefault(x => Safe(x?["artists"]?[0]?["name"]).Contains(artist, StringComparison.OrdinalIgnoreCase));
-            hit ??= named[0];
-            var id = Safe(hit?["id"]);
-            if (id.Length == 0) return "";
-            var j = await FetchJsonAsync("https://music.163.com/api/song/lyric?id=" + Uri.EscapeDataString(id) + "&lv=1&kv=1&tv=-1",
-                null, null, headers, ct);
-            return Safe(j?["lrc"]?["lyric"]);
+            {
+                named = named.OrderByDescending(x => Safe(x?["artists"]?[0]?["name"]).Contains(artist, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
+            foreach (var hit in named.Take(3))
+            {
+                var id = Safe(hit?["id"]);
+                if (id.Length == 0) continue;
+                var j = await FetchJsonAsync("https://music.163.com/api/song/lyric?id=" + Uri.EscapeDataString(id) + "&lv=1&kv=1&tv=-1",
+                    null, null, headers, ct);
+                var lrc = Safe(j?["lrc"]?["lyric"]);
+                if (!string.IsNullOrWhiteSpace(lrc)) return lrc;
+            }
+            return "";
         }
         catch { return ""; }
     }
 
-    /// <summary>酷狗歌词：按歌名（可带 hash）搜索候选 → 下载 LRC。失败返回空串。</summary>
+    /// <summary>酷狗歌词：按歌名（可带 hash，支持 songsearch 备用检索）搜索候选 → 下载 LRC。失败返回空串。</summary>
     private static async Task<string> KugouLyricsAsync(string song, string artist, string id, CancellationToken ct)
     {
         try
@@ -624,6 +694,27 @@ public static partial class MusicApi
                                           (id.Length > 0 ? "&hash=" + Uri.EscapeDataString(id) : ""), null, null,
                 new Dictionary<string, string> { ["User-Agent"] = mobileUa, ["Referer"] = "https://m.kugou.com/" }, ct);
             var cands = (s1?["candidates"] as JsonArray) ?? new JsonArray();
+
+            // 若候选为空，尝试通过歌曲搜索取 FileHash 再次搜索
+            if (cands.Count == 0 && string.IsNullOrWhiteSpace(id))
+            {
+                var kw = string.IsNullOrWhiteSpace(artist) ? song : $"{song} {artist}";
+                var sSearch = await FetchJsonAsync("https://songsearch.kugou.com/song_search_v2?keyword=" + Uri.EscapeDataString(kw) +
+                                                   "&page=1&pagesize=5&clientver=&platform=WebFilter", null, null,
+                    new Dictionary<string, string> { ["User-Agent"] = "Mozilla/5.0" }, ct);
+                var lists = sSearch?["data"]?["lists"] as JsonArray;
+                if (lists != null && lists.Count > 0)
+                {
+                    var firstHash = Safe(lists[0]?["FileHash"]);
+                    if (firstHash.Length > 0)
+                    {
+                        var sHash = await FetchJsonAsync("https://krcs.kugou.com/search?ver=1&man=yes&client=mobi&keyword=&hash=" + Uri.EscapeDataString(firstHash),
+                            null, null, new Dictionary<string, string> { ["User-Agent"] = mobileUa, ["Referer"] = "https://m.kugou.com/" }, ct);
+                        cands = (sHash?["candidates"] as JsonArray) ?? new JsonArray();
+                    }
+                }
+            }
+
             // 只接受歌名对得上的候选，避免「起风了」匹配到名字相似但不相干的歌
             var named = cands.Where(x => NameMatches(Safe(x?["song"]).Length > 0 ? Safe(x?["song"]) : Safe(x?["songName"]), song)).ToList();
             JsonNode? hit = null;

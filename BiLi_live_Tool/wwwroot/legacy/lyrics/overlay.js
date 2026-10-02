@@ -237,7 +237,7 @@
         if (deskNextEl) deskNextEl.textContent = lrcLines[0] ? lrcLines[0].text : '';
         return;
       } else {
-        deskCurEl.textContent = '';
+        deskCurEl.textContent = song ? ('♪ ' + song.name + (song.artist ? ' - ' + song.artist : '')) : '';
       }
       if (deskNextEl) deskNextEl.textContent = '';
     }
@@ -345,7 +345,8 @@
     }
 
     timeEl.textContent = fmtTime(position) + ' / ' + fmtTime(duration);
-    barEl.style.width = pct.toFixed(1) + '%';
+    const pct = duration > 0 ? Math.min(100, Math.max(0, (position / duration) * 100)) : 0;
+    if (barEl) barEl.style.width = pct.toFixed(1) + '%';
     if (lrcLines.length) {
       setCurrent(currentIndexFor(position));
     } else {

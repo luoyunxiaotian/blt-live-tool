@@ -317,9 +317,10 @@
       "minHonor": 0,
       "volume": 1,
       "texts": [
+        "感谢{uname}送出的{giftSummary}",
         "感谢{uname}送出的{num}个{giftName}",
-        "多谢{uname}老板的{giftName}",
-        "谢谢{uname}投喂的{giftName}"
+        "多谢{uname}老板送出的{giftSummary}",
+        "谢谢{uname}投喂的{giftSummary}"
       ]
     },
     "superchat": {

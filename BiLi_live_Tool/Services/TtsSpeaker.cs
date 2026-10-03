@@ -135,7 +135,8 @@ public sealed class TtsSpeaker
             var typeKey = ev.Type switch
             {
                 "danmu" => "danmu",
-                "gifts" or "gifts_merged" => "gift",
+                // 仅消费按用户聚合汇总后的 gifts_merged 事件，原始 gifts 事件不入队（防连击与多次送礼重复播报，对标原版 tts.js 铁律）
+                "gifts_merged" => "gift",
                 "superchat" => "superchat",
                 // 仅进入直播间 (msgType=1) 或进场特效 (msgType=0) 触发欢迎语音，过滤点赞、分享、关注等其它互动
                 "interact" when (ev.MsgType == 1 || ev.MsgType == 0) => "welcome",
@@ -258,34 +259,40 @@ public sealed class TtsSpeaker
 
             case "gift":
             {
-                var gname = string.IsNullOrEmpty(ev.GiftName) ? "礼物" : ev.GiftName;
-                var num = Math.Max(1, ev.Num);
-                var numTxt = num > 1 ? NumToCn(num) + "个" : "一个";
-                var summary = gname + (num > 1 ? numTxt : "");
-                if (ev.Type == "gifts_merged")
+                var list = ev.Gifts ?? new List<GiftItem>();
+                if (list.Count == 0 && !string.IsNullOrWhiteSpace(ev.GiftName))
                 {
-                    var parts = (ev.Gifts ?? new List<GiftItem>())
-                        .Select(g =>
-                        {
-                            var n = Math.Max(1, g.Num);
-                            var name = string.IsNullOrEmpty(g.GiftName) ? "礼物" : g.GiftName;
-                            return name + (n > 1 ? NumToCn(n) + "个" : "");
-                        })
-                        .Where(s => s.Length > 0)
-                        .ToList();
-                    if (parts.Count > 0) summary = string.Join("、", parts);
+                    list = new List<GiftItem> { new GiftItem(ev.GiftName, Math.Max(1, ev.Num), ev.Price) };
                 }
+
+                // 礼物汇总（如"粉丝团灯牌一百个"或"小花花五个、牛哇牛哇七个"；数量为1时省略数量更自然）
+                var parts = list.Select(g =>
+                {
+                    var n = Math.Max(1, g.Num);
+                    var name = string.IsNullOrWhiteSpace(g.GiftName) ? "礼物" : g.GiftName.Trim();
+                    return name + (n > 1 ? NumToCn(n) + "个" : "");
+                }).Where(s => s.Length > 0).ToList();
+
+                var summary = parts.Count > 0 ? string.Join("、", parts) : "礼物";
+
+                var single = list.Count == 1 ? list[0] : null;
+                var gname = single != null
+                    ? (string.IsNullOrWhiteSpace(single.GiftName) ? "礼物" : single.GiftName.Trim())
+                    : summary;
+                var num = single != null ? Math.Max(1, single.Num) : (int)Math.Max(1, ev.TotalNum > 0 ? ev.TotalNum : list.Sum(g => g.Num));
+                var numCn = NumToCn(num);
 
                 var pool = (tc?.Texts != null && tc.Texts.Count > 0)
                     ? tc.Texts
                     : new List<string>
                     {
+                        "感谢{uname}送出的{giftSummary}",
                         "感谢{uname}送出的{num}个{giftName}",
-                        "多谢{uname}老板的{giftName}",
-                        "谢谢{uname}投喂的{giftName}"
+                        "多谢{uname}老板送出的{giftSummary}",
+                        "谢谢{uname}投喂的{giftSummary}"
                     };
                 var tpl = pool[Random.Shared.Next(pool.Count)];
-                return FormatGift(tpl, uname, gname, num, numTxt, summary);
+                return FormatGift(tpl, uname, gname, num, numCn, summary);
             }
 
             case "superchat":
@@ -348,7 +355,7 @@ public sealed class TtsSpeaker
         return res.Trim();
     }
 
-    private static string FormatGift(string tpl, string uname, string giftName, int num, string numTxt, string summary)
+    private static string FormatGift(string tpl, string uname, string giftName, int num, string numCn, string summary)
     {
         var res = tpl;
         if (uname.Length > 0)
@@ -362,10 +369,30 @@ public sealed class TtsSpeaker
                      .Replace("多谢{uname}", "多谢")
                      .Replace("{uname}", "");
         }
+
+        // 防呆保护：若模板中既未写 {num}，也未写 {count}，也未写 {giftSummary}
+        // 且送出的礼物数量大于 1（或为多礼物汇总），则 {giftName} 自动带上数量后缀（如"粉丝团灯牌一百个"），绝不丢失数量！
+        var effectiveGiftName = giftName;
+        if (!res.Contains("{num}") && !res.Contains("{count}") && !res.Contains("{giftSummary}") && num > 1)
+        {
+            effectiveGiftName = summary;
+        }
+
+        // 占位符替换：
+        // 1. 若模板写了 "{num}个"，由于 numCn 是 "一百"，合并处理为 "一百个"（当 num=1 时为 "一个"），杜绝 "一百个个" 叠字语病
+        if (res.Contains("{num}个"))
+        {
+            res = res.Replace("{num}个", num > 1 ? numCn + "个" : "一个");
+        }
+        else
+        {
+            res = res.Replace("{num}", numCn);
+        }
+
         res = res.Replace("{giftSummary}", summary)
-                 .Replace("{giftName}", giftName)
-                 .Replace("{num}", numTxt)
+                 .Replace("{giftName}", effectiveGiftName)
                  .Replace("{count}", num.ToString());
+
         return res.Trim();
     }
 

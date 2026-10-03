@@ -77,7 +77,8 @@ public sealed class PanelSoundPlayer
 
     private static string? MapKey(string type, int msgType) => type switch
     {
-        "gifts" or "gifts_merged" => "gift",
+        // 仅原始礼物事件触发即时提示音，忽略聚合事件 gifts_merged，防止送礼提示音响两遍
+        "gifts" => "gift",
         "guard" => "guard",
         "superchat" => "superchat",
         "interact" => msgType == 2 ? "follow" : "enter",

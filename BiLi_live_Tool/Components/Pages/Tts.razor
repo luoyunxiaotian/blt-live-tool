@@ -1511,7 +1511,7 @@
     private static string GetPoolPlaceholder(string key) => key switch
     {
         "danmu" => "{uname}说：{msg}\n{uname}：{msg}",
-        "gift" => "感谢{uname}送出的{num}个{giftName}\n多谢{uname}老板的{giftName}\n谢谢{uname}投喂的{giftName}",
+        "gift" => "感谢{uname}送出的{giftSummary}\n感谢{uname}送出的{num}个{giftName}\n多谢{uname}老板送出的{giftSummary}\n谢谢{uname}投喂的{giftSummary}",
         "superchat" => "醒目留言，{uname}说：{msg}\n收到一条醒目留言，来自{uname}：{msg}",
         "welcome" => "欢迎 {uname} 进入直播间\n{uname} 来啦，欢迎欢迎\n欢迎 {uname} 的到来",
         _ => "每行一条，随机抽取"
@@ -1520,7 +1520,7 @@
     private static string GetPoolHint(string key) => key switch
     {
         "danmu" => "可用占位符：{uname}（发送人昵称） {msg}（弹幕文字） · 留空使用默认语",
-        "gift" => "可用占位符：{uname} {giftName} {num}（中文数字如五个） {count}（阿拉伯数字） {giftSummary} · 留空使用默认语",
+        "gift" => "可用占位符：{giftSummary}（礼物与数量汇总） {uname} {giftName} {num}（中文数字） {count}（阿拉伯数字） · 留空使用默认语",
         "superchat" => "可用占位符：{uname} {msg} {price}（金额数字） · 留空使用默认语",
         "welcome" => "可用占位符：{uname}（观众昵称） · 留空使用默认语",
         _ => "每行一条，随机抽取 · 留空使用默认语"

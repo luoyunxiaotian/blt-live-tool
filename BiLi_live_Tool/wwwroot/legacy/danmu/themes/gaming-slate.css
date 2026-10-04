@@ -17,9 +17,15 @@
   padding: var(--danmu-card-padding, 7px 12px 8px 10px) !important;
   margin-bottom: var(--danmu-card-gap, 6px) !important;
 
-  /* CSS Grid 双层排版：
+  /* CSS Grid 双层排版（仅在默认左侧横向排列时启用，不破坏顶部居中等自由排版）：
      第一行：[左竖条] [圆形头像] [昵称+徽章]
      第二行：[左竖条] [弹幕正文跨列]        */
+  display: flex !important;
+  position: relative !important;
+  transition: transform 0.25s ease, opacity 0.35s ease !important;
+}
+
+.danmu-item:not(.layout-avatar-top-left):not(.layout-avatar-top-center) {
   display: grid !important;
   grid-template-columns: auto auto 1fr !important;
   grid-template-rows: auto auto !important;
@@ -29,8 +35,6 @@
   column-gap: 7px !important;
   row-gap: 3px !important;
   align-items: center !important;
-  position: relative !important;
-  transition: transform 0.25s ease, opacity 0.35s ease !important;
 }
 
 /* 最左侧浅灰竖条 (Accent Bar) */
@@ -65,7 +69,7 @@
 }
 
 /* 内容穿透，让 meta 与 text 直接作为 grid 单元格参与排列 */
-.danmu-content {
+.danmu-item:not(.layout-avatar-top-left):not(.layout-avatar-top-center) .danmu-content {
   display: contents !important;
 }
 

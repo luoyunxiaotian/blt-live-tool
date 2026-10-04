@@ -1,0 +1,22 @@
+/* 反转了！ by LAPLACE Chat */
+
+
+  /* 全局背景透明，可保证 OBS 载入弹幕机的过程中背景全程透明 */
+  body { background-color: rgba(0, 0, 0, 0); }
+
+  /* 反转了！ */
+  .event-list,
+  .event-list .event {
+    transform: rotate(180deg) translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  .scroll-area {
+    /* compatible fix for old browsers */
+    height: 100vh;
+
+    @supports (height: 100dvh) {
+      height: 100dvh;
+    }
+  }
+

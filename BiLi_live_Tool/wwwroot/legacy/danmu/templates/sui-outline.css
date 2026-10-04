@@ -1,0 +1,72 @@
+/* 极简描边 × 岁己SUI by LAPLACE Chat */
+/* 致敬 yt-live-chat/blivechat */
+
+/* 引入 Google Fonts 字体，理论上国内可以直接访问 */
+@import url('https://fonts.googleapis.com/css2?family=Changa+One:ital@0;1&display=swap');
+
+
+  /* 全局背景透明，可保证 OBS 载入弹幕机的过程中背景全程透明 */
+  body { background-color: rgba(0, 0, 0, 0); }
+
+  /* 全局事件变量 */
+  .event {
+    /* 应用全局自定义字体 */
+    /* --font-sans 为 LAPLACE Chat 内置变量，可调用非衬线字体 */
+    --event-font-family: 'Changa One', var(--font-sans);
+
+    /* 修改此变量可以改变描边颜色，请据直播间配色进行微调 */
+    --shadow-color: #000;
+    --text-shadow: -2px -2px var(--shadow-color), -2px -1px var(--shadow-color), -2px 0px var(--shadow-color), -2px 1px var(--shadow-color), -2px 2px var(--shadow-color), -1px -2px var(--shadow-color), -1px -1px var(--shadow-color), -1px 0px var(--shadow-color), -1px 1px var(--shadow-color), -1px 2px var(--shadow-color), 0px -2px var(--shadow-color), 0px -1px var(--shadow-color), 0px 0px var(--shadow-color), 0px 1px var(--shadow-color), 0px 2px var(--shadow-color), 1px -2px var(--shadow-color), 1px -1px var(--shadow-color), 1px 0px var(--shadow-color), 1px 1px var(--shadow-color), 1px 2px var(--shadow-color), 2px -2px var(--shadow-color), 2px -1px var(--shadow-color), 2px 0px var(--shadow-color), 2px 1px var(--shadow-color), 2px 2px var(--shadow-color);
+
+    /* 弹幕文本颜色 */
+    --event-message-text: #fff;
+
+    /* 普通弹幕、总督、提督、舰长用户名重新设置 */
+    --event-username-text-0: #fff;
+    --event-username-text-1: rgb(254, 126, 117);
+    --event-username-text-2: rgb(232, 144, 251);
+    --event-username-text-3: rgb(148, 245, 102);
+
+    /* 强制醒目留言上方为白色文字 */
+    --event-superchat-top-text: #fff;
+  }
+
+  /* 优化控制台时间戳颜色 */
+  .event--superchat .timestamp {
+    color: var(--text-color);
+  }
+
+  /* 全局文字描边 */
+  .event .username,
+  .event .message,
+  .event .price {
+    text-shadow: var(--text-shadow);
+  }
+
+  /* 高亮主播描边 */
+  .event--message.user-type--streamer {
+    --shadow-color: #fde33afe;
+  }
+
+  /* 高亮主播文字颜色 */
+  .event--message.user-type--streamer .username,
+  .event--message.user-type--streamer .message {
+    font-weight: bold;
+    color: rgb(0, 0, 0);
+  }
+
+  /* 为用户名增加一定 padding，防止阴影被截断 */
+  .username-text {
+    padding-left: calc(var(--1px) * 2);
+    padding-right: calc(var(--1px) * 2);
+    margin-left: calc(var(--1px) * -2);
+    margin-right: calc(var(--1px) * -2);
+  }
+
+  /* 一个简易的渐变淡出效果，可以让组件边缘看起来没那么突兀 */
+  .event-list {
+    --offset: 30px;
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) var(--offset), rgba(0, 0, 0, 1) calc(100% - var(--offset)), rgba(0, 0, 0, 0));
+            mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) var(--offset), rgba(0, 0, 0, 1) calc(100% - var(--offset)), rgba(0, 0, 0, 0));
+  }
+

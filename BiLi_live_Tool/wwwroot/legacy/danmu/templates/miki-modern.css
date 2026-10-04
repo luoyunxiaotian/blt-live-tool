@@ -1,0 +1,128 @@
+/* 摩登样式 by LAPLACE Chat */
+/* 引入 Google Fonts 字体，理论上国内可以直接访问 */
+@import url('https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,400;0,600;1,400;1,600&display=swap');
+
+
+  /* 全局背景透明，可保证 OBS 载入弹幕机的过程中背景全程透明 */
+  body { background-color: rgba(0, 0, 0, 0); }
+
+  /* 全局事件变量 */
+  .event {
+    /* 应用全局自定义字体 */
+    /* --font-sans 为 LAPLACE Chat 内置变量，可调用非衬线字体 */
+    --event-font-family: 'Jost', var(--font-sans);
+
+    /* 应用变量 */
+    --event-danmaku-streamer-text: rgb(255, 255, 255);
+    --event-danmaku-mod-text: rgb(255, 255, 255);
+  }
+
+  /* 配置弹幕变量 */
+  .event--message {
+    --text: #fff;
+    --bg: rgb(82, 82, 91);
+    --avatar-size: 18px;
+  }
+
+  /* 总督变量 */
+  .event--message.guard-level--1 {
+    --bg: rgb(141, 91, 73);
+  }
+
+  /* 提督变量 */
+  .event--message.guard-level--2 {
+    --bg: rgb(112, 90, 129);
+  }
+
+  /* 舰长变量 */
+  .event--message.guard-level--3 {
+    --bg: rgb(83, 104, 141);
+  }
+
+  /* 主播变量 */
+  .event--message.user-type--streamer {
+    --bg: rgb(233, 109, 37);
+  }
+
+  /* 全局间距 */
+  .event {
+    margin: calc(var(--1px) * 8) 0;
+  }
+
+  /* 弹幕正文改为聊天泡泡样式 */
+  .event--message {
+    position: relative;
+    display: block;
+    /*
+      上方用户名字体偏小，下方文本字体偏大，导致下方 line-height 更高
+      因此此处要调高上方 padding 来实现 visual align
+      */
+    padding: calc(var(--1px) * 6) calc(var(--1px) * 14) calc(var(--1px) * 4);
+    padding-left: calc(var(--1px) * 26);
+    color: var(--text);
+    font-weight: bold;
+    background-color: var(--bg);
+    overflow: hidden;
+  }
+
+  /* 强制缩小用户名 */
+  .event--message .username {
+    color: #fff;
+    opacity: .6;
+    font-size: calc(var(--1px) * 14);
+  }
+
+  /* 左侧装饰条 */
+  .event--message::before {
+    content: '';
+    position: absolute;
+    width: calc(var(--1px) * 6);
+    background-color: rgba(255, 255, 255, 0.3);
+    left: calc(var(--1px) * 10);
+    top: calc(var(--1px) * 10);
+    bottom: calc(var(--1px) * 10);
+    border-radius: calc(var(--1px) * 4);
+  }
+
+  /* 新换行显示弹幕正文 */
+  .event--message .message {
+    display: block;
+  }
+
+  .event--message .fans-medal {
+    position: absolute;
+    bottom: calc(var(--event-font-size) * -1.25);
+    right: calc(var(--event-font-size) * -.5);
+    border: none;
+    background: none;
+    font-weight: bold;
+    font-style: italic;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  /* 修改粉丝勋章名称样式 */
+  .event--message .fans-medal-content {
+    font-size: calc(var(--event-font-size) * 3);
+    opacity: .15;
+  }
+
+  /* 隐藏舰长图标 */
+  .event--message .fans-medal-content .guard-badge {
+    display: none;
+  }
+
+  /* 修改粉丝勋章等级样式 */
+  .event--message .fans-medal-level {
+    font-size: calc(var(--event-font-size) * 4);
+    filter: brightness(1000%) saturate(40%) opacity(0.4);
+    background: none;
+  }
+
+  /* 一个简易的渐变淡出效果，可以让组件边缘看起来没那么突兀 */
+  .event-list {
+    --offset: 30px;
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) var(--offset), rgba(0, 0, 0, 1) calc(100% - var(--offset)), rgba(0, 0, 0, 0));
+            mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) var(--offset), rgba(0, 0, 0, 1) calc(100% - var(--offset)), rgba(0, 0, 0, 0));
+  }
+

@@ -1,0 +1,837 @@
+/***** 原作者：@橙橙子君 *****/
+/***** 二次开发：@SHED- *****/
+/*   v1.1.4 2025-08-22   */
+
+/*** 全局设定 ***/
+/** 字体设定 **/
+/* 字体在线引用 */
+/* 以下字体均可商用，保险起见使用前请您再次查询是否可商用 */
+/* ======= 选择其中一行取消注释即可 ======= */
+/* 思源黑体 */
+  /* @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@200;300;400;500;600;700;900&display=swap"); :root {--fontf:"Noto Sans SC";} */
+/* 思源宋体 */
+  /* @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;300;400;500;600;700;900&display=swap"); :root {--fontf:"Noto Serif SC";} */
+/* HarmonyOS Sans */
+  @import url("https://npm.elemecdn.com/shed-fonts/HarmonyOS%20Sans/result.css"); :root {--fontf:"HarmonyOS_Sans_SC";}
+/* OPlusSans 3.0 , OPPO Sans */
+  /* @import url("https://npm.elemecdn.com/shed-fonts/OPlusSans 3.0/result.css"); :root {--fontf:"OPlusSans 3.0";} */
+/* Unifont */
+  /* @import url("https://npm.elemecdn.com/shed-fonts/Unifont/result.css"); :root {--fontf:"Unifont";}   */
+/* 阿里妈妈方圆体 */
+  /* @import url("https://npm.elemecdn.com/shed-fonts/阿里妈妈方圆体/Regular/result.css"); :root {--fontf:"Alimama FangYuanTi VF";} */
+/* 站酷小薇 */
+  /* @import url("https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap"); :root {--fontf:'ZCOOL XiaoWei';} */
+/* 站酷快乐 */
+  /* @import url("https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap"); :root {--fontf:'ZCOOL KuaiLe';} */
+/* ======= 选择其中一行取消注释即可 ======= */
+
+.event {
+  font-family: var(--fontf);
+  /* 字重 */
+  /* 修改数值100,200,300,400,500,600,700,900.. 需字体支持 */
+  font-weight: 400;
+}
+
+/* 全局背景透明，可保证 OBS 载入弹幕机的过程中背景全程透明 */
+body { background-color: rgba(0, 0, 0, 0); }
+
+/** 信息栏 **/
+.event-list {
+
+}
+
+.event ,.event * {
+  border-radius: 0;
+}
+
+.gift-sticky-bar + .event-list {
+  -webkit-mask-image: linear-gradient(0deg,#000 calc(100% - 10px),transparent);
+}
+
+.event-list{
+  transition: all 0.2s ease;
+}
+
+/** 礼物条 **/
+/* 需要应用去掉两侧标记即可 */
+.gift-sticky-bar {
+  margin-bottom: calc(var(--1px) * -3);
+  /** 礼物条置底 **/
+  /* order: 1; */
+}
+
+/** 间距调整 **/
+/* 注：--event-font-size 对应设置中的基准字号，
+        --1px = var(--event-font-size) * 0.0625，
+        --event-line-height = var(--event-font-size) * 1.5
+        可在改变字号的情况下缩放弹幕样式而不改变布局 */
+/* 例：calc(var(--1px) * 50); 当基准字号=20时，输出像素=20*0.065*50=65px */
+
+/* 弹幕类 */
+.event-type--message {
+  margin-bottom: calc(var(--1px) * 8);
+  margin-top: calc(var(--1px) * 8);
+}
+/* 礼物互动消息类 */
+.panel-list-wrap .event-type--interaction,
+.panel-list-wrap .event-type--gift,
+.panel-list-wrap .event-type--like-click,
+.event-list .event-type--interaction,
+.event-list .event-type--gift,
+.event-list .event-type--like-click,
+.event-list .event-type--red-envelope-result,
+.event-type--lottery-result {
+  margin-bottom: calc(var(--1px) * 8);
+  margin-top: calc(var(--1px) * 8);
+}
+/* 系统信息（禁言、违规提醒） */
+.event-type--user-block,
+.event-type--live-warning,
+.event-type--room-mute-on,
+.event-type--room-mute-off,
+.event-type--room-name-update {
+  margin-bottom: calc(var(--1px) * 8);
+  margin-top: calc(var(--1px) * 8);
+}
+/* SC舰长类 */
+.panel-list-wrap .event-type--toast,
+.panel-list-wrap .event-type--superchat,
+.panel-list-wrap .event-type--mvp,
+.event-list .event-type--toast,
+.event-list .event-type--superchat,
+.event-list .event-type--mvp {
+  margin-bottom: calc(var(--1px) * 8);
+  margin-top: calc(var(--1px) * 8);
+}
+
+/** 弹幕样式（颜色） **/
+/* 总变量 */
+.event-type--message {
+  --text: #222;
+  --bg: #f5f3f2;
+}
+/* 总督变量 */
+.guard-level--1 {
+  --bg: #B03A2E;
+}
+/* 提督变量 */
+.guard-level--2 {
+  --bg: #6C3483;
+}
+/* 舰长变量 */
+.guard-level--3 {
+  --bg: #1F618D ;
+}
+/* 普通用户变量 */
+.guard-level--0 {
+  --bg: #666;
+}
+/* 主播变量 */
+.user-type--streamer {
+  --bg: #fb7299;
+}
+/* 房管变量 */
+.user-type--mod {
+  --bg: #00aeec;
+}
+
+/** 礼物SC文本颜色变量 **/
+/*
+此处可使用 .event-superchat-rank--[n] 和 .event-gift-rank--[n] 分别定义样式，
+也可以像我这样使用 .event-price-rank--[n] 统一定义样式
+.event-price-rank 档次：
+    1 -- RMB 30
+    2 -- RMB 50
+    3 -- RMB 100
+    4 -- RMB 500
+    5 -- RMB 1000
+    6 -- RMB 2000
+*/
+/*
+bg1为颜色主色调，bg2为颜色次色调，
+主色调用于填充普通礼物文字、高亮礼物背景、SC正文（下半）背景、礼物栏；
+次色调用于填充SC信息（上半）背景
+*/
+
+.event-price-rank--1 {
+  --bg1: rgb(42, 96, 178);
+  --bg2: rgb(237, 245, 255);
+}
+.event-price-rank--2 {
+  --bg1: rgb(66, 125, 157);
+  --bg2: rgb(219, 255, 253);
+}
+.event-price-rank--3 {
+  --bg1: rgb(226, 181, 43);
+  --bg2: rgb(255, 241, 197);
+}
+.event-price-rank--4 {
+  --bg1: rgb(225, 148, 67);
+  --bg2: rgb(254, 234, 209);
+}
+.event-price-rank--5 {
+  --bg1: rgb(229, 77, 77);
+  --bg2: rgb(255, 231, 228);
+}
+.event-price-rank--6 {
+  --bg1: rgb(147, 33, 58);
+  --bg2: rgb(230, 177, 183);
+}
+
+/** 阴影设定 **/
+/* 阴影 */
+/* 不需要阴影可以删除或选择一行注释 */
+img,
+.event-type--message,
+.event-type--message .avatar-wrap,
+.event-type--notice,
+.event-type--gift.event-show-as--normal.event-size--highlight,
+.event-type--mvp.event-show-as--normal,
+.event-type--superchat.event-show-as--normal,
+.event-type--toast.event-show-as--normal,
+.event-type--interaction,
+.event-type--like-click,
+.event-type--user-block,
+.event-type--live-warning,
+.event-type--live-cutoff,
+.event-type--gift.event-show-as--normal.event-size--normal,
+.event-show-as--sticky,
+.event-type--room-mute-on,
+.event-type--room-mute-off,
+.event-type--room-name-update,
+.event-type--lottery-start,
+.event-type--lottery-result,
+.event-type--red-envelope-start,
+.event-type--red-envelope-result {
+  text-shadow:1px 1px 1px #2d28671c;
+  filter: drop-shadow(1px 1px 1px #2d28673c);
+}
+
+
+/*** 弹幕部分 ***/
+/** 气泡样式 **/
+  .event-type--message {
+  position: relative;
+  display: block;
+  /* margin相关变量用于调节气泡外边距 */
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+  margin-top: calc(var(--1px) * 8);
+  /* padding相关变量用于调节气泡内边距
+      四边写法为：padding:上 右 下 左; */
+  padding: calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6);
+  /* color为正文颜色，background-color为气泡背景颜色 */
+  color: var(--text);
+  background-color: #f5f3f25d;
+  border:2px solid var(--bg);
+  box-sizing:border-box;
+  -moz-box-sizing:border-box;
+  /* avatar-size为头像大小 */
+  --avatar-size: 100%;
+  min-width: 4em;
+  /* 以上为基本属性的简单介绍，下同不再赘述更多属性相关可参考 https://www.runoob.com/cssref/ */
+}
+
+/** 名字样式 **/
+  .event-type--message .username {
+  position: relative;
+  display: block;
+  padding: calc(var(--1px) * 1) calc(var(--1px) * 1);
+  color: var(--bg);
+  /* font-size为字体大小，
+      line-height为元素高（此处为名字背景的高度） */
+  font-size: calc(var(--1px) * 16);
+  line-height: calc(var(--1px) * 14.5);
+  font-weight: 500;
+}
+
+/** 正文样式 **/
+  .event-type--message .message {
+  position: relative;
+  /* 如果弹幕需要换行，使用display: block;
+      如果弹幕不需要换行，使用display: inline; */
+  display: block;
+  font-size: calc(var(--1px) * 18);
+  line-height: calc(var(--1px) * 24);
+  padding: calc(var(--1px) * 5) calc(var(--1px) * 1) calc(var(--1px) * 1) calc(var(--1px) * 1);
+}
+
+/** 头像独立显示 **/
+  .event-type--message .avatar-wrap{
+  position: absolute;
+  top: 0;
+  right: 0;
+  filter: blur(1px);
+  display: flex;
+  justify-content: flex-end;
+}
+  .event-type--message .avatar-wrap .avatar{
+    width: auto;
+    -webkit-mask-image: linear-gradient(-90deg, #000 20%, transparent);
+    mask-image: linear-gradient(-90deg, #000 20%, transparent);
+}
+
+  .avatar_wrap__qDei0 {
+    width: auto;
+    height: 100%;
+}
+
+  .event-type--message .avatar-wrap .avatar-frame,
+  .event-type--message .message .avatar-wrap .avatar-img-wrap {
+    display: none;
+}
+
+/** 叠层 **/
+.event-type--message::before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  background: var(--bg);
+  border:2px solid var(--bg);
+  box-sizing:border-box;
+  -moz-box-sizing:border-box;
+  opacity: 0.35;
+  right: calc(var(--1px) * 0);
+  top: calc(var(--1px) * 0);
+  bottom: calc(var(--1px) * 0);
+  z-index: -1;
+}
+
+/* 普通用户不显示渐变叠层 */
+.event-type--message.guard-level--0.user-type--user::before {
+  display: none;
+}
+
+/** 用户等级背景色 **/
+.user-level {
+    background: #fff6;
+}
+
+/** 房管图标颜色 **/
+.event-type--message .mod-badge {
+  color: var(--bg);
+  opacity: 0.75;
+}
+
+/** 主播图标颜色 **/
+.event-type--message.user-type--streamer .meta svg {
+  color: var(--bg);
+}
+
+
+/*** 互动信息部分 ***/
+/** 气泡样式 **/
+  .event-type--interaction,
+  .event-type--like-click {
+  position: relative;
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+  padding: calc(var(--1px) * 4) calc(var(--1px) * 4) calc(var(--1px) * 4) calc(var(--1px) * 4);
+  color: #333;
+  background-color: #f5f3f2;
+  --avatar-size: calc(var(--1px) * 20);
+  display: flex;
+}
+
+/** 名字样式 **/
+  .event-type--interaction .username,
+  .event-type--like-click .username {
+  position: relative;
+  display: block;
+  padding: 0;
+  color: #333;
+  font-size: calc(var(--1px) * 14.5);
+  line-height: calc(var(--1px) * 14.5);
+  font-weight: var(--fontw);
+}
+/* 点赞这块有bug，只能强行添加背景了 */
+.event-type--like-click .username {
+  color: var(--bg);
+}
+
+.event--interaction .relation-icon-wrap .relation-icon {
+  background-color: #333;
+  border-radius: 100vw;
+  margin-left: calc(var(--event-font-size) * .5);
+}
+
+/** 正文样式 **/
+/* 总样式 */
+.event-type--interaction .message,
+.event-type--like-click .message {
+  position: relative;
+  /* 正文应用全局颜色去掉两侧标记即可 */
+  /* color: #333; */
+  font-size: calc(var(--1px) * 14);
+  white-space: nowrap;
+}
+
+/* 进入直播间 */
+.event-type--interaction.event-action--enter .message {
+  color: #333;
+}
+/* 关注直播间 */
+.event-type--interaction.event-action--follow .message {
+  color: rgb(225, 138, 59);
+}
+/* 分享直播间 */
+.event-type--interaction.event-action--share .message {
+  color: rgb(48, 135, 191);
+}
+/* 特别关注直播间 */
+.event-type--interaction.event-action--follow-special .message{
+  color: rgb(232, 121, 0);
+}
+/* 互相关注直播间 */
+.event-type--interaction.event-action--follow-mutual .message{
+  color: rgb(237, 64, 151)
+}
+/* 点赞直播间 */
+.event-type--like-click .message{
+  color: rgb(240, 98, 146);
+}
+svg.tabler-icon.tabler-icon-thumb-up-filled {
+  position: relative;
+  margin-top: calc(var(--1px) * -2);
+}
+
+/** 头像独立显示 **/
+.event-type--interaction .avatar-wrap,
+.event-type--like-click .avatar-wrap {
+  position: absolute;
+  margin-left: calc(var(--1px) * -38);
+  filter: drop-shadow(0 0 0.5px rgb(45, 40, 103));
+}
+
+.avatar_avatarFrame__KoEkL {
+  display: none;
+}
+
+div > div.danmaku_event__PtUOS > div > div.avatar_wrap__qDei0 > picture > img {
+  opacity: 0.5;
+  -webkit-mask-image: linear-gradient(-90deg,#000,transparent);
+  mask-image: linear-gradient(-90deg,#000,transparent);
+}
+
+/** 调整行内位置（不建议修改） **/
+.interaction_meta__RkhNV,
+.like-click_meta__XDUgT {
+  height: calc(var(--event-line-height)*1);
+}
+
+/*** 红包部分 ***/
+/** 气泡样式 **/
+  .event-type--red-envelope-start,
+  .event-type--red-envelope-result {
+  position: relative;
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+}
+  .event-type--red-envelope-result {
+  --avatar-size: calc(var(--1px) * 36);
+}
+
+:root {
+  /* 红包 */
+  --event-red-envelope-result-bg: rgb(191, 48, 48);
+  --event-red-envelope-start-bg: rgb(191, 48, 48);
+}
+
+/*** 天选时刻部分 ***/
+/** 气泡样式 **/
+  .event-type--lottery-start,
+  .event-type--lottery-result {
+  position: relative;
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+}
+  .event-type--lottery-result {
+  --avatar-size: calc(var(--1px) * 36);
+}
+
+:root {
+  --event-lottery-start-bg: rgb(98, 48, 191);
+}
+
+/*** 系统信息（禁言、违规提醒）部分 ***/
+/** 气泡样式 **/
+.event-type--user-block,
+.event-type--live-warning,
+.event-type--live-cutoff,
+.event-type--room-mute-on,
+.event-type--room-mute-off,
+.event-type--room-name-update {
+  position: relative;
+  display: block;
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+  padding: calc(var(--1px) * 4) calc(var(--1px) * 4) calc(var(--1px) * 4) calc(var(--1px) * 4);
+  font-size: calc(var(--1px) * 14);
+  background-color: #f5f3f2;
+}
+
+:root {
+  --event-user-block-text: #333;
+  --event-live-warning-text: #333;
+  --event-live-cutoff-text: #333;
+  --event-room-mute-on-text: #333;
+  --event-room-mute-off-text: #333;
+  --event-room-name-update-text: #333;
+}
+
+.event-type--notice {
+  position: relative;
+  display: block;
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+  padding: calc(var(--1px) * 4) calc(var(--1px) * 8) calc(var(--1px) * 4) calc(var(--1px) * 8);
+  color: #333;
+  background-color: #f5f3f2;
+  --avatar-size: calc(var(--1px) * 20);
+}
+
+/*** 礼物部分 ***/
+/** 普通礼物样式 **/
+.event-type--gift.event-show-as--normal.event-size--normal {
+  position: relative;
+  display: block;
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+  padding: calc(var(--1px) * 4) calc(var(--1px) * 8) calc(var(--1px) * 4) calc(var(--1px) * 8);
+  color: #333;
+  background-color: #f5f3f2;
+  --avatar-size: calc(var(--1px) * 20);
+}
+
+/* 普通礼物显示匹配颜色梯度 */
+.event-type--gift.event-show-as--normal.event-size--normal .message {
+  color: var(--bg1);
+}
+
+/** 高亮礼物样式 **/
+.event-type--gift.event-show-as--normal.event-size--highlight {
+  position: relative;
+  display: block;
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+  padding: calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6);
+  font-size: calc(var(--1px) * 16);
+  background-color: var(--bg1);
+}
+
+/** 守护圣殿样式 **/
+.event-type--mvp.event-show-as--normal {
+  position: relative;
+  display: block;
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+  padding: calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6);
+  font-size: calc(var(--1px) * 16);
+}
+
+/** 调整礼物价格位置 **/
+/* 隐藏原礼物价格 */
+/* 打开此项后，价格将显示在粉丝勋章后面
+    打开：display: flex;
+    关闭：display: none;  */
+.event-type--gift.event-show-as--normal.event-size--highlight .price,
+.event-type--mvp.event-show-as--normal .price{
+  display: none;
+}
+/* 显示独立礼物价格，并调整位置 */
+/* 打开此项后，价格将显示在正文后面，礼物前面
+    打开：display: block;
+    关闭：display: none;  */
+.event-type--gift.event-show-as--normal.event-size--highlight .price-alt,
+.event-type--mvp.event-show-as--normal .price-alt{
+  display: block;
+  position: absolute;
+  right: calc(var(--1px) * 60);
+  bottom: calc(var(--1px) * 2);
+}
+/* 控制礼物内容显示范围，确保不会盖过价格和图片 */
+.event-type--gift.event-show-as--normal.event-size--highlight .message,
+.event-type--mvp.event-show-as--normal .message{
+  margin-right: calc(var(--1px) * 70);
+}
+/* 控制礼物顶栏显示范围，确保不会盖过图片 */
+.event-type--gift.event-show-as--normal.event-size--highlight .top,
+.event-type--mvp.event-show-as--normal .top{
+  margin-right: calc(var(--1px) * 20);
+}
+/* 控制礼物顶栏显示范围，给带头像框的头像添加圆角 */
+.event--toast,
+.event--superchat .content .top,
+.event--gift.event-show-as--normal .top,
+.event--mvp.event-show-as--normal .top,
+.event--gift.event-show-as--normal .content .top {
+  & .guard-level--1 .avatar-frame ~ .avatar-img-wrap .avatar,
+  & .guard-level--2 .avatar-frame ~ .avatar-img-wrap .avatar,
+  & .guard-level--3 .avatar-frame ~ .avatar-img-wrap .avatar {
+    border-radius: 999em !important;
+  }
+}
+
+
+/*** SC 样式 ***/
+/** 总样式 **/
+.event-type--superchat.event-show-as--normal {
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+}
+
+/** SC 上方样式 **/
+.event-type--superchat.event-show-as--normal .top {
+  color: #333;
+  background-color: var(--bg2);
+  padding: calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6);
+  font-size: calc(var(--1px) * 16);
+}
+
+/** SC 下方正文样式 **/
+.event-type--superchat.event-show-as--normal .message {
+  background-color: var(--bg1);
+  font-weight: 500;
+  padding: calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6);
+  font-size: calc(var(--1px) * 16);
+}
+
+/** SC 时间（见控制台） **/
+.superchat_timestamp__Itvj3 {
+  color: rgb(102, 102, 102);
+  font-size: calc(var(--1px) * 14.5);
+}
+
+
+/*** 舰长样式 ***/
+/** 总样式 **/
+  .event-type--toast.event-show-as--normal {
+  display: flex;
+  align-items: flex-start;
+  margin-left: calc(var(--1px) * 3);
+  margin-right: calc(var(--1px) * 12);
+  font-size: calc(var(--1px) * 16);
+  background-color: var(--bg);
+  padding: calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6) calc(var(--1px) * 6);
+  --avatar-size: calc(var(--1px) * 40);
+  /* badge-size为舰长图标大小 */
+  --badge-size: calc(var(--1px) * 48);
+  }
+
+/** 文本范围 **/
+  .event-type--toast.event-show-as--normal .username,
+  .event-type--toast.event-show-as--normal .price,
+  .event-type--toast.event-show-as--normal .message {
+  padding-left: calc(var(--1px) * 4);
+  padding-right: calc(var(--1px) * 50);
+  }
+
+/** 隐藏价格 **/
+/* 打开：display: block;
+    关闭：display: none;  */
+  .event-type--toast.event-show-as--normal .price {
+  display: none;
+}
+
+
+/*** 礼物条样式 ***/
+/** 总样式 **/
+.event-show-as--sticky {
+  font-size: calc(var(--1px) * 16);
+}
+
+/** 颜色方案关联（不用修改） **/
+/* SC设置 */
+.event-type--superchat.event-show-as--sticky .top {
+  color: #fff;
+  background-color: var(--bg1);
+}
+/* 礼物设置 */
+.event-type--gift.event-show-as--sticky.event-size--highlight {
+  background: var(--bg1);
+}
+/* 舰长设置 */
+.event-type--toast.event-show-as--sticky {
+  background-color: var(--bg);
+  /* 以下两项可自己探索，去掉后为默认样式 */
+  --badge-size: calc(var(--event-line-height) * 1.25);
+  background-position: center right calc(var(--event-font-size)*.1);
+}
+
+/*** 动画样式 ***/
+@keyframes animated-border {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255,255,255,0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 calc(var(--1px) * 5) rgba(255,255,255,0);
+  }
+}
+
+.event-type--message,
+.event-type--notice,
+.event-type--gift.event-show-as--normal.event-size--highlight,
+.event-type--mvp.event-show-as--normal,
+.event-type--superchat.event-show-as--normal,
+.event-type--toast.event-show-as--normal,
+.event-type--interaction,
+.event-type--like-click,
+.event-type--user-block,
+.event-type--live-warning,
+.event-type--live-cutoff,
+.event-type--gift.event-show-as--normal.event-size--normal,
+.event-show-as--sticky,
+.event-type--room-mute-on,
+.event-type--room-mute-off,
+.event-type--room-name-update,
+.event-type--lottery-start,
+.event-type--lottery-result,
+.event-type--red-envelope-start,
+.event-type--red-envelope-result {
+  animation: anim_bottom_up_fade 200ms,animated-border 1.5s infinite;
+  animation-fill-mode: both;
+}
+
+.gift-sticky-bar,
+.gift-sticky-bar *{
+  transition: all 0.2s ease;
+  animation-fill-mode: both;
+}
+
+/** 从下往上升起 + 淡入 */
+@keyframes anim_bottom_up_fade {
+  0% {
+    opacity: 0;
+    transform: translateY(calc(var(--1px) * 34));
+  }
+  40% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** 淡入 **/
+.gift-sticky-bar,
+.gift-sticky-bar * {
+  opacity: 0;
+  animation: fade-in 0.3s ease-in-out forwards;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/** 淡出 **/
+/* WIP */
+
+/*** 其他设置 ***/
+/** 弹幕表情调整 **/
+/* 以下表情大小既可以用像素固定，也可以用倍率调整比例 */
+/* 大表情（包括直播间通用表情、房间表情、粉丝团表情、自购表情） */
+.event-type--message .emote{
+  max-width: calc(var(--1px) * 60);
+  max-height: calc(var(--1px) * 60);
+}
+/* 小表情（b站emoji） */
+.bmote-wrap img {
+  width: calc(var(--event-line-height) * 0.9);
+  height: auto;
+  margin: 0 calc(var(--1px) * 1);
+}
+
+/* 荣耀等级勋章调整 */
+.wealth-medal {
+  border-radius: 100vw;
+}
+.wealth-medal-image-failed {
+  background-image: url("https://img20.360buyimg.com/openfeedback/jfs/t1/325266/23/9056/1541/68a7a234Fee0f88ef/faa87067d3b29ac4.png");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+}
+
+/** 粉丝勋章调整 **/
+/* 整体调整 */
+.medal_fansMedal__P_7A7 {
+  font-size: calc(var(--1px) * 13);
+}
+/* 以下调整粉丝勋章文字到两边距离 */
+/* 粉丝团调整 */
+.fans-medal-content {
+  padding-left: calc(var(--1px) * 3);
+}
+.fans-medal-has-guard .fans-medal-content {
+  padding-left: calc(var(--1px) * 3 + calc(var(--event-line-height) * .8));
+}
+/* 舰长调整 */
+.medal_fansMedalHasGuard__r0W2I .medal_fansMedalContent__BseGj {
+  padding-left: calc(var(--1px)*2 + var(--event-line-height)*.65);
+  padding-right: calc(var(--event-line-height)*.13);
+}
+
+/** 舰长图标调整 **/
+/* 整体大小调整 */
+.medal_fansMedalHasGuard__r0W2I .medal_guardBadge__5A5bh,
+.guard-badge {
+  width: calc(var(--1px) * 27);
+  height: calc(var(--1px) * 27);
+}
+.guard-badge--0 {
+  margin-top: calc(var(--1px) * -4);
+  margin-left: calc(var(--1px) * -2);
+  width: calc(var(--1px) * 24);
+  height: calc(var(--1px) * 24);
+}
+/* 粉丝勋章舰长图标位置 */
+.medal_fansMedalHasGuard__r0W2I .medal_guardBadge__5A5bh {
+  /* 可使用top，bottom，left，right自行调整图标位置 */
+  top: calc(var(--1px)*-3);
+  left: calc(var(--1px)*-5);
+}
+/* 隐藏后面舰长图标，保留粉丝勋章舰长标志 */
+.event-type--message .meta .guard-badge {
+  display: none;
+}
+.event-type--message .fans-medal-content .guard-badge {
+  display: block;
+}
+
+/** 高能用户设置（榜1、榜2、榜3） **/
+.current-rank {
+  color: #fff;
+  /* background-image用于填充渐变色，颜色和渐变角度可自行调整
+      如果想填充纯色，删除此行，选择background-color属性 */
+  background-image: linear-gradient(135deg,rgb(255, 78, 139),rgb(255, 148, 79));
+  padding: calc(var(--1px) * 1) calc(var(--1px) * 4);
+  font-size: calc(var(--1px) * 13.5);
+  font-weight: 500;
+}
+
+/** 元素顺序调整 **/
+/* 调整弹幕中元素的顺序 */
+/* 只需要把需要的元素放前面加减顺序即可
+    如果不想改变名字位置，可删除此项或order: 0; */
+.username {
+  order: 0;
+}
+.fans-medal {
+  order: 1;
+}
+.mod-badge,
+.current-rank {
+  order: 2;
+}
+
+/** 修复 **/
+/* 修复表情包加载后超出屏幕 */
+div.mantine-ScrollArea-viewport > div {
+    margin-bottom: calc(var(--1px) * 25);
+}

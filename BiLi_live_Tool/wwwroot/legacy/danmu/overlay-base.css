@@ -25,6 +25,17 @@
   --danmu-avatar-radius: 50%;
   --danmu-avatar-border: 2px solid rgba(255, 255, 255, 0.4);
 
+  /* Laplace 模版核心基础兼容变量 */
+  --1px: 1px;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --event-line-height: 24px;
+  --event-font-size: 16px;
+  --event-username-font-size: 14px;
+  --event-badge-font-size: 12px;
+  --avatar-size: 36px;
+  --bg-color: #1e222d;
+  --text-color: #ffffff;
+
   /* 常驻固定底框 (Permanent Danmu Box) */
   --danmu-box-width: 380px;
   --danmu-box-height: 500px;
@@ -98,6 +109,15 @@ html, body {
 }
 
 .danmu-item {
+  max-width: 100%;
+  word-break: break-word;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  will-change: transform, opacity;
+}
+
+/* 自研经典皮肤下的卡片样式 */
+body.theme-type-classic .danmu-item,
+body:not(.theme-type-laplace) .danmu-item {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -105,19 +125,159 @@ html, body {
   background-color: var(--danmu-bg-color);
   border-radius: var(--danmu-card-radius);
   border: var(--danmu-border-width) solid var(--danmu-border-color);
-  max-width: 100%;
-  word-break: break-word;
-  transition: opacity 0.35s ease, transform 0.35s ease;
-  will-change: transform, opacity;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+
+/* Laplace 模版专用自适应：重置默认外层卡片背景与边框，使各 Laplace 模版气泡与描边自然展现 */
+body.theme-type-laplace .danmu-item {
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* 在 Laplace 模式下，常驻底框默认纯透明无边框，避免黑色方框干扰气泡 */
+body.theme-type-laplace #danmu-box:not(.box-explicit-enabled) {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── 📐 排版布局与元素位置支持 (Left / Top-Left / Top-Center / Hidden) ── */
+
+/* 1. 经典横向左侧排列 (Left) */
+.danmu-item.layout-avatar-left,
+.layout-avatar-left {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+.danmu-item.layout-avatar-left .danmu-content,
+.danmu-item.layout-avatar-left .event-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* 2. 左上角排列 (Top-Left) */
+.danmu-item.layout-avatar-top-left,
+.layout-avatar-top-left {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 4px !important;
+}
+.danmu-item.layout-avatar-top-left .event-header-row,
+.layout-avatar-top-left .event-header-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+.danmu-item.layout-avatar-top-left .danmu-content,
+.danmu-item.layout-avatar-top-left .event-content,
+.layout-avatar-top-left .danmu-content,
+.layout-avatar-top-left .event-content {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.danmu-item.layout-avatar-top-left .message,
+.layout-avatar-top-left .message {
+  margin-left: 0 !important;
+}
+
+/* 3. 上方居中排列 (Top-Center) */
+.danmu-item.layout-avatar-top-center,
+.layout-avatar-top-center {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  gap: 6px !important;
+}
+.danmu-item.layout-avatar-top-center .event-header-row,
+.layout-avatar-top-center .event-header-row {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  width: 100% !important;
+}
+.danmu-item.layout-avatar-top-center .danmu-meta,
+.layout-avatar-top-center .danmu-meta,
+.danmu-item.layout-avatar-top-center .event-meta,
+.layout-avatar-top-center .event-meta {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  text-align: center !important;
+}
+.danmu-item.layout-avatar-top-center .danmu-content,
+.danmu-item.layout-avatar-top-center .event-content,
+.layout-avatar-top-center .danmu-content,
+.layout-avatar-top-center .event-content {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+}
+.danmu-item.layout-avatar-top-center .danmu-text,
+.danmu-item.layout-avatar-top-center .message,
+.layout-avatar-top-center .danmu-text,
+.layout-avatar-top-center .message {
+  text-align: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* 4. 隐藏头像模式 (Hidden) */
+.danmu-item.layout-avatar-hidden .avatar-wrap,
+.danmu-item.layout-avatar-hidden .danmu-avatar-wrap,
+.layout-avatar-hidden .avatar-wrap,
+.layout-avatar-hidden .danmu-avatar-wrap {
+  display: none !important;
 }
 
 /* 大航海专属个性化样式（支持总督、提督、舰长独立配色覆盖） */
-.danmu-item.guard-level-1 {
+.danmu-item.guard-level-1,
+.danmu-item.guard-level--1 {
   background-color: var(--danmu-guard1-bg, var(--danmu-bg-color));
   border-color: var(--danmu-guard1-border, var(--danmu-border-color));
 }
-.danmu-item.guard-level-1 .danmu-uname {
+.danmu-item.guard-level-1 .danmu-uname,
+.danmu-item.guard-level--1 .danmu-uname,
+.danmu-item.guard-level--1 .username {
   color: var(--danmu-guard1-text, var(--danmu-nick-color));
+}
+.danmu-item.guard-level-2,
+.danmu-item.guard-level--2 {
+  background-color: var(--danmu-guard2-bg, var(--danmu-bg-color));
+  border-color: var(--danmu-guard2-border, var(--danmu-border-color));
+}
+.danmu-item.guard-level-2 .danmu-uname,
+.danmu-item.guard-level--2 .danmu-uname,
+.danmu-item.guard-level--2 .username {
+  color: var(--danmu-guard2-text, var(--danmu-nick-color));
+}
+.danmu-item.guard-level-3,
+.danmu-item.guard-level--3 {
+  background-color: var(--danmu-guard3-bg, var(--danmu-bg-color));
+  border-color: var(--danmu-guard3-border, var(--danmu-border-color));
+}
+.danmu-item.guard-level-3 .danmu-uname,
+.danmu-item.guard-level--3 .danmu-uname,
+.danmu-item.guard-level--3 .username {
+  color: var(--danmu-guard3-text, var(--danmu-nick-color));
 }
 .danmu-item.guard-level-2 {
   background-color: var(--danmu-guard2-bg, var(--danmu-bg-color));

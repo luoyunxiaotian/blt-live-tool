@@ -457,11 +457,16 @@
       "19999125",
       "2046693818",
       "37791459"
+    ]
   },
   "danmuOverlay": {
     "enabled": true,
     "theme": "classic-glass",
+    "themeType": "classic",
+    "laplaceTemplate": "laplace-nailv",
     "displayMode": "card",
+    "avatarPosition": "left",
+    "badgePosition": "before-name",
     "nicknameFont": "system-ui",
     "nicknameColor": "#ffd04b",
     "nicknameOpacity": 100,

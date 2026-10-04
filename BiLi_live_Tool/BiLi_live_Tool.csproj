@@ -34,8 +34,8 @@
         <ApplicationId>com.companyname.bili_live_tool</ApplicationId>
 
         <!-- Versions -->
-        <ApplicationDisplayVersion>0.1.22</ApplicationDisplayVersion>
-        <ApplicationVersion>19</ApplicationVersion>
+        <ApplicationDisplayVersion>0.1.23</ApplicationDisplayVersion>
+        <ApplicationVersion>20</ApplicationVersion>
 
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
         <WindowsPackageType>None</WindowsPackageType>

@@ -1,0 +1,118 @@
+/* 简约气泡样式 by LAPLACE Chat */
+
+
+  /* 全局背景透明，可保证 OBS 载入弹幕机的过程中背景全程透明 */
+  body { background-color: rgba(0, 0, 0, 0); }
+
+  /* 一个朴素的动画效果 */
+  @keyframes eventIn {
+    0% {
+      opacity: 0;
+      transform: translate3d(calc(var(--1px) * -10), 0, 0);
+    }
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  /* 弹幕自定义样式 */
+  .event--message {
+    --text: #ffffff;
+    --bg: #53545c;
+    --avatar-size: calc(var(--1px) * 32);
+    --event-reply-text: rgb(255, 192, 235);
+    --event-reply-symbol-text: var(--bg);
+    display: flex;
+    align-items: start;
+    will-change: transform;
+  }
+
+  /* 全局事件动效果 */
+  .can-motion .event:nth-last-child(-n+2) {
+    animation: eventIn .6s ease;
+  }
+
+  /* 总督变量 */
+  .event--message.guard-level--1 {
+    --bg: rgb(233, 88, 110);
+  }
+
+  /* 提督变量 */
+  .event--message.guard-level--2 {
+    --bg: rgb(159, 102, 173);
+  }
+
+  /* 舰长变量 */
+  .event--message.guard-level--3 {
+    --bg: rgb(87, 117, 227);
+  }
+
+  /* 主播变量 */
+  .event--message.user-type--streamer {
+    --bg: rgb(180, 94, 54);
+  }
+
+  /* 隐藏不必要元素 */
+  .event--message .fans-medal,
+  .event--message .username,
+  .event--message .guard-badge {
+    display: none;
+  }
+
+  /* 将榜1/2/3标记放置于头像上，如不喜欢此效果删掉这段即可 */
+  .current-rank {
+    position: absolute;
+    font-size: calc(var(--1px) * 10);
+    top: calc(var(--1px) * -2);
+    left: calc(var(--1px) * 12);
+  }
+
+  /* 弹幕头像增加阴影 */
+  .event--message .avatar--sender {
+    filter: drop-shadow(0 2px 2px #000);
+  }
+
+  /* 弹幕正文改为聊天泡泡样式 */
+  .event--message:not(.has-emotes) .message {
+    position: relative;
+    display: block;
+    padding: calc(var(--1px) * 4) calc(var(--1px) * 12);
+    color: var(--text);
+    font-weight: bold;
+    background-color: var(--bg);
+    width: fit-content;
+    border-radius: calc(var(--1px) * 18);
+    border-top-left-radius: 0;
+    filter: drop-shadow(0 2px 2px #000);
+  }
+
+  /* 为聊天泡泡增加尾巴 */
+  .event--message:not(.has-emotes) .message::before {
+    content: "";
+    display: inline-block;
+    position: absolute;
+    top: 0;
+    left: calc(var(--1px) * -6);
+    border: calc(var(--1px) * 10) solid transparent;
+    border-top: calc(var(--1px) * 10) solid var(--bg);
+    transform: rotate(0);
+  }
+
+  /* 放大表情尺寸 */
+  .event--message .emote {
+    max-height: calc(var(--event-line-height) * 2);
+  }
+
+  /* 为自定义大表情固定高度，防止 OBS 模式滚动时显示不全 */
+  .event--message .emote.emote--large {
+    min-height: calc(var(--event-line-height) * 2);
+  }
+
+  /* 一个简易的渐变淡出效果，可以让组件边缘看起来没那么突兀 */
+  .event-list {
+    --offset: 30px;
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) var(--offset), rgba(0, 0, 0, 1) calc(100% - var(--offset)), rgba(0, 0, 0, 0));
+            mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) var(--offset), rgba(0, 0, 0, 1) calc(100% - var(--offset)), rgba(0, 0, 0, 0));
+  }
+

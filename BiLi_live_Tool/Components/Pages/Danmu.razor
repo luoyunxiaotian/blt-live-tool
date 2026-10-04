@@ -1,29 +1,25 @@
 @page "/danmu"
 @using System.Text.Json
 @using System.Text.Json.Nodes
+@using BiLi_live_Tool.Services
 @inject KestrelHost Api
 @inject AppConfig Config
 @inject IJSRuntime JS
 @inject EventHub Hub
 
-<div class="blt-pagehead"><h1>弹幕显示浮层</h1><span class="en">DANMU OVERLAY</span></div>
+<div class="blt-pagehead"><h1>弹幕显示浮层</h1><span class="en">DANMU OVERLAY · 现代化重构版</span></div>
 
 <div class="blt-topstrip">
     <span class="seg">浮层状态 <b class="@(_cfg.Enabled ? "green" : "ink-3")">@(_cfg.Enabled ? "已启用" : "已停用")</b></span>
-    <span class="seg">预设皮肤 <b class="amber">@ThemeDisplayName(_cfg.Theme)</b></span>
+    <span class="seg">当前模版 <b class="amber">@GetCurrentThemeDisplayName()</b></span>
     <span class="seg">OBS 链接 <b class="mono" style="font-size:11px">@OverlayUrl()</b></span>
     <span class="seg" style="gap:6px">
         <button class="blt-btn" style="padding:2px 8px" @onclick="CopyOverlayUrl"><BltIcon Name="copy" /> 复制链接</button>
         <a class="blt-btn" style="padding:2px 8px;text-decoration:none" href="@OverlayUrl()" target="_blank" rel="noopener"><BltIcon Name="external" /> 浏览器打开</a>
     </span>
     <span class="seg" style="margin-left:auto;gap:6px">
-        <button class="blt-btn" style="padding:2px 10px" @onclick="SendTestDanmu">测试普通弹幕</button>
-        <button class="blt-btn" style="padding:2px 10px" @onclick="SendTestEmoteDanmu">测试表情弹幕</button>
-        <button class="blt-btn amber" style="padding:2px 10px" @onclick="SendTestGuardDanmu">测试舰长弹幕</button>
-        <button class="blt-btn" style="padding:2px 10px;background:rgba(255,77,109,0.2);color:#ff4d6d;border:1px solid rgba(255,77,109,0.4)" @onclick="SendTestGovernorDanmu">测试总督弹幕</button>
-        <button class="blt-btn" style="padding:2px 10px;background:rgba(156,163,175,0.18);border:1px solid rgba(156,163,175,0.35)" @onclick="SendTestEntryDanmu">测试进房通知</button>
-        <button class="blt-btn subtle" style="padding:2px 10px" @onclick="ResetCurrentThemeDefaults">恢复皮肤默认值</button>
-        <button class="blt-btn blue" style="padding:2px 12px;font-weight:600" @onclick="SaveConfig">保存配置</button>
+        <button class="blt-btn subtle" style="padding:2px 10px" @onclick="ResetCurrentThemeDefaults">恢复默认值</button>
+        <button class="blt-btn blue" style="padding:2px 14px;font-weight:600" @onclick="SaveConfig">保存配置</button>
     </span>
 </div>
 
@@ -34,685 +30,367 @@
     </div>
 }
 
+@* 快捷测试工具条 *@
+<div style="margin-bottom:12px;padding:8px 12px;background:var(--bg-card);border:1px solid var(--line);border-radius:var(--r);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:12px;font-weight:600;color:var(--ink-2);margin-right:4px"><BltIcon Emoji="🧪" /> 仿真测试：</span>
+    <button class="blt-btn" style="padding:2px 9px;font-size:11px" @onclick="SendTestDanmu">普通弹幕</button>
+    <button class="blt-btn" style="padding:2px 9px;font-size:11px" @onclick="SendTestEmoteDanmu">表情弹幕</button>
+    <button class="blt-btn amber" style="padding:2px 9px;font-size:11px" @onclick="SendTestGuardDanmu">舰长弹幕</button>
+    <button class="blt-btn" style="padding:2px 9px;font-size:11px;background:rgba(255,77,109,0.2);color:#ff4d6d;border:1px solid rgba(255,77,109,0.4)" @onclick="SendTestGovernorDanmu">总督弹幕</button>
+    <button class="blt-btn" style="padding:2px 9px;font-size:11px;background:rgba(255,193,7,0.2);color:#ffb300;border:1px solid rgba(255,193,7,0.4)" @onclick="SendTestGift">🎁 测试送礼</button>
+    <button class="blt-btn" style="padding:2px 9px;font-size:11px;background:rgba(233,30,99,0.2);color:#e91e63;border:1px solid rgba(233,30,99,0.4)" @onclick="SendTestSuperChat">💬 醒目留言(SC)</button>
+    <button class="blt-btn" style="padding:2px 9px;font-size:11px;background:rgba(156,39,176,0.2);color:#ab47bc;border:1px solid rgba(156,39,176,0.4)" @onclick="SendTestGuardBuy">👑 开通大航海</button>
+    <button class="blt-btn" style="padding:2px 9px;font-size:11px;background:rgba(156,163,175,0.18);border:1px solid rgba(156,163,175,0.35)" @onclick="SendTestEntryDanmu">🚪 进房播报</button>
+</div>
+
 <div class="blt-grid blt-cols-2" style="align-items:start">
-    @* ── 左侧：配置参数控制台 ── *@
+    @* ── 左侧：现代四大模块 Tab 控制台 ── *@
     <div>
-        @* 皮肤与全局布局 *@
-        <div class="blt-panel" style="margin-bottom:12px">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="🎨" /> 皮肤预设与布局模式</span>
-                <span class="en">THEME & LAYOUT</span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                    <div>
-                        <label class="blt-label">预设皮肤</label>
-                        <select class="blt-input" value="@_cfg.Theme" @onchange="OnThemeSelectChanged">
-                            <option value="classic-glass">★ 现代半透明极简玻璃 (Classic Glass)</option>
-                            <option value="gaming-slate">⚔️ 战术岩灰 · 极简主机 (灰色圆角双层无底框进房)</option>
-                            <option value="frost-palace">❄️ 凛冬圣殿 · 冰凌结晶 (冰晶花环冰魄羽翼)</option>
-                            <option value="violet-cyber">⚡ 幻紫电竞 · 赛博光环 (八边视窗脉冲翼)</option>
-                            <option value="titan-tactical">🛡️ 战术重工 · 钛金雷达 (防爆装甲重装翼)</option>
-                            <option value="monvhuajia">🌸 魔女花嫁 · 梦幻昼白 (精美蕾丝花架)</option>
-                            <option value="monvhuajia-night">🌙 魔女花嫁 · 暗夜幽魅 (紫藤夜月)</option>
-                            <option value="rose-throne">🌹 蔷薇王座 · 哥特绯红 (荆棘皇冠双翼)</option>
-                            <option value="cyber-night">⚡ 赛博迷幻夜 · 霓虹幻境 (机甲光环浮空翼)</option>
-                            <option value="neko-cute">🐾 萌系猫咪 · 糖粉猫爪 (萌猫耳肉球丝带翼)</option>
-                            <option value="strawberry-bunny">🍓 草莓兔兔 · 甜莓奶霜 (萌耳草莓圈双翼)</option>
-                            <option value="magic-card">🔮 魔法卡牌 · 库洛幻彩 (星芒塔罗阵羽翼)</option>
-                            <option value="butterfly-wind">🦋 蝶月风铃 · 幽夜幻蝶 (幽蓝风铃月影蝶翼)</option>
-                            <option value="jinx-graffiti">⚡ 街头涂鸦 · 狂潮电音 (朋克电音闪电翼)</option>
-                            <option value="neon-station">📡 霓虹基站 · 矩阵脉冲 (轨道HUD电路翼)</option>
-                            <option value="tulip-letter">🌷 郁金香信 · 晨曦花园 (复古花信火漆翼)</option>
-                            <option value="star-moon-gold">👑 星海月球 · 坠夜黑金 (奢华星轨星云双翼)</option>
-                            <option value="flower-hymn">⚜️ 花与诗颂 · 欧风古典 (欧式金叶洛可可花枝)</option>
-                            <option value="ark-rhodes">🛡️ 方舟终端 · 罗德战备 (工业装甲雷达双翼)</option>
-                            <option value="rainbow-sunny">🌈 彩虹星晴 · 甜彩梦境 (梦幻云朵七彩光辉翼)</option>
-                            <option value="cat-cookies">🍪 小猫曲奇 · 甜蜜烘焙 (奶油猫耳可颂麦穗翼)</option>
-                            <option value="memory-diary">📒 谁的日记 · 手账贴纸 (胶带相框撕边便签翼)</option>
-                            <option value="eldritch-eye">👁️ 暗夜深渊 · 诡谲骨眼 (魔眼骨环恶魔翼)</option>
-                            <option value="sakura-wafuu">🌸 樱华落雪 · 绯樱结 (水引绯樱花筏翼)</option>
-                            <option value="bakery-shop">🍞 面包小店 · 暖心手账 (牛角包麦穗手账翼)</option>
-                            <option value="candy-game">🍬 糖果游戏 · 炫彩电玩 (像素按键彩虹翼)</option>
-                            <option value="win98-retro">💻 Win98 · 复古视窗 (经典视窗标题栏)</option>
-                            <option value="openlivechat">💬 仿油管气泡 · 纯享风 (YouTube 纯享气泡)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="blt-label">显示排列模式</label>
-                        <select class="blt-input" @bind="_cfg.DisplayMode">
-                            <option value="card">气泡卡片模式 (Card)</option>
-                            <option value="flat">紧凑通栏单行模式 (Flat)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div style="display:flex;gap:16px;margin-top:10px;align-items:center">
-                    <label class="blt-check"><input type="checkbox" @bind="_cfg.Enabled" /> 启用弹幕浮层</label>
-                    <label class="blt-check"><input type="checkbox" @bind="_cfg.ShowMedal" /> 显示粉丝勋章</label>
-                </div>
-            </div>
+        @* Tab 顶层切换栏 *@
+        <div style="display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:10px">
+            <button class="blt-btn @(_activeTab == "theme" ? "blue" : "subtle")" style="font-weight:600;padding:5px 14px" @onclick='() => _activeTab = "theme"'>
+                <BltIcon Emoji="🎨" /> 样式中心
+            </button>
+            <button class="blt-btn @(_activeTab == "basic" ? "blue" : "subtle")" style="font-weight:600;padding:5px 14px" @onclick='() => _activeTab = "basic"'>
+                <BltIcon Emoji="⚙️" /> 基础控制
+            </button>
+            <button class="blt-btn @(_activeTab == "advanced" ? "blue" : "subtle")" style="font-weight:600;padding:5px 14px" @onclick='() => _activeTab = "advanced"'>
+                <BltIcon Emoji="🚀" /> 进阶与特效
+            </button>
+            <button class="blt-btn @(_activeTab == "manage" ? "blue" : "subtle")" style="font-weight:600;padding:5px 14px" @onclick='() => _activeTab = "manage"'>
+                <BltIcon Emoji="💾" /> 备份与管理
+            </button>
         </div>
 
-        @* 常驻固定底框（看板）设置 *@
-        <div class="blt-panel" style="margin-bottom:12px">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="🔲" /> 弹幕常驻固定底框（看板容器）</span>
-                <span class="en">PERMANENT CANVAS BOX</span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                    <label class="blt-check" style="font-weight:600">
-                        <input type="checkbox" @bind="_cfg.ShowBox" /> 开启常驻固定底框（常驻显示弹幕区域，不会随弹幕消失）
-                    </label>
-                    <span style="font-size:12px;color:var(--ink-3)">适合在直播间标定弹幕机固定区域</span>
+        @if (_activeTab == "theme")
+        {
+            @* ── Tab 1: 样式中心（统一皮肤库下拉栏选择） ── *@
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="🎨" /> 弹幕皮肤与模版库 (共 41 款精品样式)</span>
+                    <span class="en">SKIN & TEMPLATE LIBRARY</span>
                 </div>
-
-                @if (_cfg.ShowBox)
-                {
-                    @* 快捷预设尺寸 *@
-                    <div style="margin-bottom:12px;padding:8px 10px;background:var(--bg-2);border-radius:6px;border:1px solid var(--line)">
-                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                            <span style="font-size:11px;color:var(--ink-2);font-weight:600">快捷预设尺寸：</span>
-                            <button class="blt-btn subtle" style="padding:2px 8px;font-size:11px" @onclick="() => SetBoxPreset(320, 450)">小巧精致 (320 × 450)</button>
-                            <button class="blt-btn subtle" style="padding:2px 8px;font-size:11px" @onclick="() => SetBoxPreset(380, 520)">经典标准 (380 × 520)</button>
-                            <button class="blt-btn subtle" style="padding:2px 8px;font-size:11px" @onclick="() => SetBoxPreset(450, 650)">宽屏大版 (450 × 650)</button>
-                            <button class="blt-btn subtle" style="padding:2px 8px;font-size:11px" @onclick="() => SetBoxPreset(380, 780)">瘦长通顶 (380 × 780)</button>
-                        </div>
-                    </div>
-
-                    @* 底框尺寸（宽与高） *@
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-                        <div>
-                            <div style="display:flex;justify-content:space-between">
-                                <label class="blt-label">底框宽度 (@_cfg.BoxWidth px)</label>
-                                <span style="font-size:11px;color:var(--ink-3)">推荐 320~480</span>
-                            </div>
-                            <input type="range" min="200" max="800" step="10" @bind="_cfg.BoxWidth" @bind:event="oninput" style="width:100%" />
-                        </div>
-                        <div>
-                            <div style="display:flex;justify-content:space-between">
-                                <label class="blt-label">底框高度 (@_cfg.BoxHeight px)</label>
-                                <span style="font-size:11px;color:var(--ink-3)">推荐 400~800</span>
-                            </div>
-                            <input type="range" min="200" max="1000" step="10" @bind="_cfg.BoxHeight" @bind:event="oninput" style="width:100%" />
-                        </div>
-                    </div>
-
-                    @* 底框色彩与透明度 *@
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-                        <div>
-                            <label class="blt-label">底框背景颜色</label>
-                            <div style="display:flex;gap:6px;align-items:center">
-                                <input type="color" @bind="_cfg.BoxBgColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                <input class="blt-input mono" @bind="_cfg.BoxBgColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                            </div>
-                        </div>
-                        <div>
-                            <label class="blt-label">底框背景透明度 (@_cfg.BoxBgOpacity%)</label>
-                            <input type="range" min="0" max="100" step="5" @bind="_cfg.BoxBgOpacity" @bind:event="oninput" style="width:100%" />
-                        </div>
-                    </div>
-
-                    @* 底框圆角与内边距 *@
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                        <div>
-                            <label class="blt-label">底框圆角 (@_cfg.BoxRadius px)</label>
-                            <input type="range" min="0" max="36" step="1" @bind="_cfg.BoxRadius" @bind:event="oninput" style="width:100%" />
-                        </div>
-                        <div>
-                            <label class="blt-label">底框内边距 (@_cfg.BoxPadding px)</label>
-                            <input type="range" min="4" max="32" step="2" @bind="_cfg.BoxPadding" @bind:event="oninput" style="width:100%" />
-                        </div>
-                    </div>
-
-                    @* 底框边框设置 *@
-                    <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)">
-                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-                            <label class="blt-check"><input type="checkbox" @bind="_cfg.ShowBoxBorder" /> 开启底框外边框</label>
-                        </div>
-                        @if (_cfg.ShowBoxBorder)
-                        {
-                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-                                <div>
-                                    <label class="blt-label">边框颜色</label>
-                                    <div style="display:flex;gap:6px;align-items:center">
-                                        <input type="color" @bind="_cfg.BoxBorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                        <input class="blt-input mono" @bind="_cfg.BoxBorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="blt-label">边框透明度 (@_cfg.BoxBorderOpacity%)</label>
-                                    <input type="range" min="0" max="100" step="5" @bind="_cfg.BoxBorderOpacity" @bind:event="oninput" style="width:100%" />
-                                </div>
-                                <div>
-                                    <label class="blt-label">边框粗细 (@_cfg.BoxBorderWidth px)</label>
-                                    <input type="range" min="1" max="8" step="1" @bind="_cfg.BoxBorderWidth" @bind:event="oninput" style="width:100%" />
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-
-        @* 昵称设置 *@
-        <div class="blt-panel" style="margin-bottom:12px">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="👤" /> 昵称文字样式</span>
-                <span class="en">NICKNAME</span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                    <div>
-                        <label class="blt-label">昵称字体</label>
-                        <select class="blt-input" @bind="_cfg.NicknameFont">
-                            <option value="system-ui">系统默认无衬线字体</option>
-                            <option value="Microsoft YaHei">微软雅黑</option>
-                            <option value="SimHei">黑体</option>
-                            <option value="KaiTi">楷体</option>
-                            <option value="Consolas">等宽代码体 (Consolas)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="blt-label">昵称字号大小 (@_cfg.NicknameSize px)</label>
-                        <input type="range" min="12" max="32" step="1" @bind="_cfg.NicknameSize" @bind:event="oninput" style="width:100%" />
-                    </div>
-                </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;align-items:center">
-                    <div>
-                        <label class="blt-label">昵称颜色</label>
-                        <div style="display:flex;gap:6px;align-items:center">
-                            <input type="color" @bind="_cfg.NicknameColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                            <input class="blt-input mono" @bind="_cfg.NicknameColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                        </div>
-                    </div>
-                    <div>
-                        <label class="blt-label">昵称透明度 (@_cfg.NicknameOpacity%)</label>
-                        <input type="range" min="0" max="100" step="5" @bind="_cfg.NicknameOpacity" @bind:event="oninput" style="width:100%" />
-                    </div>
-                    <div style="padding-top:14px">
-                        <label class="blt-check"><input type="checkbox" @bind="_cfg.NicknameBold" /> 昵称加粗显示</label>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        @* 弹幕设置 *@
-        <div class="blt-panel" style="margin-bottom:12px">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="💬" /> 弹幕文字样式</span>
-                <span class="en">DANMU CONTENT</span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                    <div>
-                        <label class="blt-label">弹幕字体</label>
-                        <select class="blt-input" @bind="_cfg.DanmuFont">
-                            <option value="system-ui">系统默认无衬线字体</option>
-                            <option value="Microsoft YaHei">微软雅黑</option>
-                            <option value="SimHei">黑体</option>
-                            <option value="KaiTi">楷体</option>
-                            <option value="Consolas">等宽代码体 (Consolas)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="blt-label">弹幕字号大小 (@_cfg.DanmuSize px)</label>
-                        <input type="range" min="12" max="36" step="1" @bind="_cfg.DanmuSize" @bind:event="oninput" style="width:100%" />
-                    </div>
-                </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
-                    <div>
-                        <label class="blt-label">弹幕颜色</label>
-                        <div style="display:flex;gap:6px;align-items:center">
-                            <input type="color" @bind="_cfg.DanmuColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                            <input class="blt-input mono" @bind="_cfg.DanmuColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                        </div>
-                    </div>
-                    <div>
-                        <label class="blt-label">弹幕透明度 (@_cfg.DanmuOpacity%)</label>
-                        <input type="range" min="0" max="100" step="5" @bind="_cfg.DanmuOpacity" @bind:event="oninput" style="width:100%" />
-                    </div>
-                    <div>
-                        <label class="blt-label">描边与阴影</label>
-                        <select class="blt-input" @bind="_cfg.DanmuStroke">
-                            <option value="none">无阴影描边</option>
-                            <option value="shadow">柔和抗疲劳阴影</option>
-                            <option value="heavy-shadow">清晰重阴影</option>
-                            <option value="outline">硬朗黑色描边</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        @* 背景与边框设置 *@
-        <div class="blt-panel" style="margin-bottom:12px">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="🔲" /> 背景与边框</span>
-                <span class="en">BACKGROUND & BORDER</span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-                    <div>
-                        <label class="blt-label">背景底色</label>
-                        <div style="display:flex;gap:6px;align-items:center">
-                            <input type="color" @bind="_cfg.BgColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                            <input class="blt-input mono" @bind="_cfg.BgColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                        </div>
-                    </div>
-                    <div>
-                        <label class="blt-label">背景透明度 (@_cfg.BgOpacity%)</label>
-                        <input type="range" min="0" max="100" step="5" @bind="_cfg.BgOpacity" @bind:event="oninput" style="width:100%" />
-                    </div>
-                    <div>
-                        <label class="blt-label">卡片圆角 (@_cfg.CardRadius px)</label>
-                        <input type="range" min="0" max="28" step="1" @bind="_cfg.CardRadius" @bind:event="oninput" style="width:100%" />
-                    </div>
-                </div>
-
-                <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)">
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
-                        <label class="blt-check"><input type="checkbox" @bind="_cfg.ShowBorder" /> 开启卡片外边框</label>
-                    </div>
-                    @if (_cfg.ShowBorder)
-                    {
-                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-                            <div>
-                                <label class="blt-label">边框颜色</label>
-                                <div style="display:flex;gap:6px;align-items:center">
-                                    <input type="color" @bind="_cfg.BorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                    <input class="blt-input mono" @bind="_cfg.BorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                </div>
-                            </div>
-                            <div>
-                                <label class="blt-label">边框透明度 (@_cfg.BorderOpacity%)</label>
-                                <input type="range" min="0" max="100" step="5" @bind="_cfg.BorderOpacity" @bind:event="oninput" style="width:100%" />
-                            </div>
-                            <div>
-                                <label class="blt-label">边框粗细 (@_cfg.BorderWidth px)</label>
-                                <input type="range" min="1" max="6" step="1" @bind="_cfg.BorderWidth" @bind:event="oninput" style="width:100%" />
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-
-        @* ── 大航海专属个性化样式（舰长 / 提督 / 总督）· 可折叠 ── *@
-        <div class="blt-panel" style="margin-bottom:12px;border:1px solid @(_expandGuardSettings ? "var(--brand)" : "var(--line)")">
-            <div class="blt-panel-head" style="user-select:none;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-                <div style="display:flex;align-items:center;gap:8px">
-                    <span class="t"><BltIcon Emoji="💎" /> 大航海专属个性化样式（舰长 / 提督 / 总督）</span>
-                    <span class="en">GUARD STYLES</span>
-                </div>
-                
-                <div style="display:flex;align-items:center;gap:10px">
-                    @* 折叠状态下的常驻总开关（用户直接点击切换，打开时显示不同边框，关闭时显示全局统一边框） *@
-                    <label class="blt-check" style="margin:0;font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px" @onclick:stopPropagation="true">
-                        <input type="checkbox" @bind="_cfg.CustomGuardStyle" /> 启用专属样式
-                    </label>
-
-                    @if (_cfg.CustomGuardStyle)
-                    {
-                        <span class="blt-pill" style="font-size:10px;background:rgba(186,136,235,0.25);color:#ba88eb;border:1px solid rgba(186,136,235,0.5)">
-                            已启用专属边框与色彩
-                        </span>
-                    }
-                    else
-                    {
-                        <span class="blt-pill" style="font-size:10px;background:rgba(255,255,255,0.06);color:var(--ink-3);border:1px solid var(--line)">
-                            已关闭 · 全局统一边框
-                        </span>
-                    }
-
-                    <button type="button" class="blt-btn subtle" style="padding:2px 8px;font-size:12px;color:var(--brand);font-weight:600" @onclick="() => _expandGuardSettings = !_expandGuardSettings">
-                        @(_expandGuardSettings ? "收起配置 ▲" : "展开配置 ▼")
-                    </button>
-                </div>
-            </div>
-
-            @if (_expandGuardSettings)
-            {
                 <div class="blt-panel-body">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:8px 12px;background:@(_cfg.CustomGuardStyle ? "rgba(186,136,235,0.08)" : "rgba(255,255,255,0.03)");border:1px solid @(_cfg.CustomGuardStyle ? "rgba(186,136,235,0.3)" : "var(--line)");border-radius:6px">
-                        <div style="font-size:12px">
-                            @if (_cfg.CustomGuardStyle)
-                            {
-                                <span style="color:#ba88eb;font-weight:600">🟢 大航海专属样式已启用：</span>
-                                <span style="color:var(--ink-2)">总督、提督、舰长弹幕将展示下方配置的专属独立边框色、背景色与昵称高亮色。</span>
-                            }
-                            else
-                            {
-                                <span style="color:var(--ink-3);font-weight:600">⚪ 大航海专属样式已关闭：</span>
-                                <span style="color:var(--ink-2)">所有弹幕的边框与背景将与普通弹幕保持一致（统一边框）。您仍可在下方预先配置各项色彩，开启后即刻生效。</span>
-                            }
-                        </div>
-                        <button type="button" class="blt-btn subtle" style="padding:3px 10px;font-size:11px;flex-shrink:0;margin-left:12px" @onclick="ResetGuardColors">恢复大航海默认配色</button>
-                    </div>
+                    <p style="font-size:12px;color:var(--ink-3);margin-top:0;margin-bottom:12px">
+                        包含拉普拉斯 (Laplace) 13 款经典热门气泡/描边模板与本地自研 28 款经典矢量皮肤。直接在下方选择即可实时预览与应用：
+                    </p>
 
-                    @* 无论总开关开启还是关闭，下方 3 个大航海级别配置全部可见并可调节！绝不再出现空白！ *@
-                    @* 1. 总督 (Guard Level 1) *@
-                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,77,109,0.35);border-radius:8px;padding:12px;margin-bottom:10px">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                            <div style="display:flex;align-items:center;gap:8px">
-                                <span style="font-size:11px;padding:2px 8px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff">👑 总督 (Governor)</span>
-                                <span style="font-size:11px;color:var(--ink-3)">最高荣誉大航海身份 · 专属尊享配色</span>
-                            </div>
-                            @if (!_cfg.CustomGuardStyle)
-                            {
-                                <span style="font-size:11px;color:var(--ink-3)">（总开关关闭中，开启后生效）</span>
-                            }
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-                            <div>
-                                <label class="blt-label">卡片背景色</label>
-                                <div style="display:flex;gap:6px;align-items:center">
-                                    <input type="color" @bind="_cfg.GovernorBgColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                    <input class="blt-input mono" @bind="_cfg.GovernorBgColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                </div>
-                            </div>
-                            <div>
-                                <label class="blt-label">背景透明度 (@_cfg.GovernorBgOpacity%)</label>
-                                <input type="range" min="0" max="100" step="5" @bind="_cfg.GovernorBgOpacity" @bind:event="oninput" style="width:100%" />
-                            </div>
-                            <div>
-                                <label class="blt-label">昵称/高亮强调色</label>
-                                <div style="display:flex;gap:6px;align-items:center">
-                                    <input type="color" @bind="_cfg.GovernorTextColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                    <input class="blt-input mono" @bind="_cfg.GovernorTextColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-                            <div>
-                                <label class="blt-label">边框颜色</label>
-                                <div style="display:flex;gap:6px;align-items:center">
-                                    <input type="color" @bind="_cfg.GovernorBorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                    <input class="blt-input mono" @bind="_cfg.GovernorBorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                </div>
-                            </div>
-                            <div>
-                                <label class="blt-label">边框透明度 (@_cfg.GovernorBorderOpacity%)</label>
-                                <input type="range" min="0" max="100" step="5" @bind="_cfg.GovernorBorderOpacity" @bind:event="oninput" style="width:100%" />
-                            </div>
-                        </div>
-                    </div>
-
-                    @* 2. 提督 (Guard Level 2) *@
-                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(199,125,255,0.35);border-radius:8px;padding:12px;margin-bottom:10px">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                            <div style="display:flex;align-items:center;gap:8px">
-                                <span style="font-size:11px;padding:2px 8px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#9d4edd,#7b2cbf);color:#fff">🔱 提督 (Admiral)</span>
-                                <span style="font-size:11px;color:var(--ink-3)">高阶大航海荣誉身份 · 专属华丽配色</span>
-                            </div>
-                            @if (!_cfg.CustomGuardStyle)
-                            {
-                                <span style="font-size:11px;color:var(--ink-3)">（总开关关闭中，开启后生效）</span>
-                            }
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-                            <div>
-                                <label class="blt-label">卡片背景色</label>
-                                <div style="display:flex;gap:6px;align-items:center">
-                                    <input type="color" @bind="_cfg.AdmiralBgColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                    <input class="blt-input mono" @bind="_cfg.AdmiralBgColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                </div>
-                            </div>
-                            <div>
-                                <label class="blt-label">背景透明度 (@_cfg.AdmiralBgOpacity%)</label>
-                                <input type="range" min="0" max="100" step="5" @bind="_cfg.AdmiralBgOpacity" @bind:event="oninput" style="width:100%" />
-                            </div>
-                            <div>
-                                <label class="blt-label">昵称/高亮强调色</label>
-                                <div style="display:flex;gap:6px;align-items:center">
-                                    <input type="color" @bind="_cfg.AdmiralTextColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                    <input class="blt-input mono" @bind="_cfg.AdmiralTextColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-                            <div>
-                                <label class="blt-label">边框颜色</label>
-                                <div style="display:flex;gap:6px;align-items:center">
-                                    <input type="color" @bind="_cfg.AdmiralBorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                    <input class="blt-input mono" @bind="_cfg.AdmiralBorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                </div>
-                            </div>
-                            <div>
-                                <label class="blt-label">边框透明度 (@_cfg.AdmiralBorderOpacity%)</label>
-                                <input type="range" min="0" max="100" step="5" @bind="_cfg.AdmiralBorderOpacity" @bind:event="oninput" style="width:100%" />
-                            </div>
-                        </div>
-                    </div>
-
-                    @* 3. 舰长 (Guard Level 3) *@
-                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(78,168,222,0.35);border-radius:8px;padding:12px">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                            <div style="display:flex;align-items:center;gap:8px">
-                                <span style="font-size:11px;padding:2px 8px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff">⚓ 舰长 (Captain)</span>
-                                <span style="font-size:11px;color:var(--ink-3)">经典大航海中坚力量 · 专属深蓝配色</span>
-                            </div>
-                            @if (!_cfg.CustomGuardStyle)
-                            {
-                                <span style="font-size:11px;color:var(--ink-3)">（总开关关闭中，开启后生效）</span>
-                            }
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-                            <div>
-                                <label class="blt-label">卡片背景色</label>
-                                <div style="display:flex;gap:6px;align-items:center">
-                                    <input type="color" @bind="_cfg.CaptainBgColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                    <input class="blt-input mono" @bind="_cfg.CaptainBgColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                </div>
-                            </div>
-                            <div>
-                                <label class="blt-label">背景透明度 (@_cfg.CaptainBgOpacity%)</label>
-                                <input type="range" min="0" max="100" step="5" @bind="_cfg.CaptainBgOpacity" @bind:event="oninput" style="width:100%" />
-                            </div>
-                            <div>
-                                <label class="blt-label">昵称/高亮强调色</label>
-                                <div style="display:flex;gap:6px;align-items:center">
-                                    <input type="color" @bind="_cfg.CaptainTextColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                    <input class="blt-input mono" @bind="_cfg.CaptainTextColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-                            <div>
-                                <label class="blt-label">边框颜色</label>
-                                <div style="display:flex;gap:6px;align-items:center">
-                                    <input type="color" @bind="_cfg.CaptainBorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                    <input class="blt-input mono" @bind="_cfg.CaptainBorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                </div>
-                            </div>
-                            <div>
-                                <label class="blt-label">边框透明度 (@_cfg.CaptainBorderOpacity%)</label>
-                                <input type="range" min="0" max="100" step="5" @bind="_cfg.CaptainBorderOpacity" @bind:event="oninput" style="width:100%" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-        </div>
-
-        @* 头像设置 *@
-        <div class="blt-panel" style="margin-bottom:12px">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="🖼" /> 观众头像设置</span>
-                <span class="en">AVATAR</span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-                    <label class="blt-check"><input type="checkbox" @bind="_cfg.ShowAvatar" /> 显示观众头像（取消勾选则一键隐藏头像，仅保留文字）</label>
-                </div>
-                @if (_cfg.ShowAvatar)
-                {
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                        <div>
-                            <label class="blt-label">头像外形</label>
-                            <select class="blt-input" @bind="_cfg.AvatarShape">
-                                <option value="circle">圆形 (Circle)</option>
-                                <option value="rounded">圆角矩形 (Rounded)</option>
-                                <option value="square">正方形 (Square)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="blt-label">头像大小 (@_cfg.AvatarSize px)</label>
-                            <input type="range" min="20" max="60" step="2" @bind="_cfg.AvatarSize" @bind:event="oninput" style="width:100%" />
-                        </div>
-                    </div>
-
-                    <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)">
-                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
-                            <label class="blt-check"><input type="checkbox" @bind="_cfg.ShowAvatarBorder" /> 开启头像外边框</label>
-                        </div>
-                        @if (_cfg.ShowAvatarBorder)
-                        {
-                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-                                <div>
-                                    <label class="blt-label">头像边框颜色</label>
-                                    <div style="display:flex;gap:6px;align-items:center">
-                                        <input type="color" @bind="_cfg.AvatarBorderColor" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0" />
-                                        <input class="blt-input mono" @bind="_cfg.AvatarBorderColor" style="flex:1;padding:2px 6px;font-size:11px" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="blt-label">边框透明度 (@_cfg.AvatarBorderOpacity%)</label>
-                                    <input type="range" min="0" max="100" step="5" @bind="_cfg.AvatarBorderOpacity" @bind:event="oninput" style="width:100%" />
-                                </div>
-                                <div>
-                                    <label class="blt-label">边框粗细 (@_cfg.AvatarBorderWidth px)</label>
-                                    <input type="range" min="1" max="5" step="1" @bind="_cfg.AvatarBorderWidth" @bind:event="oninput" style="width:100%" />
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-
-        @* 动效与停留时间 *@
-        <div class="blt-panel">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="⏱" /> 动效与展示规则</span>
-                <span class="en">ANIMATION & LIFETIME</span>
-            </div>
-            <div class="blt-panel-body">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-                    <div>
-                        <label class="blt-label">入场动画</label>
-                        <select class="blt-input" @bind="_cfg.Animation">
-                            <option value="slide">底部平滑滑入 (Slide Up)</option>
-                            <option value="fade">原地平滑淡入 (Fade In)</option>
-                            <option value="bounce">灵动弹跳入场 (Bounce In)</option>
-                            <option value="none">秒出无动效 (Instant)</option>
+                    @* 统一选择下拉框 *@
+                    <div style="margin-bottom:12px">
+                        <label class="blt-label" style="font-size:13px;font-weight:700">切换当前生效的皮肤/模版</label>
+                        <select class="blt-input" style="font-weight:600;font-size:13px;padding:8px 12px;background:var(--bg-2);border:2px solid var(--accent,#3b82f6)" value="@GetUnifiedThemeValue()" @onchange="OnUnifiedThemeSelected">
+                            <optgroup label="🌟 拉普拉斯 (Laplace) 精品热门模板 (13 款)">
+                                @foreach (var tmpl in LaplaceThemes)
+                                {
+                                    <option value="@($"laplace:{tmpl.Id}")">★ [Laplace] @tmpl.Name</option>
+                                }
+                            </optgroup>
+                            <optgroup label="🎨 本地自研经典矢量皮肤库 (28 款)">
+                                @foreach (var skin in ClassicSkins)
+                                {
+                                    <option value="@($"classic:{skin.Id}")">🎨 [自研] @skin.Name</option>
+                                }
+                            </optgroup>
                         </select>
                     </div>
-                    <div>
-                        <label class="blt-label">同屏最大弹幕条数 (@_cfg.MaxCount 条)</label>
-                        <input type="range" min="3" max="30" step="1" @bind="_cfg.MaxCount" @bind:event="oninput" style="width:100%" />
-                    </div>
-                </div>
 
-                @* 独立突出的持续时间控件 *@
-                <div style="padding:10px;background:rgba(255,255,255,0.03);border:1px solid var(--line);border-radius:8px">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                        <label class="blt-label" style="margin:0;font-weight:600">
-                            ⏱ 弹幕显示持续时间（每条弹幕停留多久）
-                        </label>
-                        <span class="blt-badge" style="font-size:11px;font-weight:600;color:var(--brand)">
-                            @(_cfg.StayDuration == 0 ? "常驻不消失" : $"{_cfg.StayDuration} 秒")
-                        </span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-                        <input type="range" min="0" max="60" step="1" @bind="_cfg.StayDuration" @bind:event="oninput" style="flex:1" />
-                        <div style="display:flex;align-items:center;gap:4px;width:90px">
-                            <input type="number" min="0" max="120" class="blt-input mono" @bind="_cfg.StayDuration" style="text-align:center;padding:2px 4px" />
-                            <span style="font-size:11px;color:var(--ink-3)">秒</span>
-                        </div>
-                    </div>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-                        <span style="font-size:11px;color:var(--ink-3)">快捷预设：</span>
-                        <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => _cfg.StayDuration = 5">5秒</button>
-                        <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => _cfg.StayDuration = 10">10秒</button>
-                        <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => _cfg.StayDuration = 15">15秒 (推荐)</button>
-                        <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => _cfg.StayDuration = 30">30秒</button>
-                        <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => _cfg.StayDuration = 0">常驻不消失 (0秒)</button>
-                    </div>
-                    <div style="font-size:11px;color:var(--ink-3);margin-top:6px">
-                        💡 提示：设置为 0 秒时弹幕将常驻显示，不自动淡出移除，直到超出同屏最大条数被新弹幕顶替。
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        @* 边缘虚化渐隐与进房播报设置 *@
-        <div class="blt-panel" style="margin-top:12px">
-            <div class="blt-panel-head">
-                <span class="t"><BltIcon Emoji="🌫️" /> 边缘虚化消失与进房播报</span>
-                <span class="en">EDGE FADE & ROOM ENTRY</span>
-            </div>
-            <div class="blt-panel-body">
-                @* 边缘虚化渐隐模式 *@
-                <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px dashed var(--line)">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                        <label class="blt-label" style="margin:0;font-weight:600">
-                            边缘虚化渐隐模式 (通用)
-                        </label>
-                        <span style="font-size:11px;color:var(--ink-3)">OBS 硬件加速遮罩渐隐</span>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-                        <div>
-                            <select class="blt-input" @bind="_cfg.EdgeFadeMode">
-                                <option value="none">不启用虚化 (默认完整显示)</option>
-                                <option value="top">仅顶部虚化消失 (向上滚动淡出)</option>
-                                <option value="bottom">仅底部虚化消失 (底部进场渐入)</option>
-                                <option value="both">顶部与底部双向虚化消失 (推荐)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <div style="display:flex;align-items:center;gap:6px">
-                                <span style="font-size:11px;color:var(--ink-3);white-space:nowrap">虚化距离 (@_cfg.EdgeFadeDistance px)：</span>
-                                <input type="range" min="30" max="150" step="5" @bind="_cfg.EdgeFadeDistance" @bind:event="oninput" style="flex:1" disabled="@(_cfg.EdgeFadeMode == "none")" />
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display:flex;gap:6px;align-items:center">
-                        <span style="font-size:11px;color:var(--ink-3)">距离预设：</span>
-                        <button class="blt-btn subtle" style="padding:1px 8px;font-size:11px" disabled="@(_cfg.EdgeFadeMode == "none")" @onclick="() => _cfg.EdgeFadeDistance = 40">40px 轻度</button>
-                        <button class="blt-btn subtle" style="padding:1px 8px;font-size:11px" disabled="@(_cfg.EdgeFadeMode == "none")" @onclick="() => _cfg.EdgeFadeDistance = 80">80px 标准 (推荐)</button>
-                        <button class="blt-btn subtle" style="padding:1px 8px;font-size:11px" disabled="@(_cfg.EdgeFadeMode == "none")" @onclick="() => _cfg.EdgeFadeDistance = 120">120px 大范围</button>
-                    </div>
-                </div>
-
-                @* 进房欢迎通知设置 *@
-                <div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                        <label class="blt-check" style="font-weight:600">
-                            <input type="checkbox" @bind="_cfg.ShowEnterRoom" /> 显示观众进房通知（无底框极简穿插）
-                        </label>
-                        <button class="blt-btn subtle" style="padding:2px 8px;font-size:11px" @onclick="SendTestEntryDanmu">测试进房通知</button>
-                    </div>
-                    @if (_cfg.ShowEnterRoom)
-                    {
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-                            <div>
-                                <label class="blt-label">进房后缀文案</label>
-                                <input class="blt-input" @bind="_cfg.EnterRoomText" placeholder="进入直播间" />
-                            </div>
-                            <div style="display:flex;align-items:flex-end">
-                                <span style="font-size:11px;color:var(--ink-3);line-height:1.4;margin-bottom:4px">
-                                    💡 进房消息将以无底框、单行紧凑轻量样式穿插于弹幕流中，避免遮挡游戏画面。
+                    @* 当前选中模版概览卡片 *@
+                    <div style="padding:12px 14px;border-radius:var(--r);background:var(--bg-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px">
+                        <div style="flex:1;min-width:0">
+                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+                                <span style="font-weight:700;font-size:14px;color:var(--accent,#3b82f6)">@GetCurrentThemeDisplayName()</span>
+                                <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(59,130,246,0.15);color:#3b82f6;font-weight:700">
+                                    @(_cfg.ThemeType == "laplace" ? "Laplace 模板" : "自研矢量皮肤")
                                 </span>
                             </div>
+                            <div style="font-size:12px;color:var(--ink-2);line-height:1.4">
+                                @GetCurrentThemeDesc()
+                            </div>
                         </div>
-                    }
+                        <button class="blt-btn subtle" style="padding:4px 12px;font-size:11px;flex-shrink:0" @onclick="ResetCurrentThemeDefaults">
+                            恢复此模版默认值
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            @* 2. 配色模式与画布尺寸控制 *@
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="📐" /> 配色方案与画布尺寸</span>
+                    <span class="en">COLOR & CANVAS SIZE</span>
+                </div>
+                <div class="blt-panel-body">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                        <div>
+                            <label class="blt-label">深浅色模式 (Scheme)</label>
+                            <select class="blt-input" @bind="_cfg.ColorScheme">
+                                <option value="dark">极夜深色 (Dark) · 推荐游戏/夜间场景</option>
+                                <option value="light">清透浅色 (Light) · 适配高光亮色背景</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="blt-label">常驻固定底框背景开关</label>
+                            <div style="padding-top:6px">
+                                <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowBox" /> 开启常驻固定底衬视窗</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    @* 画布底框尺寸预设与滑块 *@
+                    <div style="padding-top:10px;border-top:1px dashed var(--line)">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                            <span style="font-size:12px;font-weight:600;color:var(--ink-2)">OBS 视窗尺寸预设</span>
+                            <div style="display:flex;gap:4px">
+                                <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => SetBoxPreset(380, 500)">经典 380×500</button>
+                                <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => SetBoxPreset(450, 650)">宽屏 450×650</button>
+                                <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => SetBoxPreset(320, 450)">紧凑 320×450</button>
+                                <button class="blt-btn subtle" style="padding:1px 6px;font-size:11px" @onclick="() => SetBoxPreset(300, 700)">细长 300×700</button>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                            <div>
+                                <label class="blt-label">宽度: @_cfg.BoxWidth px</label>
+                                <input type="range" class="blt-range" min="240" max="800" step="10" @bind="_cfg.BoxWidth" @bind:event="oninput" />
+                            </div>
+                            <div>
+                                <label class="blt-label">高度: @_cfg.BoxHeight px</label>
+                                <input type="range" class="blt-range" min="300" max="1080" step="10" @bind="_cfg.BoxHeight" @bind:event="oninput" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (_activeTab == "basic")
+        {
+            @* ── Tab 2: 基础控制 (排版位置 + 元素显隐 + 事件过滤 + 阈值) ── *@
+
+            @* 1. 元素显示位置与排版布局专区 *@
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="📐" /> 元素显示位置与排版布局</span>
+                    <span class="en">POSITION & LAYOUT</span>
+                </div>
+                <div class="blt-panel-body">
+                    <p style="font-size:12px;color:var(--ink-3);margin-top:0;margin-bottom:12px">
+                        自由决定头像、用户 ID 与身份勋章的呈现位置。右侧 1:1 画布与 OBS 浮层实时同步联动：
+                    </p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                        <div>
+                            <label class="blt-label" style="font-weight:700">👤 用户头像显示位置</label>
+                            <select class="blt-input" value="@_cfg.AvatarPosition" @onchange="OnAvatarPositionChanged">
+                                <option value="left">👈 左侧横向排列（头像在左，右侧为 ID 与弹幕，经典排版）</option>
+                                <option value="top-left">↖️ 左上方紧凑排列（顶部左侧显示头像+ID，弹幕换行在下方）</option>
+                                <option value="top-center">⬆️ 上方居中对称排列（头像在顶部居中，ID在中间，弹幕在下方居中）</option>
+                                <option value="hidden">🚫 隐藏头像（纯文字/气泡流）</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="blt-label" style="font-weight:700">🏷️ 勋章与身份徽章相对位置</label>
+                            <select class="blt-input" value="@_cfg.BadgePosition" @onchange="OnBadgePositionChanged">
+                                <option value="before-name">ID 前面（[勋章] [舰长] 用户名）</option>
+                                <option value="after-name">ID 后面（用户名 [勋章] [舰长]）</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    @* 细颗粒度元素显隐开关 *@
+                    <div style="padding-top:10px;border-top:1px dashed var(--line)">
+                        <label class="blt-label" style="margin-bottom:8px">元素显隐开关（修改后秒级实时同步 OBS）</label>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                            <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowAvatar" @bind:after="AutoSyncConfig" /> 显示用户头像</label>
+                            <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowUsername" @bind:after="AutoSyncConfig" /> 显示用户名 ID</label>
+                            <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowMedal" @bind:after="AutoSyncConfig" /> 显示粉丝勋章</label>
+                            <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowGuardBadge" @bind:after="AutoSyncConfig" /> 显示大航海舰队徽章</label>
+                            <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowModBadge" @bind:after="AutoSyncConfig" /> 显示房管身份徽章</label>
+                            <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowGiftIcon" @bind:after="AutoSyncConfig" /> 显示礼物专属图标</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* 2. 细颗粒度事件过滤开关 *@
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="🎯" /> 事件类型过滤开关</span>
+                    <span class="en">EVENT FILTERS</span>
+                </div>
+                <div class="blt-panel-body">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                        <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowDanmaku" /> 接收普通弹幕</label>
+                        <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowGift" /> 接收送礼通知</label>
+                        <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowSuperChat" /> 接收醒目留言 (SC)</label>
+                        <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowGuardBuy" /> 接收开通大航海通知</label>
+                        <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.ShowEnterRoom" /> 接收观众进房播报</label>
+                        <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.FilterFreeGift" /> 过滤免费/银瓜子小礼物</label>
+                    </div>
+                </div>
+            </div>
+
+            @* 3. 礼物阈值与停留时间 *@
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="⏱️" /> 阈值过滤与排版时间</span>
+                    <span class="en">THRESHOLDS & TIMING</span>
+                </div>
+                <div class="blt-panel-body">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div>
+                            <label class="blt-label">最低送礼显示金额 (元): @_cfg.GiftPriceAbove</label>
+                            <input type="range" class="blt-range" min="0" max="100" step="1" @bind="_cfg.GiftPriceAbove" @bind:event="oninput" />
+                            <div style="font-size:11px;color:var(--ink-3);margin-top:2px">低于此金额的送礼将静默忽略，不占用弹幕区域</div>
+                        </div>
+                        <div>
+                            <label class="blt-label">弹幕停留时长: @_cfg.StayDuration 秒 (0 为不淡出)</label>
+                            <input type="range" class="blt-range" min="0" max="60" step="1" @bind="_cfg.StayDuration" @bind:event="oninput" />
+                        </div>
+                        <div>
+                            <label class="blt-label">最大同屏弹幕数: @_cfg.MaxCount 条</label>
+                            <input type="range" class="blt-range" min="5" max="50" step="1" @bind="_cfg.MaxCount" @bind:event="oninput" />
+                        </div>
+                        <div>
+                            <label class="blt-label">基础字号大小: @_cfg.BaseFontSize px</label>
+                            <input type="range" class="blt-range" min="12" max="32" step="1" @bind="_cfg.BaseFontSize" @bind:event="oninput" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (_activeTab == "advanced")
+        {
+            @* ── Tab 3: 进阶与特效 ── *@
+
+            @* 1. 自定义 CSS 代码注入 *@
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="💻" /> 自定义 CSS 源码注入 (支持高级魔改)</span>
+                    <span class="en">CUSTOM CSS INJECTION</span>
+                </div>
+                <div class="blt-panel-body">
+                    <p style="font-size:12px;color:var(--ink-3);margin-top:0;margin-bottom:8px">
+                        支持实时向 OBS 浮层注入自定义 CSS 规则。可点击一键载入当前选定模版的完整 CSS 源码进行二次魔改：
+                    </p>
+                    <div style="display:flex;gap:8px;margin-bottom:8px">
+                        <button class="blt-btn subtle" style="font-size:11px;padding:3px 10px" @onclick="LoadSelectedTemplateCss">
+                            📄 载入当前模版 CSS 源码到编辑区
+                        </button>
+                        <button class="blt-btn subtle" style="font-size:11px;padding:3px 10px" @onclick="ClearCustomCss">
+                            清空自定义 CSS
+                        </button>
+                    </div>
+                    <textarea class="blt-input mono" rows="8" style="width:100%;font-size:12px;line-height:1.4" placeholder="在此输入你的自定义 CSS 代码，如：.danmu-text { font-weight: 800; }" @bind="_cfg.CustomCss"></textarea>
+                </div>
+            </div>
+
+            @* 2. 边缘渐隐遮罩 *@
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="🌫️" /> 边缘虚化渐隐遮罩</span>
+                    <span class="en">EDGE FADING MASK</span>
+                </div>
+                <div class="blt-panel-body">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                        <div>
+                            <label class="blt-label">虚化模式</label>
+                            <select class="blt-input" @bind="_cfg.EdgeFadeMode">
+                                <option value="none">无遮罩 (自然平铺)</option>
+                                <option value="top">顶部虚化渐隐 (弹幕向上滑出时自然淡出)</option>
+                                <option value="bottom">底部虚化渐隐 (弹幕刚入场时淡出)</option>
+                                <option value="both">双向虚化渐隐 (上下均平滑过渡)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="blt-label">虚化渐隐距离: @_cfg.EdgeFadeDistance px</label>
+                            <input type="range" class="blt-range" min="30" max="180" step="5" @bind="_cfg.EdgeFadeDistance" @bind:event="oninput" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* 3. 大航海个性化配色定制 *@
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head" style="cursor:pointer" @onclick="() => _expandGuardSettings = !_expandGuardSettings">
+                    <span class="t"><BltIcon Emoji="👑" /> 大航海舰队色彩深度定制</span>
+                    <span class="en">FLEET COLORS</span>
+                    <span class="right" style="font-size:11px;color:var(--ink-3)">@(_expandGuardSettings ? "收起 ▲" : "展开 ▼")</span>
+                </div>
+                @if (_expandGuardSettings)
+                {
+                    <div class="blt-panel-body">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                            <label class="blt-checkbox"><input type="checkbox" @bind="_cfg.CustomGuardStyle" /> 启用大航海独立个性色彩覆盖</label>
+                            <button class="blt-btn subtle" style="padding:1px 8px;font-size:11px" @onclick="ResetGuardColors">恢复默认配色</button>
+                        </div>
+                        @if (_cfg.CustomGuardStyle)
+                        {
+                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                                <div style="padding:8px;border-radius:var(--r);background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.3)">
+                                    <div style="font-weight:700;color:#ff4d6d;font-size:12px;margin-bottom:6px">👑 总督 (Level 1)</div>
+                                    <label class="blt-label">背景色</label><input type="color" class="blt-input" @bind="_cfg.GovernorBgColor" />
+                                    <label class="blt-label">边框色</label><input type="color" class="blt-input" @bind="_cfg.GovernorBorderColor" />
+                                    <label class="blt-label">文字色</label><input type="color" class="blt-input" @bind="_cfg.GovernorTextColor" />
+                                </div>
+                                <div style="padding:8px;border-radius:var(--r);background:rgba(199,125,255,0.08);border:1px solid rgba(199,125,255,0.3)">
+                                    <div style="font-weight:700;color:#c77dff;font-size:12px;margin-bottom:6px">⚡ 提督 (Level 2)</div>
+                                    <label class="blt-label">背景色</label><input type="color" class="blt-input" @bind="_cfg.AdmiralBgColor" />
+                                    <label class="blt-label">边框色</label><input type="color" class="blt-input" @bind="_cfg.AdmiralBorderColor" />
+                                    <label class="blt-label">文字色</label><input type="color" class="blt-input" @bind="_cfg.AdmiralTextColor" />
+                                </div>
+                                <div style="padding:8px;border-radius:var(--r);background:rgba(78,168,222,0.08);border:1px solid rgba(78,168,222,0.3)">
+                                    <div style="font-weight:700;color:#4ea8de;font-size:12px;margin-bottom:6px">⚓ 舰长 (Level 3)</div>
+                                    <label class="blt-label">背景色</label><input type="color" class="blt-input" @bind="_cfg.CaptainBgColor" />
+                                    <label class="blt-label">边框色</label><input type="color" class="blt-input" @bind="_cfg.CaptainBorderColor" />
+                                    <label class="blt-label">文字色</label><input type="color" class="blt-input" @bind="_cfg.CaptainTextColor" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else if (_activeTab == "manage")
+        {
+            @* ── Tab 4: 备份与管理 ── *@
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="💾" /> 配置备份与导出</span>
+                    <span class="en">BACKUP & EXPORT</span>
+                </div>
+                <div class="blt-panel-body">
+                    <div style="display:flex;gap:8px;margin-bottom:8px">
+                        <button class="blt-btn" @onclick="CopyConfigJson"><BltIcon Name="copy" /> 复制配置 JSON 到剪贴板</button>
+                    </div>
+                    <textarea class="blt-input mono" rows="5" readonly style="width:100%;font-size:11px;background:var(--bg-2);color:var(--ink-2)">@ExportConfigJson()</textarea>
+                </div>
+            </div>
+
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="📥" /> 配置导入与还原</span>
+                    <span class="en">IMPORT & RESTORE</span>
+                </div>
+                <div class="blt-panel-body">
+                    <textarea class="blt-input mono" rows="3" style="width:100%;font-size:11px" placeholder="在此粘贴导出的配置 JSON 字符串..." @bind="_importJsonInput"></textarea>
+                    <div style="margin-top:8px">
+                        <button class="blt-btn blue" @onclick="ImportConfigFromJson">导入并应用此配置</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="blt-panel" style="margin-bottom:12px">
+                <div class="blt-panel-head">
+                    <span class="t"><BltIcon Emoji="📺" /> OBS 浏览器源配置指南</span>
+                    <span class="en">OBS BROWSER SETUP TIPS</span>
+                </div>
+                <div class="blt-panel-body" style="font-size:12px;line-height:1.6;color:var(--ink-2)">
+                    <div>1. 在 OBS Studio 的来源列表中点击 <b>[+]</b>，选择 <b>[浏览器]</b> 源。</div>
+                    <div>2. URL 填写上方顶栏中的 <code>@OverlayUrl()</code>。</div>
+                    <div>3. 推荐分辨率：宽度设置为 <code>@(_cfg.BoxWidth + 40)</code>，高度设置为 <code>@(_cfg.BoxHeight + 40)</code>。</div>
+                    <div>4. 勾选 <b>[关闭源时卸载浏览器]</b> 与 <b>[在场景变为可见时刷新浏览器]</b>，体验更佳。</div>
+                </div>
+            </div>
+        }
     </div>
 
     @* ── 右侧：1:1 动态实时交互预览画布 ── *@
@@ -742,27 +420,7 @@
                         <div style="@PreviewStageStyle()">
                             @* 模拟弹幕 1：普通粉丝 *@
                             <div style="@ItemCardStyle(0)">
-                                @if (IsGamingSlateTheme)
-                                {
-                                    <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(0);box-shadow:0 0 4px @GamingSlateBarColor(0);margin-right:2px;flex-shrink:0;align-self:center"></div>
-                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
-                                        <div style="display:flex;align-items:center;gap:6px">
-                                            @if (_cfg.ShowAvatar)
-                                            {
-                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px">
-                                                    <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                                </div>
-                                            }
-                                            @if (_cfg.ShowMedal)
-                                            {
-                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.12</span>
-                                            }
-                                            <span style="@UnameStyle(0)">喵喵小布丁</span>
-                                        </div>
-                                        <div style="@DanmuTextStyle()">主播下午好呀！今天播什么好玩的游戏？</div>
-                                    </div>
-                                }
-                                else
+                                @if (_cfg.ThemeType == "classic")
                                 {
                                     @if (IsWin98Theme)
                                     {
@@ -778,86 +436,81 @@
                                     {
                                         <div style="position:absolute;right:4px;top:0;bottom:0;width:140px;background:url('@ThemePatternUrl(0)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.85;z-index:0"></div>
                                     }
-                                    <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
-                                        @if (_cfg.ShowAvatar)
-                                        {
-                                            <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
-                                                <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                                @if (HasThemeOrnaments)
-                                                {
-                                                    <img src="@ThemeAvatarFrameUrl(0)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
-                                                }
-                                            </div>
-                                        }
-                                        @if (HasThemeOrnaments)
-                                        {
-                                            <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
-                                        }
-                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
-                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
-                                                @if (_cfg.ShowMedal)
-                                                {
-                                                    <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.12</span>
-                                                }
-                                                @if (HasThemeOrnaments)
-                                                {
-                                                    <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(0)">
-                                                        <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
-                                                        <span style="@UnameStyle(0)">喵喵小布丁</span>
-                                                        <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
-                                                    </div>
-                                                }
-                                                else
-                                                {
+                                }
+
+                                @{
+                                    var isTop0 = _cfg.AvatarPosition == "top-left" || _cfg.AvatarPosition == "top-center";
+                                    var isCenter0 = _cfg.AvatarPosition == "top-center";
+                                    var showAv0 = _cfg.ShowAvatar && _cfg.AvatarPosition != "hidden";
+                                }
+
+                                @if (isTop0)
+                                {
+                                    <div style="display:flex;flex-direction:column;gap:5px;width:100%;@(isCenter0 ? "align-items:center;text-align:center;" : "align-items:flex-start;")">
+                                        <div style="display:flex;align-items:center;gap:7px;width:100%;flex-wrap:wrap;@(isCenter0 ? "justify-content:center;" : "")">
+                                            @if (showAv0)
+                                            {
+                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px">
+                                                    <img src="@TestFanAvatar" style="@AvatarImageStyle()" alt="avatar" />
+                                                </div>
+                                            }
+                                            @if (_cfg.ShowUsername)
+                                            {
+                                                <div style="display:flex;align-items:center;gap:5px">
+                                                    @if (_cfg.BadgePosition == "before-name" && _cfg.ShowMedal)
+                                                    {
+                                                        <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.12</span>
+                                                    }
                                                     <span style="@UnameStyle(0)">喵喵小布丁</span>
-                                                }
+                                                    @if (_cfg.BadgePosition == "after-name" && _cfg.ShowMedal)
+                                                    {
+                                                        <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.12</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <div style="@(isCenter0 ? "text-align:center;width:100%;" : "width:100%;")">
+                                            <div style="@DanmuTextStyle(0)">主播下午好呀！今天播什么好玩的游戏？</div>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div style="display:flex;align-items:flex-start;gap:10px;width:100%">
+                                        @if (_cfg.ThemeType == "classic" && IsGamingSlateTheme)
+                                        {
+                                            <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(0);box-shadow:0 0 4px @GamingSlateBarColor(0);margin-right:2px;flex-shrink:0;align-self:center"></div>
+                                        }
+                                        @if (showAv0)
+                                        {
+                                            <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px">
+                                                <img src="@TestFanAvatar" style="@AvatarImageStyle()" alt="avatar" />
                                             </div>
-                                            <div style="@DanmuContentBoxStyle(0)">
-                                                <div style="@DanmuTextStyle()">主播下午好呀！今天播什么好玩的游戏？</div>
-                                            </div>
+                                        }
+                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                                            @if (_cfg.ShowUsername)
+                                            {
+                                                <div style="display:flex;align-items:center;gap:5px">
+                                                    @if (_cfg.BadgePosition == "before-name" && _cfg.ShowMedal)
+                                                    {
+                                                        <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.12</span>
+                                                    }
+                                                    <span style="@UnameStyle(0)">喵喵小布丁</span>
+                                                    @if (_cfg.BadgePosition == "after-name" && _cfg.ShowMedal)
+                                                    {
+                                                        <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.12</span>
+                                                    }
+                                                </div>
+                                            }
+                                            <div style="@DanmuTextStyle(0)">主播下午好呀！今天播什么好玩的游戏？</div>
                                         </div>
                                     </div>
                                 }
                             </div>
 
-                            @* 模拟进房通知：无底框轻量单行 *@
-                            @if (_cfg.ShowEnterRoom)
-                            {
-                                <div style="display:flex;align-items:center;gap:6px;padding:3px 6px;margin:2px 0">
-                                    <div style="width:20px;height:20px;flex-shrink:0">
-                                        <img src="@TestFanAvatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block" alt="avatar" />
-                                    </div>
-                                    <div style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:1.2">
-                                        <span style="font-weight:600;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,0.8)">甜茶小布丁</span>
-                                        <span style="font-weight:400;color:#9ca3af;font-size:12.5px;text-shadow:0 1px 2px rgba(0,0,0,0.7)">@(!string.IsNullOrEmpty(_cfg.EnterRoomText) ? _cfg.EnterRoomText : "进入直播间")</span>
-                                    </div>
-                                </div>
-                            }
-
-                            @* 模拟弹幕 2：舰长专享 *@
+                            @* 模拟弹幕 2：大航海舰长 *@
                             <div style="@ItemCardStyle(3)">
-                                @if (IsGamingSlateTheme)
-                                {
-                                    <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(3);box-shadow:0 0 4px @GamingSlateBarColor(3);margin-right:2px;flex-shrink:0;align-self:center"></div>
-                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
-                                        <div style="display:flex;align-items:center;gap:6px">
-                                            @if (_cfg.ShowAvatar)
-                                            {
-                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px">
-                                                    <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                                </div>
-                                            }
-                                            <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
-                                            @if (_cfg.ShowMedal)
-                                            {
-                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.24</span>
-                                            }
-                                            <span style="@UnameStyle(3)">星空守望者</span>
-                                        </div>
-                                        <div style="@DanmuTextStyle()">打卡上舰！主播继续加油，刚刚那波操作太帅了！666666</div>
-                                    </div>
-                                }
-                                else
+                                @if (_cfg.ThemeType == "classic")
                                 {
                                     @if (IsWin98Theme)
                                     {
@@ -875,212 +528,131 @@
                                         <img src="@ThemeWingLeftUrl()" style="position:absolute;left:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-l" />
                                         <img src="@ThemeWingRightUrl()" style="position:absolute;right:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-r" />
                                     }
-                                    <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
-                                        @if (_cfg.ShowAvatar)
+                                }
+
+                                @{
+                                    var isTop3 = _cfg.AvatarPosition == "top-left" || _cfg.AvatarPosition == "top-center";
+                                    var isCenter3 = _cfg.AvatarPosition == "top-center";
+                                    var showAv3 = _cfg.ShowAvatar && _cfg.AvatarPosition != "hidden";
+                                }
+
+                                @if (isTop3)
+                                {
+                                    <div style="display:flex;flex-direction:column;gap:5px;width:100%;@(isCenter3 ? "align-items:center;text-align:center;" : "align-items:flex-start;")">
+                                        <div style="display:flex;align-items:center;gap:7px;width:100%;flex-wrap:wrap;@(isCenter3 ? "justify-content:center;" : "")">
+                                            @if (showAv3)
+                                            {
+                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px;position:relative">
+                                                    <img src="@TestGuardAvatar" style="@AvatarImageStyle()" alt="avatar" />
+                                                    @if (_cfg.ThemeType == "classic" && HasThemeOrnaments)
+                                                    {
+                                                        <img src="@ThemeAvatarFrameUrl(3)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
+                                                    }
+                                                </div>
+                                            }
+                                            @if (_cfg.ShowUsername)
+                                            {
+                                                <div style="display:flex;align-items:center;gap:5px">
+                                                    @if (_cfg.BadgePosition == "before-name")
+                                                    {
+                                                        @if (_cfg.ShowGuardBadge)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
+                                                        }
+                                                        @if (_cfg.ShowMedal)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.24</span>
+                                                        }
+                                                    }
+                                                    @if (_cfg.ThemeType == "classic" && HasThemeOrnaments)
+                                                    {
+                                                        <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(3)">
+                                                            <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                            <span style="@UnameStyle(3)">金色舰队先锋</span>
+                                                            <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span style="@UnameStyle(3)">金色舰队先锋</span>
+                                                    }
+                                                    @if (_cfg.BadgePosition == "after-name")
+                                                    {
+                                                        @if (_cfg.ShowGuardBadge)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
+                                                        }
+                                                        @if (_cfg.ShowMedal)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.24</span>
+                                                        }
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <div style="@(isCenter3 ? "text-align:center;width:100%;" : "width:100%;")">
+                                            <div style="@DanmuTextStyle(3)">舰队打卡！今天也是元气满满的一天 ⚓</div>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div style="display:flex;align-items:flex-start;gap:10px;width:100%">
+                                        @if (_cfg.ThemeType == "classic" && IsGamingSlateTheme)
                                         {
-                                            <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
-                                                <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                                @if (HasThemeOrnaments)
+                                            <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(3);box-shadow:0 0 4px @GamingSlateBarColor(3);margin-right:2px;flex-shrink:0;align-self:center"></div>
+                                        }
+                                        @if (showAv3)
+                                        {
+                                            <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px;position:relative">
+                                                <img src="@TestGuardAvatar" style="@AvatarImageStyle()" alt="avatar" />
+                                                @if (_cfg.ThemeType == "classic" && HasThemeOrnaments)
                                                 {
                                                     <img src="@ThemeAvatarFrameUrl(3)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
                                                 }
                                             </div>
                                         }
-                                        @if (HasThemeOrnaments)
-                                        {
-                                            <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
-                                        }
-                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
-                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
-                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
-                                                @if (_cfg.ShowMedal)
-                                                {
-                                                    <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.24</span>
-                                                }
-                                                @if (HasThemeOrnaments)
-                                                {
-                                                    <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(3)">
-                                                        <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                        <span style="@UnameStyle(3)">星空守望者</span>
-                                                        <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                    </div>
-                                                }
-                                                else
-                                                {
-                                                    <span style="@UnameStyle(3)">星空守望者</span>
-                                                }
-                                            </div>
-                                            <div style="@DanmuContentBoxStyle(3)">
-                                                <div style="@DanmuTextStyle()">打卡上舰！主播继续加油，刚刚那波操作太帅了！666666</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-
-                            @* 模拟弹幕 3：总督专享 *@
-                            <div style="@ItemCardStyle(1)">
-                                @if (IsGamingSlateTheme)
-                                {
-                                    <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(1);box-shadow:0 0 4px @GamingSlateBarColor(1);margin-right:2px;flex-shrink:0;align-self:center"></div>
-                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
-                                        <div style="display:flex;align-items:center;gap:6px">
-                                            @if (_cfg.ShowAvatar)
+                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                                            @if (_cfg.ShowUsername)
                                             {
-                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px">
-                                                    <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                                <div style="display:flex;align-items:center;gap:5px">
+                                                    @if (_cfg.BadgePosition == "before-name")
+                                                    {
+                                                        @if (_cfg.ShowGuardBadge)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
+                                                        }
+                                                        @if (_cfg.ShowMedal)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.24</span>
+                                                        }
+                                                    }
+                                                    @if (_cfg.ThemeType == "classic" && HasThemeOrnaments)
+                                                    {
+                                                        <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(3)">
+                                                            <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                            <span style="@UnameStyle(3)">金色舰队先锋</span>
+                                                            <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span style="@UnameStyle(3)">金色舰队先锋</span>
+                                                    }
+                                                    @if (_cfg.BadgePosition == "after-name")
+                                                    {
+                                                        @if (_cfg.ShowGuardBadge)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
+                                                        }
+                                                        @if (_cfg.ShowMedal)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.24</span>
+                                                        }
+                                                    }
                                                 </div>
                                             }
-                                            <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;border:1px solid rgba(255,255,255,0.4)">👑 总督</span>
-                                            @if (_cfg.ShowMedal)
-                                            {
-                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(255,77,109,0.25);color:#ff758f;border:1px solid rgba(255,77,109,0.5)">Lv.36</span>
-                                            }
-                                            <span style="@UnameStyle(1)">幻夜幽灵总督</span>
-                                        </div>
-                                        <div style="@DanmuTextStyle()">总督降临！全场排面拉满，这专属特效太华丽了！👑✨</div>
-                                    </div>
-                                }
-                                else
-                                {
-                                    @if (IsWin98Theme)
-                                    {
-                                        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(1);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
-                                            <div style="display:flex;align-items:center;gap:4px">
-                                                <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
-                                                <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(1)</span>
-                                            </div>
-                                            <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
-                                        </div>
-                                    }
-                                    @if (HasThemeOrnaments)
-                                    {
-                                        <div style="position:absolute;right:4px;top:0;bottom:0;width:150px;background:url('@ThemePatternUrl(1)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.9;z-index:0"></div>
-                                        <img src="@ThemeWingLeftUrl()" style="position:absolute;left:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-l" />
-                                        <img src="@ThemeWingRightUrl()" style="position:absolute;right:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-r" />
-                                    }
-                                    <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
-                                        @if (_cfg.ShowAvatar)
-                                        {
-                                            <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
-                                                <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                                @if (HasThemeOrnaments)
-                                                {
-                                                    <img src="@ThemeAvatarFrameUrl(1)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
-                                                }
-                                            </div>
-                                        }
-                                        @if (HasThemeOrnaments)
-                                        {
-                                            <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
-                                        }
-                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
-                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
-                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;border:1px solid rgba(255,255,255,0.4)">👑 总督</span>
-                                                @if (_cfg.ShowMedal)
-                                                {
-                                                    <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(255,77,109,0.25);color:#ff758f;border:1px solid rgba(255,77,109,0.5)">Lv.36</span>
-                                                }
-                                                @if (HasThemeOrnaments)
-                                                {
-                                                    <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(1)">
-                                                        <img src="@ThemeNameSideUrl(1)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                        <span style="@UnameStyle(1)">幻夜幽灵总督</span>
-                                                        <img src="@ThemeNameSideUrl(1)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                    </div>
-                                                }
-                                                else
-                                                {
-                                                    <span style="@UnameStyle(1)">幻夜幽灵总督</span>
-                                                }
-                                            </div>
-                                            <div style="@DanmuContentBoxStyle(1)">
-                                                <div style="@DanmuTextStyle()">总督降临！全场排面拉满，这专属特效太华丽了！👑✨</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-
-                            @* 模拟弹幕 4：B站表情富文本弹幕 *@
-                            <div style="@ItemCardStyle(0)">
-                                @if (IsGamingSlateTheme)
-                                {
-                                    <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(0);box-shadow:0 0 4px @GamingSlateBarColor(0);margin-right:2px;flex-shrink:0;align-self:center"></div>
-                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
-                                        <div style="display:flex;align-items:center;gap:6px">
-                                            @if (_cfg.ShowAvatar)
-                                            {
-                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px">
-                                                    <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                                </div>
-                                            }
-                                            @if (_cfg.ShowMedal)
-                                            {
-                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.18</span>
-                                            }
-                                            <span style="@UnameStyle(0)">みこAyayaya</span>
-                                        </div>
-                                        <div style="@DanmuTextStyle()">
-                                            主播这波太强了 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/82d3858c422c5e5f5f4b5d259c47e0ee093f416c.png" alt="[doge]" title="[doge]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" /> 必须给个大大的 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/5070058b75e11f10cfec9524ecfb7aee07fa4830.png" alt="[点赞]" title="[点赞]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" />！✨
-                                        </div>
-                                    </div>
-                                }
-                                else
-                                {
-                                    @if (IsWin98Theme)
-                                    {
-                                        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(0);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
-                                            <div style="display:flex;align-items:center;gap:4px">
-                                                <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
-                                                <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(0)</span>
-                                            </div>
-                                            <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
-                                        </div>
-                                    }
-                                    @if (HasThemeOrnaments)
-                                    {
-                                        <div style="position:absolute;right:4px;top:0;bottom:0;width:140px;background:url('@ThemePatternUrl(0)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.85;z-index:0"></div>
-                                    }
-                                    <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
-                                        @if (_cfg.ShowAvatar)
-                                        {
-                                            <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
-                                                <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                                @if (HasThemeOrnaments)
-                                                {
-                                                    <img src="@ThemeAvatarFrameUrl(0)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
-                                                }
-                                            </div>
-                                        }
-                                        @if (HasThemeOrnaments)
-                                        {
-                                            <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
-                                        }
-                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
-                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
-                                                @if (_cfg.ShowMedal)
-                                                {
-                                                    <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.18</span>
-                                                }
-                                                @if (HasThemeOrnaments)
-                                                {
-                                                    <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(0)">
-                                                        <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
-                                                        <span style="@UnameStyle(0)">みこAyayaya</span>
-                                                        <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
-                                                    </div>
-                                                }
-                                                else
-                                                {
-                                                    <span style="@UnameStyle(0)">みこAyayaya</span>
-                                                }
-                                            </div>
-                                            <div style="@DanmuContentBoxStyle(0)">
-                                                <div style="@DanmuTextStyle()">
-                                                    主播这波太强了 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/82d3858c422c5e5f5f4b5d259c47e0ee093f416c.png" alt="[doge]" title="[doge]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" /> 必须给个大大的 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/5070058b75e11f10cfec9524ecfb7aee07fa4830.png" alt="[点赞]" title="[点赞]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" />！✨
-                                                </div>
-                                            </div>
+                                            <div style="@DanmuTextStyle(3)">舰队打卡！今天也是元气满满的一天 ⚓</div>
                                         </div>
                                     </div>
                                 }
@@ -1104,6 +676,67 @@
     private bool _noteOk = true;
     private string _previewBg = "dark";
     private bool _expandGuardSettings = false;
+    private string _activeTab = "theme";
+    private string _importJsonInput = "";
+
+    public sealed record LaplaceThemeInfo(
+        string Id,
+        string Name,
+        string Author,
+        string Version,
+        string Desc,
+        string[] Tags
+    );
+
+    private static readonly LaplaceThemeInfo[] LaplaceThemes = new LaplaceThemeInfo[]
+    {
+        new("laplace-nailv", "LAPLACE 气泡 × 明前奶绿", "LAPLACE Chat", "2.0.7", "官方经典多场景气泡，支持舰队配色与十字花纹", new[] { "经典", "多场景", "气泡" }),
+        new("laplace-nailv-next", "LAPLACE 气泡 Next", "LAPLACE Chat", "1.2.2", "高级气泡排版，高版本 OBS CEF 渲染优化", new[] { "现代", "气泡" }),
+        new("rhea-purple", "紫色气泡 × 瑞娅 Rhea", "LAPLACE Chat", "1.0.5", "暗黑紫电竞甜酷风，圆角软萌泡泡，高对比度", new[] { "紫色", "甜酷", "电竞" }),
+        new("sui-outline", "极简描边 × 岁己 SUI", "LAPLACE Chat", "1.0.6", "致敬 blivechat / yt-live-chat 的经典极简多重文字描边风，无底框遮挡", new[] { "极简", "描边", "通透" }),
+        new("zelda-fantasy", "奇幻 (守望 / 塞尔达风)", "LAPLACE Chat", "1.0.5", "守望先锋 / 塞尔达风半透明磨砂斜切界面，含高级 CSS 动效", new[] { "科幻", "半透明", "游戏风" }),
+        new("nana7mi-simple", "简约气泡 (七海 Nana7mi 复刻)", "未知作者", "1.0.8", "七海 Nana7mi 脆鲨主题复刻，纯粹气泡极速阅读，超小占位", new[] { "七海", "纯气泡", "小占位" }),
+        new("miki-modern", "摩登样式 (弥希 Miki 复刻)", "policturn", "1.0.3", "弥希 Miki 风格复刻，黑白胶囊与斜切几何卡片排版", new[] { "复刻", "胶囊", "几何" }),
+        new("collab-dialog", "联动气泡 (基于 LAPLACE 气泡)", "LAPLACE Chat", "1.1.1", "双人/多人联动直播专用，左右交错对话框排版，模拟对话", new[] { "联动", "对话框", "交错" }),
+        new("reversed-fun", "反转了！", "LAPLACE Chat", "0.0.5", "完全镜像颠倒排版，趣味搞怪直播专用", new[] { "趣味", "镜像", "搞怪" }),
+        new("orange-bubble", "橙子气泡", "橙橙子君", "2.1.0", "橙橙子君完整定制，包含专属徽章阴影、流光背景与圆角气泡", new[] { "橙色", "精致", "流光" }),
+        new("shed-bubble", "SHED 气泡", "SHED", "2.0.0", "基于橙橙子君修改，使用定制艺术字体与精致边缘", new[] { "艺术字", "细致", "气泡" }),
+        new("shed-wave", "SHED 透明波动", "SHED", "1.2.0", "动态头像波纹动画与 CSS 呼吸渐变特效，质感极高", new[] { "波纹", "动画", "动态头像" }),
+        new("orange-block", "橙子色块", "橙橙子君", "1.3.0", "高饱和度纯色撞色色块排版，无阴影平铺极简风", new[] { "色块", "撞色", "扁平" })
+    };
+
+    public sealed record SkinInfo(string Id, string Name);
+    private static readonly SkinInfo[] ClassicSkins = new SkinInfo[]
+    {
+        new("classic-glass", "现代半透明极简玻璃 (Classic Glass)"),
+        new("gaming-slate", "战术岩灰 · 极简主机 (灰色圆角双层无底框进房)"),
+        new("frost-palace", "凛冬圣殿 · 冰凌结晶 (冰晶花环冰魄羽翼)"),
+        new("violet-cyber", "幻紫电竞 · 赛博光环 (八边视窗脉冲翼)"),
+        new("titan-tactical", "战术重工 · 钛金雷达 (防爆装甲重装翼)"),
+        new("monvhuajia", "魔女花嫁 · 梦幻昼白 (精美蕾丝花架)"),
+        new("monvhuajia-night", "魔女花嫁 · 暗夜幽魅 (紫藤夜月)"),
+        new("rose-throne", "蔷薇王座 · 哥特绯红 (荆棘皇冠双翼)"),
+        new("cyber-night", "赛博迷幻夜 · 霓虹幻境 (机甲光环浮空翼)"),
+        new("neko-cute", "猫猫女仆 · 萌系手账 (猫耳猫爪粉白)"),
+        new("eldritch-eye", "邪神之眼 · 诡秘低语 (触手古神暗金)"),
+        new("strawberry-bunny", "草莓兔兔 · 甜系下午茶 (兔耳奶油草莓)"),
+        new("magic-card", "魔法卡牌 · 命运罗盘 (金边符文占星)"),
+        new("butterfly-wind", "蝶舞轻风 · 翡翠森林 (琉璃蝶翼藤蔓)"),
+        new("jinx-graffiti", "金克丝涂鸦 · 狂热街头 (荧光荧粉爆裂)"),
+        new("neon-station", "霓虹车站 · 赛博都市 (全息故障轻轨)"),
+        new("tulip-letter", "郁金香信笺 · 复古油画 (火漆火印法式)"),
+        new("star-moon-gold", "✨ 星月交辉 · 华丽宫廷 (璀璨星芒金辉)"),
+        new("flower-hymn", "🌿 花之赞歌 · 自然物语 (百合晨露木质)"),
+        new("ark-rhodes", "🔷 罗德岛战术 · 终端视窗 (工业蓝灰警示)"),
+        new("rainbow-sunny", "🌈 彩虹晴空 · 晴朗夏日 (七彩流云童趣)"),
+        new("cat-cookies", "🍪 猫猫曲奇 · 烘焙物语 (焦糖暖棕甜品)"),
+        new("memory-diary", "📖 回忆日记 · 牛皮纸复古 (打字机怀旧)"),
+        new("candy-game", "🍬 糖果游乐场 · 街机像素 (复古手柄掌机)"),
+        new("openlivechat", "💬 OpenLiveChat 经典复刻 (紧凑条目直角)"),
+        new("win98-retro", "💻 Windows 98 复古视窗 (经典灰蓝经典框)"),
+        new("bakery-shop", "🥐 面包房手记 · 暖阳午后 (温馨手绘烘焙)"),
+        new("sakura-wafuu", "🌸 樱花和风 · 绯色结界 (和风落樱折扇)")
+    };
 
     protected override void OnInitialized()
     {
@@ -1111,6 +744,196 @@
     }
 
     private string OverlayUrl() => $"http://127.0.0.1:{Api.Port}/legacy/danmu/overlay.html";
+
+    private string GetUnifiedThemeValue()
+    {
+        if (_cfg.ThemeType == "laplace")
+        {
+            return $"laplace:{_cfg.LaplaceTemplate ?? _cfg.Theme ?? "laplace-nailv"}";
+        }
+        return $"classic:{_cfg.Theme ?? "classic-glass"}";
+    }
+
+    private void OnUnifiedThemeSelected(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString();
+        if (string.IsNullOrEmpty(val)) return;
+
+        if (val.StartsWith("laplace:"))
+        {
+            var id = val.Substring("laplace:".Length);
+            var tmpl = LaplaceThemes.FirstOrDefault(t => t.Id == id);
+            _cfg.ThemeType = "laplace";
+            _cfg.LaplaceTemplate = id;
+            _cfg.Theme = id;
+            _cfg.ShowBox = false; // Laplace 现代模版默认全透明浮层无底框
+            SaveConfig(false);
+            Notify($"已切换至 Laplace 模版：{tmpl?.Name ?? id}（已实时生效并同步 OBS）", true);
+        }
+        else if (val.StartsWith("classic:"))
+        {
+            var id = val.Substring("classic:".Length);
+            _cfg.ThemeType = "classic";
+            _cfg.Theme = id;
+            ApplyThemeDefaults(id);
+            SaveConfig(false);
+            Notify($"已切换至自研经典皮肤：{ThemeDisplayName(id)}（已实时生效并同步 OBS）", true);
+        }
+    }
+
+    private void OnAvatarPositionChanged(ChangeEventArgs e)
+    {
+        _cfg.AvatarPosition = e.Value?.ToString() ?? "left";
+        SaveConfig(false);
+        Notify($"头像显示位置已调整为：{GetAvatarPositionDesc(_cfg.AvatarPosition)}（已实时同步 OBS）", true);
+    }
+
+    private void OnBadgePositionChanged(ChangeEventArgs e)
+    {
+        _cfg.BadgePosition = e.Value?.ToString() ?? "before-name";
+        SaveConfig(false);
+        Notify($"勋章徽章位置已调整为：{(_cfg.BadgePosition == "before-name" ? "ID 前面" : "ID 后面")}（已实时同步 OBS）", true);
+    }
+
+    private void AutoSyncConfig()
+    {
+        SaveConfig(false);
+    }
+
+    private static string GetAvatarPositionDesc(string pos) => pos switch
+    {
+        "left" => "左侧横向排列",
+        "top-left" => "左上方紧凑排列",
+        "top-center" => "上方居中对称排列",
+        "hidden" => "隐藏头像",
+        _ => "左侧横向排列"
+    };
+
+    private string GetCurrentThemeDisplayName()
+    {
+        if (_cfg.ThemeType == "laplace")
+        {
+            var tmpl = LaplaceThemes.FirstOrDefault(t => t.Id == _cfg.LaplaceTemplate);
+            return tmpl != null ? $"[Laplace] {tmpl.Name}" : $"[Laplace] {_cfg.LaplaceTemplate}";
+        }
+        return ThemeDisplayName(_cfg.Theme);
+    }
+
+    private string GetCurrentThemeDesc()
+    {
+        if (_cfg.ThemeType == "laplace")
+        {
+            var tmpl = LaplaceThemes.FirstOrDefault(t => t.Id == _cfg.LaplaceTemplate);
+            return tmpl != null ? $"{tmpl.Desc} (作者: {tmpl.Author} · v{tmpl.Version})" : "拉普拉斯现代弹幕模板";
+        }
+        return "本地自研高清矢量主题皮肤，包含专属挂件、羽翼装饰与专属底框。";
+    }
+
+    private void ResetCurrentThemeDefaults()
+    {
+        if (_cfg.ThemeType == "classic")
+        {
+            ApplyThemeDefaults(_cfg.Theme);
+        }
+        else
+        {
+            _cfg.BaseFontSize = 16;
+            _cfg.ColorScheme = "dark";
+            _cfg.BoxWidth = 380;
+            _cfg.BoxHeight = 500;
+            _cfg.ShowBox = false;
+            _cfg.CustomCss = "";
+        }
+        SaveConfig(false);
+        Notify("已恢复当前模版/皮肤默认参数，并已实时同步 OBS 浮层！", true);
+    }
+
+    private void SetBoxPreset(int width, int height)
+    {
+        _cfg.BoxWidth = width;
+        _cfg.BoxHeight = height;
+    }
+
+    private void LoadSelectedTemplateCss()
+    {
+        try
+        {
+            string themeId = _cfg.ThemeType == "laplace" ? (_cfg.LaplaceTemplate ?? "laplace-nailv") : _cfg.Theme;
+            string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "legacy", "danmu", _cfg.ThemeType == "laplace" ? "templates" : "themes");
+            string cssFile = Path.Combine(dir, $"{themeId}.css");
+            if (!File.Exists(cssFile))
+            {
+                var fallbackDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "wwwroot", "legacy", "danmu", _cfg.ThemeType == "laplace" ? "templates" : "themes");
+                if (Directory.Exists(fallbackDir))
+                {
+                    cssFile = Path.Combine(fallbackDir, $"{themeId}.css");
+                }
+            }
+            if (File.Exists(cssFile))
+            {
+                _cfg.CustomCss = File.ReadAllText(cssFile);
+                Notify($"已载入模版 {themeId} 的全部 CSS 源码", true);
+            }
+            else
+            {
+                Notify($"未找到模版 CSS 文件: {cssFile}", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Notify($"载入失败: {ex.Message}", false);
+        }
+    }
+
+    private void ClearCustomCss()
+    {
+        _cfg.CustomCss = "";
+        Notify("自定义 CSS 已清空", true);
+    }
+
+    private string ExportConfigJson()
+    {
+        try
+        {
+            return JsonSerializer.Serialize(_cfg, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch { return "{}"; }
+    }
+
+    private async Task CopyConfigJson()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", ExportConfigJson());
+            Notify("配置 JSON 已成功复制到剪贴板！", true);
+        }
+        catch (Exception ex)
+        {
+            Notify($"复制失败: {ex.Message}", false);
+        }
+    }
+
+    private void ImportConfigFromJson()
+    {
+        if (string.IsNullOrWhiteSpace(_importJsonInput))
+        {
+            Notify("请先粘贴配置 JSON", false);
+            return;
+        }
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<DanmuConfig>(_importJsonInput, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (parsed != null)
+            {
+                _cfg = parsed;
+                Notify("配置已成功导入并应用！", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            Notify($"导入失败，JSON 格式有误: {ex.Message}", false);
+        }
+    }
 
     private void LoadConfigFromStorage()
     {
@@ -1129,22 +952,280 @@
         }
     }
 
-    private void OnThemeSelectChanged(ChangeEventArgs e)
+    private void SaveConfig() => SaveConfig(true);
+
+    private void SaveConfig(bool notify)
     {
-        _cfg.Theme = e.Value?.ToString() ?? "classic-glass";
-        ApplyThemeDefaults(_cfg.Theme);
+        try
+        {
+            var jsonStr = JsonSerializer.Serialize(_cfg);
+            if (JsonNode.Parse(jsonStr) is JsonObject obj)
+            {
+                var doc = Config.Snapshot();
+                doc["danmuOverlay"] = obj;
+                Config.ReplaceFrom(doc);
+                Hub.PublishOutbound("danmu_config_update", obj);
+                if (notify)
+                {
+                    Notify("弹幕浮层配置已保存，OBS 浮层已实时同步更新！", true);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (notify)
+            {
+                Notify("保存失败: " + ex.Message, false);
+            }
+        }
     }
 
-    private void ResetCurrentThemeDefaults()
+    // 内置高清矢量测试头像（0依赖，永不失效）
+    private const string TestFanAvatar = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImJnIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjZmY5YTllIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjZmVjZmVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDgiIGZpbGw9InVybCgjYmcpIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMyIvPjxwb2x5Z29uIHBvaW50cz0iMjYsMzggMTgsMTYgMzgsMjQiIGZpbGw9IiNmZjc1OGMiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHBvbHlnb24gcG9pbnRzPSIyNywzMyAyMiwyMCAzNCwyNSIgZmlsbD0iI2ZmY2NkNSIvPjxwb2x5Z29uIHBvaW50cz0iNzQsMzggODIsMTYgNjIsMjQiIGZpbGw9IiNmZjc1OGMiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHBvbHlnb24gcG9pbnRzPSI3MywzMyA3OCwyMCA2NiwyNSIgZmlsbD0iI2ZmY2NkNSIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTQiIHI9IjI2IiBmaWxsPSIjZmZmNWVhIi8+PGVsbGlwc2UgY3g9IjQwIiBjeT0iNTIiIHJ4PSI0LjUiIHJ5PSI2IiBmaWxsPSIjMmQzNzQ4Ii8+PGVsbGlwc2UgY3g9IjYwIiBjeT0iNTIiIHJ4PSI0LjUiIHJ5PSI2IiBmaWxsPSIjMmQzNzQ4Ii8+PGNpcmNsZSBjeD0iNDEuNSIgY3k9IjUwIiByPSIyIiBmaWxsPSIjZmZmIi8+PGNpcmNsZSBjeD0iNjEuNSIgY3k9IjUwIiByPSIyIiBmaWxsPSIjZmZmIi8+PGVsbGlwc2UgY3g9IjM0IiBjeT0iNTkiIHJ4PSI0IiByeT0iMiIgZmlsbD0iI2ZmOGE5ZSIgb3BhY2l0eT0iMC42Ii8+PGVsbGlwc2UgY3g9IjY2IiBjeT0iNTkiIHJ4PSI0IiByeT0iMiIgZmlsbD0iI2ZmOGE5ZSIgb3BhY2l0eT0iMC42Ii8+PHBhdGggZD0iTTQ2LDYwIFE1MCw2NCA1NCw2MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTA1NmZkIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjI0IiBjeT0iNzIiIHI9IjIuNSIgZmlsbD0iI2ZmZDE2NiIvPjxjaXJjbGUgY3g9Ijc2IiBjeT0iNzIiIHI9IjIuNSIgZmlsbD0iI2ZmZDE2NiIvPjwvc3ZnPg==";
+    private const string TestGuardAvatar = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdiZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzE0MWUzMCIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzI0M2I1NSIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJnb2xkIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjZmZlMjU5Ii8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjZmZhNzUxIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDgiIGZpbGw9InVybCgjZ2JnKSIgc3Ryb2tlPSJ1cmwoI2dvbGQpIiBzdHJva2Utd2lkdGg9IjQiLz48cGF0aCBkPSJNNTAsMTggTDc2LDI4IEw3Niw1MiBDNzYsNjggNjQsODAgNTAsODYgQzM2LDgwIDI0LDY4IDI0LDUyIEwyNCwyOCBaIiBmaWxsPSJyZ2JhKDI1NSwyMTUsMCwwLjE4KSIgc3Ryb2tlPSJ1cmwoI2dvbGQpIiBzdHJva2Utd2lkdGg9IjIuNSIvPjxwb2x5Z29uIHBvaW50cz0iNTAsMjggNTQsNDAgNjcsNDAgNTYsNDggNjAsNjAgNTAsNTIgNDAsNjAgNDQsNDggMzMsNDAgNDYsNDAiIGZpbGw9InVybCgjZ29sZCkiLz48cGF0aCBkPSJNMzYsNjggUTUwLDc0IDY0LDY4IEw2MCw3OCBRNTAsODMgNDAsNzggWiIgZmlsbD0idXJsKCNnb2xkKSIvPjwvc3ZnPg==";
+
+    private void SendTestDanmu()
     {
-        ApplyThemeDefaults(_cfg.Theme);
-        Notify("已恢复当前皮肤的默认预设参数", true);
+        var now = DateTime.Now;
+        var ev = new LiveEvent
+        {
+            Type = "danmu",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "999888",
+            Uname = "粉丝小可爱",
+            Msg = "这是一条实时测试弹幕，效果很赞！🎉",
+            Uface = TestFanAvatar,
+            MedalLevel = 16,
+            HonorLevel = 22,
+            IsGuard = false,
+            GuardLevel = 0,
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条普通弹幕", true);
     }
 
-    private void SetBoxPreset(int width, int height)
+    private void SendTestEmoteDanmu()
     {
-        _cfg.BoxWidth = width;
-        _cfg.BoxHeight = height;
+        var now = DateTime.Now;
+        var emotes = new Dictionary<string, EmoteInfo>
+        {
+            ["[doge]"] = new EmoteInfo
+            {
+                Emoji = "[doge]",
+                Url = "https://i0.hdslb.com/bfs/live/82d3858c422c5e5f5f4b5d259c47e0ee093f416c.png",
+                Width = 64, Height = 64
+            },
+            ["[点赞]"] = new EmoteInfo
+            {
+                Emoji = "[点赞]",
+                Url = "https://i0.hdslb.com/bfs/live/5070058b75e11f10cfec9524ecfb7aee07fa4830.png",
+                Width = 64, Height = 64
+            }
+        };
+        var ev = new LiveEvent
+        {
+            Type = "danmu",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "999888",
+            Uname = "表情大户喵",
+            Msg = "主播讲得好 [doge] 必须给个 [点赞] ✨",
+            Uface = TestFanAvatar,
+            MedalLevel = 18,
+            HonorLevel = 25,
+            Emotes = emotes,
+            IsGuard = false,
+            GuardLevel = 0
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条表情弹幕", true);
+    }
+
+    private void SendTestGuardDanmu()
+    {
+        var now = DateTime.Now;
+        var ev = new LiveEvent
+        {
+            Type = "danmu",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "111222",
+            Uname = "金色舰队先锋",
+            Msg = "全舰队集结！今晚目标拿下大乱斗第一名 ⚔️",
+            Uface = TestGuardAvatar,
+            MedalLevel = 28,
+            HonorLevel = 36,
+            IsGuard = true,
+            GuardLevel = 3
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条舰长弹幕", true);
+    }
+
+    private void SendTestGovernorDanmu()
+    {
+        var now = DateTime.Now;
+        var ev = new LiveEvent
+        {
+            Type = "danmu",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "777888",
+            Uname = "星河大领主",
+            Msg = "总督尊享入场，全场瞩目，华丽加护 ✨👑",
+            Uface = TestGuardAvatar,
+            MedalLevel = 35,
+            HonorLevel = 40,
+            IsGuard = true,
+            GuardLevel = 1
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条总督尊享弹幕", true);
+    }
+
+    private void SendTestEntryDanmu()
+    {
+        var now = DateTime.Now;
+        var ev = new LiveEvent
+        {
+            Type = "entry",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "666888",
+            Uname = "暗夜潜行者",
+            Msg = _cfg.EnterRoomText ?? "进入直播间",
+            Uface = TestFanAvatar,
+            MedalLevel = 8,
+            HonorLevel = 15,
+            IsGuard = false,
+            GuardLevel = 0
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条进房通知", true);
+    }
+
+    private void SendTestGift()
+    {
+        var now = DateTime.Now;
+        var ev = new LiveEvent
+        {
+            Type = "gift",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "333444",
+            Uname = "元气满满打赏官",
+            Uface = TestFanAvatar,
+            GiftName = "超级摩天大楼",
+            Num = 1,
+            Price = 280000,
+            Value = 280.0,
+            CoinType = "gold"
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条送礼测试事件", true);
+    }
+
+    private void SendTestSuperChat()
+    {
+        var now = DateTime.Now;
+        var ev = new LiveEvent
+        {
+            Type = "super_chat",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "555666",
+            Uname = "榜一真爱粉",
+            Msg = "主播讲得太好了，这是今天的应援 SC，继续加油！❤️",
+            Uface = TestGuardAvatar,
+            Price = 50,
+            Value = 50.0
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条 SC 醒目留言", true);
+    }
+
+    private void SendTestGuardBuy()
+    {
+        var now = DateTime.Now;
+        var ev = new LiveEvent
+        {
+            Type = "guard_buy",
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "888999",
+            Uname = "热血新舰长",
+            Uface = TestGuardAvatar,
+            GuardLevel = 3,
+            LevelName = "舰长",
+            Num = 1,
+            Price = 198000,
+            Value = 198.0
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", ev);
+        Notify("已向 OBS 浮层发送一条开通大航海广播", true);
+    }
+
+    private void ResetGuardColors()
+    {
+        _cfg.GovernorBgColor = "#581c2b";
+        _cfg.GovernorBgOpacity = 85;
+        _cfg.GovernorBorderColor = "#ff4d6d";
+        _cfg.GovernorBorderOpacity = 90;
+        _cfg.GovernorTextColor = "#ffccd5";
+
+        _cfg.AdmiralBgColor = "#341c54";
+        _cfg.AdmiralBgOpacity = 85;
+        _cfg.AdmiralBorderColor = "#c77dff";
+        _cfg.AdmiralBorderOpacity = 85;
+        _cfg.AdmiralTextColor = "#e0aaff";
+
+        _cfg.CaptainBgColor = "#1c3254";
+        _cfg.CaptainBgOpacity = 80;
+        _cfg.CaptainBorderColor = "#4ea8de";
+        _cfg.CaptainBorderOpacity = 80;
+        _cfg.CaptainTextColor = "#90e0ef";
+        Notify("已恢复大航海默认经典色彩方案", true);
+    }
+
+    private async Task CopyOverlayUrl()
+    {
+        var url = OverlayUrl();
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", url);
+            Notify("已复制 OBS 浮层链接到剪贴板！", true);
+        }
+        catch
+        {
+            try
+            {
+                var literal = JsonSerializer.Serialize(url);
+                await JS.InvokeVoidAsync("eval",
+                    "(function(){var t=document.createElement('textarea');t.value=" + literal +
+                    ";t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.focus();t.select();" +
+                    "document.execCommand('copy');document.body.removeChild(t);})()");
+                Notify("已复制 OBS 浮层链接到剪贴板！", true);
+            }
+            catch
+            {
+                Notify("复制失败，请手动在上方地址栏复制", false);
+            }
+        }
+    }
+
+    private void Notify(string msg, bool ok)
+    {
+        _note = msg;
+        _noteOk = ok;
     }
 
     private void ApplyThemeDefaults(string theme)
@@ -2450,215 +2531,6 @@
         }
     }
 
-    private void SaveConfig()
-    {
-        try
-        {
-            var jsonStr = JsonSerializer.Serialize(_cfg);
-            if (JsonNode.Parse(jsonStr) is JsonObject obj)
-            {
-                var doc = Config.Snapshot();
-                doc["danmuOverlay"] = obj;
-                Config.ReplaceFrom(doc);
-                Hub.PublishOutbound("danmu_config_update", obj);
-                Notify("弹幕浮层配置已保存，OBS 浮层已实时同步更新！", true);
-            }
-        }
-        catch (Exception ex)
-        {
-            Notify("保存失败: " + ex.Message, false);
-        }
-    }
-
-    // 内置高清矢量测试头像（0依赖，永不失效）
-    private const string TestFanAvatar = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImJnIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjZmY5YTllIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjZmVjZmVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDgiIGZpbGw9InVybCgjYmcpIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMyIvPjxwb2x5Z29uIHBvaW50cz0iMjYsMzggMTgsMTYgMzgsMjQiIGZpbGw9IiNmZjc1OGMiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHBvbHlnb24gcG9pbnRzPSIyNywzMyAyMiwyMCAzNCwyNSIgZmlsbD0iI2ZmY2NkNSIvPjxwb2x5Z29uIHBvaW50cz0iNzQsMzggODIsMTYgNjIsMjQiIGZpbGw9IiNmZjc1OGMiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHBvbHlnb24gcG9pbnRzPSI3MywzMyA3OCwyMCA2NiwyNSIgZmlsbD0iI2ZmY2NkNSIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTQiIHI9IjI2IiBmaWxsPSIjZmZmNWVhIi8+PGVsbGlwc2UgY3g9IjQwIiBjeT0iNTIiIHJ4PSI0LjUiIHJ5PSI2IiBmaWxsPSIjMmQzNzQ4Ii8+PGVsbGlwc2UgY3g9IjYwIiBjeT0iNTIiIHJ4PSI0LjUiIHJ5PSI2IiBmaWxsPSIjMmQzNzQ4Ii8+PGNpcmNsZSBjeD0iNDEuNSIgY3k9IjUwIiByPSIyIiBmaWxsPSIjZmZmIi8+PGNpcmNsZSBjeD0iNjEuNSIgY3k9IjUwIiByPSIyIiBmaWxsPSIjZmZmIi8+PGVsbGlwc2UgY3g9IjM0IiBjeT0iNTkiIHJ4PSI0IiByeT0iMiIgZmlsbD0iI2ZmOGE5ZSIgb3BhY2l0eT0iMC42Ii8+PGVsbGlwc2UgY3g9IjY2IiBjeT0iNTkiIHJ4PSI0IiByeT0iMiIgZmlsbD0iI2ZmOGE5ZSIgb3BhY2l0eT0iMC42Ii8+PHBhdGggZD0iTTQ2LDYwIFE1MCw2NCA1NCw2MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTA1NmZkIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjI0IiBjeT0iNzIiIHI9IjIuNSIgZmlsbD0iI2ZmZDE2NiIvPjxjaXJjbGUgY3g9Ijc2IiBjeT0iNzIiIHI9IjIuNSIgZmlsbD0iI2ZmZDE2NiIvPjwvc3ZnPg==";
-    private const string TestGuardAvatar = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdiZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzE0MWUzMCIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzI0M2I1NSIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJnb2xkIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjZmZlMjU5Ii8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjZmZhNzUxIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDgiIGZpbGw9InVybCgjZ2JnKSIgc3Ryb2tlPSJ1cmwoI2dvbGQpIiBzdHJva2Utd2lkdGg9IjQiLz48cGF0aCBkPSJNNTAsMTggTDc2LDI4IEw3Niw1MiBDNzYsNjggNjQsODAgNTAsODYgQzM2LDgwIDI0LDY4IDI0LDUyIEwyNCwyOCBaIiBmaWxsPSJyZ2JhKDI1NSwyMTUsMCwwLjE4KSIgc3Ryb2tlPSJ1cmwoI2dvbGQpIiBzdHJva2Utd2lkdGg9IjIuNSIvPjxwb2x5Z29uIHBvaW50cz0iNTAsMjggNTQsNDAgNjcsNDAgNTYsNDggNjAsNjAgNTAsNTIgNDAsNjAgNDQsNDggMzMsNDAgNDYsNDAiIGZpbGw9InVybCgjZ29sZCkiLz48cGF0aCBkPSJNMzYsNjggUTUwLDc0IDY0LDY4IEw2MCw3OCBRNTAsODMgNDAsNzggWiIgZmlsbD0idXJsKCNnb2xkKSIvPjwvc3ZnPg==";
-
-    private void SendTestDanmu()
-    {
-        var now = DateTime.Now;
-        var ev = new LiveEvent
-        {
-            Type = "danmu",
-            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
-            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
-            Uid = "999888",
-            Uname = "粉丝小可爱",
-            Msg = "这是一条实时测试弹幕，效果很赞！🎉",
-            Uface = TestFanAvatar,
-            MedalLevel = 16,
-            HonorLevel = 22,
-            IsGuard = false,
-            GuardLevel = 0,
-        };
-        Hub.Publish(ev);
-        Hub.PublishOutbound("danmu_test", ev);
-        Notify("已向 OBS 浮层发送一条普通测试弹幕（内置专属二次元测试头像）", true);
-    }
-
-    private void SendTestEmoteDanmu()
-    {
-        var now = DateTime.Now;
-        var emotes = new Dictionary<string, EmoteInfo>
-        {
-            ["[doge]"] = new EmoteInfo
-            {
-                Emoji = "[doge]",
-                Url = "https://i0.hdslb.com/bfs/live/82d3858c422c5e5f5f4b5d259c47e0ee093f416c.png",
-                Width = 64, Height = 64
-            },
-            ["[点赞]"] = new EmoteInfo
-            {
-                Emoji = "[点赞]",
-                Url = "https://i0.hdslb.com/bfs/live/5070058b75e11f10cfec9524ecfb7aee07fa4830.png",
-                Width = 64, Height = 64
-            }
-        };
-
-        var ev = new LiveEvent
-        {
-            Type = "danmu",
-            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
-            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
-            Uid = "666888",
-            Uname = "表情包小可爱",
-            Msg = "主播这波操作太秀了 [doge] 必须给个 [点赞] 666",
-            Uface = TestFanAvatar,
-            Emotes = emotes,
-            MedalLevel = 21,
-            HonorLevel = 19,
-            IsGuard = false,
-            GuardLevel = 0,
-        };
-        Hub.Publish(ev);
-        Hub.PublishOutbound("danmu_test", ev);
-        Notify("已向 OBS 浮层发送一条包含 [doge] 与 [点赞] 表情的测试弹幕！", true);
-    }
-
-    private void SendTestGuardDanmu()
-    {
-        var now = DateTime.Now;
-        var ev = new LiveEvent
-        {
-            Type = "danmu",
-            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
-            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
-            Uid = "777666",
-            Uname = "尊贵大舰长",
-            Msg = "舰长进入直播间支持主播！666666！🚀",
-            Uface = TestGuardAvatar,
-            MedalLevel = 28,
-            HonorLevel = 35,
-            IsGuard = true,
-            GuardLevel = 3,
-        };
-        Hub.Publish(ev);
-        Hub.PublishOutbound("danmu_test", ev);
-        Notify("已向 OBS 浮层发送一条舰长测试弹幕（内置专属金色盾徽测试头像）", true);
-    }
-
-    private void SendTestGovernorDanmu()
-    {
-        var now = DateTime.Now;
-        var ev = new LiveEvent
-        {
-            Type = "danmu",
-            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
-            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
-            Uid = "888888",
-            Uname = "幻夜幽灵总督",
-            Msg = "总督降临！全场排面拉满，这专属特效太华丽了！👑✨",
-            Uface = TestGuardAvatar,
-            MedalLevel = 36,
-            HonorLevel = 50,
-            IsGuard = true,
-            GuardLevel = 1,
-        };
-        Hub.Publish(ev);
-        Hub.PublishOutbound("danmu_test", ev);
-        Notify("已向 OBS 浮层发送一条总督尊享测试弹幕！", true);
-    }
-
-    private void SendTestEntryDanmu()
-    {
-        var now = DateTime.Now;
-        var action = string.IsNullOrWhiteSpace(_cfg.EnterRoomText) ? "进入直播间" : _cfg.EnterRoomText.Trim();
-        var ev = new LiveEvent
-        {
-            Type = "interact",
-            MsgType = 1,
-            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
-            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
-            Uid = "777888",
-            Uname = "甜茶小布丁",
-            Msg = action,
-            Uface = TestFanAvatar,
-        };
-        Hub.Publish(ev);
-        Hub.PublishOutbound("danmu_test", new
-        {
-            isEntry = true,
-            uname = ev.Uname,
-            uface = ev.Uface,
-            msg = action
-        });
-        Notify("已向 OBS 浮层发送一条观众进房测试通知！", true);
-    }
-
-    private void ResetGuardColors()
-    {
-        _cfg.GovernorBgColor = "#581c2b";
-        _cfg.GovernorBgOpacity = 85;
-        _cfg.GovernorBorderColor = "#ff4d6d";
-        _cfg.GovernorBorderOpacity = 90;
-        _cfg.GovernorTextColor = "#ffccd5";
-
-        _cfg.AdmiralBgColor = "#341c54";
-        _cfg.AdmiralBgOpacity = 85;
-        _cfg.AdmiralBorderColor = "#c77dff";
-        _cfg.AdmiralBorderOpacity = 85;
-        _cfg.AdmiralTextColor = "#e0aaff";
-
-        _cfg.CaptainBgColor = "#1c3254";
-        _cfg.CaptainBgOpacity = 80;
-        _cfg.CaptainBorderColor = "#4ea8de";
-        _cfg.CaptainBorderOpacity = 80;
-        _cfg.CaptainTextColor = "#90e0ef";
-        Notify("已恢复大航海默认经典色彩方案", true);
-    }
-
-    private async Task CopyOverlayUrl()
-    {
-        var url = OverlayUrl();
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", url);
-            Notify("已复制 OBS 浮层链接到剪贴板！", true);
-        }
-        catch
-        {
-            try
-            {
-                var literal = JsonSerializer.Serialize(url);
-                await JS.InvokeVoidAsync("eval",
-                    "(function(){var t=document.createElement('textarea');t.value=" + literal +
-                    ";t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.focus();t.select();" +
-                    "document.execCommand('copy');document.body.removeChild(t);})()");
-                Notify("已复制 OBS 浮层链接到剪贴板！", true);
-            }
-            catch
-            {
-                Notify("复制失败，请手动在上方地址栏复制", false);
-            }
-        }
-    }
-
-    private void Notify(string msg, bool ok)
-    {
-        _note = msg;
-        _noteOk = ok;
-    }
-
     private string ThemeDisplayName(string id) => id switch
     {
         "gaming-slate" => "战术岩灰 · 极简主机",
@@ -2888,7 +2760,7 @@
         _ => "LiveChat - UserMessage"
     };
 
-    // ── 预览样式计算 ──
+
     private string PreviewContainerStyle()
     {
         var bg = _previewBg switch
@@ -2933,6 +2805,10 @@
 
     private string ItemCardStyle(int guardLevel = 0)
     {
+        if (_cfg.ThemeType == "laplace")
+        {
+            return "display:flex;align-items:flex-start;gap:8px;padding:4px 6px;background:transparent;border:none;box-shadow:none;position:relative;width:100%;box-sizing:border-box;";
+        }
         if (_cfg.DisplayMode == "flat")
         {
             return "display:flex;align-items:baseline;gap:8px;padding:3px 6px;word-break:break-all;";
@@ -2960,7 +2836,6 @@
                 bColor = HexToRgba(_cfg.CaptainBorderColor, _cfg.CaptainBorderOpacity);
             }
         }
-
         if (IsGamingSlateTheme)
         {
             return $"display:flex;align-items:flex-start;gap:8px;padding:{pad}px 10px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};box-shadow:0 4px 16px rgba(0,0,0,0.35);backdrop-filter:blur(8px);position:relative;word-break:break-all;";
@@ -3354,15 +3229,77 @@
         return $"font-family:{font};color:{color};font-size:{_cfg.NicknameSize}px;font-weight:{weight};line-height:1.2;text-shadow:{shadow};";
     }
 
-    private string DanmuTextStyle()
+
+    private string DanmuTextStyle(int guardLevel = 0)
     {
+        var fs = _cfg.BaseFontSize > 0 ? _cfg.BaseFontSize : _cfg.DanmuSize;
+
+        // 1. 若为 Laplace 模版：真实呈现各个模板的气泡与文字样式
+        if (_cfg.ThemeType == "laplace")
+        {
+            var t = _cfg.LaplaceTemplate ?? "laplace-nailv";
+            if (t == "laplace-nailv" || t == "laplace-nailv-next")
+            {
+                var bg = guardLevel switch { 1 => "rgb(253, 213, 186)", 2 => "rgb(233, 204, 240)", 3 => "rgb(200, 221, 252)", _ => "#f1fbf5" };
+                var fg = guardLevel switch { 1 => "rgb(61, 24, 23)", 2 => "rgb(74, 29, 95)", 3 => "rgb(26, 24, 85)", _ => "#213d2b" };
+                return $"background-color:{bg};color:{fg};padding:6px 14px;border-radius:18px;font-size:{fs}px;font-weight:bold;width:fit-content;display:inline-block;box-shadow:0 0 1px {fg};line-height:1.4;";
+            }
+            if (t == "rhea-purple")
+            {
+                var bg = guardLevel == 3 ? "rgb(200, 221, 252)" : "rgb(244, 222, 232)";
+                var fg = guardLevel == 3 ? "rgb(26, 24, 85)" : "rgb(110, 62, 87)";
+                return $"background-color:{bg};color:{fg};padding:6px 14px;border-radius:18px;font-size:{fs}px;font-weight:bold;width:fit-content;display:inline-block;line-height:1.4;";
+            }
+            if (t == "sui-outline")
+            {
+                return $"background:transparent;color:#ffffff;font-size:{fs}px;font-weight:800;text-shadow:-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 1px 2px #000;display:inline-block;line-height:1.4;";
+            }
+            if (t == "nana7mi-simple")
+            {
+                return $"background-color:#e1f5fe;color:#0277bd;padding:6px 14px;border-radius:16px;font-size:{fs}px;font-weight:600;width:fit-content;display:inline-block;line-height:1.4;";
+            }
+            if (t == "miki-modern")
+            {
+                return $"background-color:#212121;color:#ffffff;padding:6px 12px;border-radius:8px;border-left:4px solid #ff4081;font-size:{fs}px;font-weight:600;width:fit-content;display:inline-block;line-height:1.4;";
+            }
+            if (t == "collab-dialog")
+            {
+                return $"background-color:#e8f5e9;color:#2e7d32;padding:6px 14px;border-radius:16px;font-size:{fs}px;font-weight:600;width:fit-content;display:inline-block;line-height:1.4;";
+            }
+            if (t == "orange-bubble")
+            {
+                return $"background-color:#fff3e0;color:#e65100;padding:6px 14px;border-radius:18px;font-size:{fs}px;font-weight:700;width:fit-content;display:inline-block;box-shadow:0 2px 8px rgba(255,152,0,0.25);line-height:1.4;";
+            }
+            if (t == "shed-bubble")
+            {
+                return $"background-color:#f3e5f5;color:#4a148c;padding:6px 14px;border-radius:18px;font-size:{fs}px;font-weight:700;width:fit-content;display:inline-block;line-height:1.4;";
+            }
+            if (t == "shed-wave")
+            {
+                return $"background:rgba(255,255,255,0.18);color:#80d8ff;padding:6px 14px;border-radius:14px;backdrop-filter:blur(8px);border:1px solid rgba(128,216,255,0.4);font-size:{fs}px;font-weight:600;width:fit-content;display:inline-block;line-height:1.4;";
+            }
+            if (t == "orange-block")
+            {
+                return $"color:#ffffff;font-size:{fs}px;font-weight:700;line-height:1.4;";
+            }
+            if (t == "zelda-fantasy")
+            {
+                return $"color:#ffeb3b;font-size:{fs}px;font-weight:600;line-height:1.4;";
+            }
+            if (t == "reversed-fun")
+            {
+                return $"background-color:#f1fbf5;color:#213d2b;padding:6px 14px;border-radius:18px;font-size:{fs}px;font-weight:bold;width:fit-content;display:inline-block;transform:rotate(180deg);line-height:1.4;";
+            }
+            return $"background-color:#f1fbf5;color:#213d2b;padding:6px 14px;border-radius:18px;font-size:{fs}px;font-weight:bold;width:fit-content;display:inline-block;line-height:1.4;";
+        }
+
+        // 2. 自研经典 28 款皮肤的文字渲染
         var font = _cfg.DanmuFont == "system-ui" ? "system-ui, -apple-system, sans-serif" : _cfg.DanmuFont;
         var color = HexToRgba(_cfg.DanmuColor, _cfg.DanmuOpacity);
         var shadow = StrokeToShadow(_cfg.DanmuStroke);
         var weight = IsGamingSlateTheme ? "700" : "normal";
         return $"font-family:{font};color:{color};font-size:{_cfg.DanmuSize}px;font-weight:{weight};line-height:{_cfg.DanmuLineHeight};text-shadow:{shadow};word-break:break-all;";
     }
-
     private static string StrokeToShadow(string stroke) => stroke switch
     {
         "shadow" => "0 1px 3px rgba(0,0,0,0.85)",
@@ -3392,7 +3329,47 @@
     {
         public bool Enabled { get; set; } = true;
         public string Theme { get; set; } = "classic-glass";
+        public string ThemeType { get; set; } = "classic"; // "classic" 或 "laplace"
+        public string LaplaceTemplate { get; set; } = "laplace-nailv";
+        public string CustomCss { get; set; } = "";
+        public string ColorScheme { get; set; } = "dark"; // "dark", "light"
+        public int BaseFontSize { get; set; } = 16;
         public string DisplayMode { get; set; } = "card";
+
+        // 排版布局与位置 (支持用户自由配置)
+        public string AvatarPosition { get; set; } = "left"; // "left", "top-left", "top-center", "hidden"
+        public string BadgePosition { get; set; } = "before-name"; // "before-name", "after-name"
+
+        // 基础元素控制开关
+        public bool ShowAvatar { get; set; } = true;
+        public bool ShowAvatarFrame { get; set; } = true;
+        public bool ShowUsername { get; set; } = true;
+        public bool ShowMedal { get; set; } = true;
+        public bool ShowMedalLightenedOnly { get; set; } = false;
+        public bool ShowWealthMedal { get; set; } = true;
+        public bool ShowModBadge { get; set; } = true;
+        public bool ShowGuardBadge { get; set; } = true;
+        public bool ShowGiftIcon { get; set; } = true;
+        public bool ShowCurrentRank { get; set; } = true;
+
+        // 事件类型控制开关
+        public bool ShowDanmaku { get; set; } = true;
+        public bool ShowGift { get; set; } = true;
+        public bool ShowSuperChat { get; set; } = true;
+        public bool ShowToast { get; set; } = true;
+        public bool ShowGuardBuy { get; set; } = true;
+        public bool ShowEnterRoom { get; set; } = true;
+        public bool ShowFollowEvent { get; set; } = true;
+        public bool ShowLottery { get; set; } = true;
+        public bool ShowRedEnvelop { get; set; } = true;
+        public bool ShowSystemMessage { get; set; } = true;
+
+        // 智能过滤与阈值
+        public bool FilterFreeGift { get; set; } = true;
+        public bool FilterPhoneNotVerified { get; set; } = false;
+        public bool EnterRoomGuardOnly { get; set; } = false;
+        public double GiftPriceAbove { get; set; } = 0.0;
+        public double GiftHighlightAbove { get; set; } = 29.99;
 
         // 弹幕常驻固定底框 (Permanent Danmu Box)
         public bool ShowBox { get; set; } = true;
@@ -3447,7 +3424,6 @@
         public int NicknameOpacity { get; set; } = 100;
         public int NicknameSize { get; set; } = 14;
         public bool NicknameBold { get; set; } = true;
-        public bool ShowMedal { get; set; } = true;
         public string DanmuFont { get; set; } = "system-ui";
         public string DanmuColor { get; set; } = "#ffffff";
         public int DanmuOpacity { get; set; } = 100;
@@ -3463,7 +3439,6 @@
         public string BorderColor { get; set; } = "#3a4256";
         public int BorderOpacity { get; set; } = 60;
         public int BorderWidth { get; set; } = 1;
-        public bool ShowAvatar { get; set; } = true;
         public int AvatarSize { get; set; } = 36;
         public string AvatarShape { get; set; } = "circle";
         public bool ShowAvatarBorder { get; set; } = true;
@@ -3474,12 +3449,11 @@
         public int StayDuration { get; set; } = 15;
         public int MaxCount { get; set; } = 15;
 
-        // 边缘虚化渐隐遮罩 (Universal Edge Fade Mask)
+        // 边缘虚化渐隐遮罩
         public string EdgeFadeMode { get; set; } = "none";
         public int EdgeFadeDistance { get; set; } = 80;
 
-        // 进房欢迎通知 (Room Entry Broadcast)
-        public bool ShowEnterRoom { get; set; } = true;
+        // 进房欢迎通知
         public string EnterRoomText { get; set; } = "进入直播间";
     }
 }

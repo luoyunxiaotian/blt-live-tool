@@ -1,0 +1,701 @@
+/* LAPLACE 气泡 Next × 明前奶绿 by LAPLACE Chat */
+/* 基于 OKLCH 以及 CSS Nesting 实现的测试版本（首发于 Nov 14, 2024） */
+/* 🔴只适用于 CEF 内核为 127 的 OBS 31 或更高版本 */
+
+/*
+  支持的自定义场景：
+    - [scene:blue] 适配明前奶绿夜的亡灵场景配色
+    - [scene:spring] 春秋常服主题
+    - [scene:shop] 花店开场
+ */
+/* 引入 Google Fonts 字体，理论上国内可以直接访问 */
+@import url('https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,400;0,500;1,400;1,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+
+
+
+  /* 全局 OKLCH 配置，降低全局颜色亮度 */
+  [data-theme='light'] {
+    --mix-base: #000;
+    --mix-factor: 98%;
+  }
+
+  /* 全局背景透明，可保证 OBS 载入弹幕机的过程中背景全程透明 */
+  body {
+    background-color: rgba(0, 0, 0, 0);
+  }
+
+  /* 全局事件变量 */
+  .event {
+    /* 应用全局自定义字体 */
+    /* --font-sans 为 LAPLACE Chat 内置变量，可调用非衬线字体 */
+    --event-font-family: 'Jost', var(--font-sans);
+
+    /* 自定义礼物背景色 */
+    --event-gift-bg-1: var(--color-blue-500);
+    --event-gift-bg-2: var(--color-green-500);
+    --event-gift-bg-3: var(--color-amber-500);
+    --event-gift-bg-4: var(--color-orange-500);
+    --event-gift-bg-5: var(--color-red-500);
+    --event-gift-bg-6: var(--color-rose-500);
+
+    /* 自定义醒目留言背景色 */
+    --event-superchat-top-bg-1: color-mix(in oklch, var(--color-blue-500) 30%, transparent);
+    --event-superchat-top-bg-2: color-mix(in oklch, var(--color-green-500) 30%, transparent);
+    --event-superchat-top-bg-3: color-mix(in oklch, var(--color-amber-500) 30%, transparent);
+    --event-superchat-top-bg-4: color-mix(in oklch, var(--color-orange-500) 30%, transparent);
+    --event-superchat-top-bg-5: color-mix(in oklch, var(--color-red-500) 30%, transparent);
+    --event-superchat-top-bg-6: color-mix(in oklch, var(--color-rose-500) 30%, transparent);
+    --event-superchat-bg-1: var(--color-blue-500);
+    --event-superchat-bg-2: var(--color-green-500);
+    --event-superchat-bg-3: var(--color-amber-500);
+    --event-superchat-bg-4: var(--color-orange-500);
+    --event-superchat-bg-5: var(--color-red-500);
+    --event-superchat-bg-6: var(--color-rose-500);
+
+    /* 自定义舰长背景颜色 */
+    --event-toast-bg-1: var(--color-red-500);
+    --event-toast-bg-2: var(--color-purple-500);
+    --event-toast-bg-3: var(--color-blue-500);
+
+    /* 为事件增加一个全局的渐变，可在调用 OBS API 时增加颜色渐变效果，使场景切换时看上去没那么突兀 */
+    transition: .4s color ease, .4s background-color ease;
+
+    /* 大航海图标配置 */
+    &.guard-level--1 {
+      --cross-deco: url(https://rsrc.laplace.cn/assets/chat-templates/flower-symbol-1.svg);
+      --spring-guard-icon: url("https://rsrc.laplace.cn/assets/chat-templates/milky-green-spring/guard-level-1.svg?v=3");
+      --spring-guard-deco: url("https://rsrc.laplace.cn/assets/chat-templates/milky-green-spring/guard-deco-level-1.svg");
+    }
+
+    &.guard-level--2 {
+      --cross-deco: url(https://rsrc.laplace.cn/assets/chat-templates/flower-symbol-2.svg);
+      --spring-guard-icon: url("https://rsrc.laplace.cn/assets/chat-templates/milky-green-spring/guard-level-2.svg");
+      --spring-guard-deco: url("https://rsrc.laplace.cn/assets/chat-templates/milky-green-spring/guard-deco-level-2.svg");
+    }
+
+    &.guard-level--3 {
+      --cross-deco: url(https://rsrc.laplace.cn/assets/chat-templates/flower-symbol-3.svg);
+      --spring-guard-icon: url("https://rsrc.laplace.cn/assets/chat-templates/milky-green-spring/guard-level-3.svg");
+      --spring-guard-deco: url("https://rsrc.laplace.cn/assets/chat-templates/milky-green-spring/guard-deco-level-3.svg");
+    }
+  }
+
+  /* 弹幕自定义样式 */
+  .event--message {
+    --text: #213d2b;
+    --bg: #f1fbf5;
+    transform-origin: left top;
+
+    /* 总督变量 */
+    &.guard-level--1 {
+      --text: var(--color-red-900);
+      --bg: var(--color-red-100);
+    }
+
+    /* 提督变量 */
+    &.guard-level--2 {
+      --text: var(--color-purple-900);
+      --bg: var(--color-purple-100);
+    }
+
+    /* 舰长变量 */
+    &.guard-level--3 {
+      --text: var(--color-sky-900);
+      --bg: var(--color-sky-100);
+    }
+
+    /* 主播变量 */
+    &.user-type--streamer {
+      --text: var(--color-green-900);
+      --bg: var(--color-green-100);
+    }
+
+    /* 弹幕正文改为聊天泡泡样式 */
+    .message {
+      --margin-top: 2;
+      --margin-left: 28;
+
+      position: relative;
+      display: block;
+      margin-top: calc(var(--1px) * var(--margin-top));
+      margin-left: calc(var(--1px) * var(--margin-left));
+      padding: calc(var(--1px) * 8) calc(var(--1px) * 14);
+      color: var(--text);
+      background-color: var(--bg);
+      width: fit-content;
+      min-width: 3em;
+      border-radius: calc(var(--1px) * 18);
+      filter: drop-shadow(0 0 1px currentColor);
+      font-weight: bold;
+    }
+
+    /* 去掉大表情消息边框 */
+    &.has-emotes .message {
+      background-color: transparent;
+      padding: 0 !important;
+      filter: none;
+    }
+
+    /* 放大表情尺寸 */
+    .emote {
+      max-height: calc(var(--event-line-height) * 2);
+
+      /* 为自定义大表情固定高度，防止 OBS 模式滚动时显示不全 */
+      &.emote--large {
+        min-height: calc(var(--event-line-height) * 2);
+      }
+    }
+
+    .can-motion &:nth-last-child(-n+2) {
+      animation: pop-in 0.5s ease 1;
+    }
+  }
+
+  /* 为聊天泡泡增加尾巴，半透明会导致箭头颜色叠加，因此不要应用于 [scene:blue] */
+  .events-list-wrap:not(.scene-blue) .event--message:not(.has-emotes) .message::before {
+    content: "";
+    display: inline-block;
+    position: absolute;
+    top: calc(var(--1px) * -5);
+    left: calc(var(--1px) * -12);
+    border: calc(var(--1px) * 10) solid transparent;
+    border-right: calc(var(--1px) * 18) solid var(--bg);
+    transform: rotate(40deg);
+  }
+
+  /* 一个简易的渐变淡出效果，可以让组件边缘看起来没那么突兀 */
+  .event-list {
+    --offset: 30px;
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) var(--offset), rgba(0, 0, 0, 1) calc(100% - var(--offset)), rgba(0, 0, 0, 0));
+  }
+
+  /* 深色模式 */
+  .scheme-dark {
+
+    .event {
+      /* 自定义礼物背景色 */
+      --event-gift-bg-1: color-mix(in oklch, var(--color-blue-500) 30%, transparent);
+      --event-gift-bg-2: color-mix(in oklch, var(--color-green-500) 30%, transparent);
+      --event-gift-bg-3: color-mix(in oklch, var(--color-amber-500) 30%, transparent);
+      --event-gift-bg-4: color-mix(in oklch, var(--color-orange-500) 30%, transparent);
+      --event-gift-bg-5: color-mix(in oklch, var(--color-red-500) 30%, transparent);
+      --event-gift-bg-6: color-mix(in oklch, var(--color-rose-500) 30%, transparent);
+
+      /* 自定义醒目留言背景色 */
+      --event-superchat-top-bg-1: var(--event-gift-bg-1);
+      --event-superchat-top-bg-2: var(--event-gift-bg-2);
+      --event-superchat-top-bg-3: var(--event-gift-bg-3);
+      --event-superchat-top-bg-4: var(--event-gift-bg-4);
+      --event-superchat-top-bg-5: var(--event-gift-bg-5);
+      --event-superchat-top-bg-6: var(--event-gift-bg-6);
+      --event-superchat-bg-1: color-mix(in oklch, var(--color-blue-500) 60%, transparent);
+      --event-superchat-bg-2: color-mix(in oklch, var(--color-green-500) 60%, transparent);
+      --event-superchat-bg-3: color-mix(in oklch, var(--color-amber-500) 60%, transparent);
+      --event-superchat-bg-4: color-mix(in oklch, var(--color-orange-500) 60%, transparent);
+      --event-superchat-bg-5: color-mix(in oklch, var(--color-red-500) 60%, transparent);
+      --event-superchat-bg-6: color-mix(in oklch, var(--color-rose-500) 60%, transparent);
+
+      /* 自定义舰长背景颜色 */
+      --event-toast-bg-1: color-mix(in oklch, var(--color-red-500) 30%, transparent);
+      --event-toast-bg-2: color-mix(in oklch, var(--color-purple-500) 30%, transparent);
+      --event-toast-bg-3: color-mix(in oklch, var(--color-blue-500) 30%, transparent);
+    }
+
+    /* 当主题为暗色时，为用户名增加一个阴影，以保证在大部分深色背景的游戏场景遇到白色背景时依然可以看清用户名 */
+    .event--system,
+    .event--superchat,
+    .event--user-block,
+    .event--live-cutoff,
+    .event--toast .content,
+    .event--gift .content,
+    .event--like-click .username,
+    .event--interaction .username,
+    .event--message .username {
+      text-shadow: 0 0 2px var(--bg-color), 0 0 2px var(--bg-color), 0 0 2px var(--bg-color);
+    }
+
+    /* 防止深色模式下礼物事件中的粉丝勋章出现阴影 */
+    .fans-medal {
+      text-shadow: none;
+    }
+  }
+
+  /* 蓝色场景，在 OBS 的场景中加入 [scene:blue] 可激活 */
+  .scene-blue {
+    --event-username-text-0: #d0c5dd;
+
+    .event--message {
+      --text: var(--color-purple-500);
+      --bg: color-mix(in oklch, var(--color-purple-500) 25%, transparent);
+
+      /* 蓝色半透明背景与 filter 不兼容 */
+      .message {
+        filter: none;
+        padding: calc(var(--1px) * 6) calc(var(--1px) * 10);
+      }
+
+      /* 优化蓝色场景时的消息尺寸 */
+      &:not(.has-emotes):not(.guard-level--0) .message {
+        --margin-top: 4;
+        --margin-left: 30;
+
+        padding: calc(var(--1px) * 2) calc(var(--1px) * 8);
+        /* 当下方消息装饰开启时请取消注释 */
+        /* padding-right: calc(var(--1px) * 30); */
+        margin-bottom: calc(var(--1px) * 4);
+        border: calc(var(--1px) * 2) solid transparent;
+
+        /* 取消下列注释开启消息右侧装饰 */
+        /* &::before {
+          content: '';
+          display: block;
+          position: absolute;
+          width: calc(var(--1px) * 24);
+          height: calc(var(--1px) * 24);
+          right: calc(var(--1px) * 4);
+          top: calc(var(--1px) * 2);
+          background-color: var(--text);
+          mask-image: var(--cross-deco);
+          mask-size: calc(var(--1px) * 24);
+          mask-repeat: no-repeat;
+        } */
+
+        /* 通过伪类实现双层描边 */
+        &::after {
+          --offset: calc(var(--1px) * -6);
+          content: '';
+          display: block;
+          position: absolute;
+          top: var(--offset);
+          left: var(--offset);
+          right: var(--offset);
+          bottom: var(--offset);
+          border-radius: calc(var(--1px) * 22);
+          border: calc(var(--1px) * 2) solid var(--bg);
+        }
+      }
+
+      &.guard-level--1 {
+        --text: var(--color-red-500);
+        --bg: color-mix(in oklch, var(--color-red-500) 25%, transparent);
+      }
+
+      &.guard-level--2 {
+        --text: var(--color-purple-500);
+        --bg: color-mix(in oklch, var(--color-purple-500) 25%, transparent);
+      }
+
+      &.guard-level--3 {
+        --text: var(--color-blue-500);
+        --bg: color-mix(in oklch, var(--color-blue-500) 25%, transparent);
+      }
+
+      &.user-type--streamer {
+        --text: rgb(50, 32, 72);
+        --bg: rgb(254, 220, 230);
+      }
+    }
+
+    .avatar-wrap::after {
+      --size: var(--avatar-size, var(--event-line-height));
+      --factor: 1.6;
+      /* 取消注释开启头像装饰 */
+      /* content: ''; */
+      display: block;
+      position: absolute;
+      top: calc((var(--size) * var(--factor) - var(--size)) / -2);
+      left: calc((var(--size) * var(--factor) - var(--size)) / -2);
+      z-index: 1;
+      width: calc(var(--size) * var(--factor));
+      height: calc(var(--size) * var(--factor));
+      background: var(--cross-deco);
+      background-size: contain;
+    }
+
+    .guard-badge-in-meta {
+      background-image: none;
+      background-color: var(--text);
+      mask-image: var(--cross-deco);
+      mask-size: calc(var(--1px) * 24);
+      mask-repeat: no-repeat;
+    }
+  }
+
+  /*
+    春秋常服 - Jun, 2025
+  */
+  .scene-spring {
+    --text-level-1: rgb(125, 37, 37);
+    --text-level-2: rgb(95, 26, 112);
+    --text-level-3: rgb(46, 72, 136);
+
+    /* 深色模式特殊样式 */
+    &.scheme-dark {
+
+      .event--toast .content,
+      .event--superchat .content,
+      .event--gift .content {
+        text-shadow: none !important;
+      }
+    }
+
+    .event {
+      --event-toast-text-1: var(--text-level-1);
+      --event-toast-text-2: var(--text-level-2);
+      --event-toast-text-3: var(--text-level-3);
+      --event-toast-bg-1: rgb(239, 194, 169);
+      --event-toast-bg-2: rgb(226, 206, 232);
+      --event-toast-bg-3: rgb(199, 223, 241);
+    }
+
+    .event--message {
+      --text: #752a11;
+      --bg: #fff3e3;
+
+      .guard-badge-in-meta {
+        --size: calc(var(--event-line-height) - var(--1px) * 4);
+        --guard-icon: var(--spring-guard-icon);
+
+        width: var(--size);
+        height: var(--size);
+      }
+
+      /* 修改主播的标记，虽然有点 tricky，你就说能不能改吧 */
+      .streamer-badge-wrap {
+        position: relative;
+
+        .streamer-badge {
+          display: none;
+        }
+
+        &::after {
+          --size: calc(var(--event-line-height) - var(--1px) * 4);
+          content: '';
+          width: var(--size);
+          height: var(--size);
+          display: block;
+          background-size: cover;
+          background-image: url("https://rsrc.laplace.cn/assets/chat-templates/milky-green-spring/guard-level-100-alt.svg?v=2");
+        }
+      }
+
+      /* 总督变量 */
+      &.guard-level--1 {
+        --text: var(--text-level-1);
+        --bg: rgb(255, 225, 223);
+      }
+
+      /* 提督变量 */
+      &.guard-level--2 {
+        --text: var(--text-level-2);
+        --bg: rgb(255, 220, 254);
+      }
+
+      /* 舰长变量 */
+      &.guard-level--3 {
+        --text: var(--text-level-3);
+        --bg: var(--color-sky-100);
+      }
+
+      /* 主播变量 */
+      &.user-type--streamer {
+        --text: var(--color-green-900);
+        --bg: var(--color-green-100);
+      }
+
+      /* 弹幕样式，排除表情包 */
+      &:not(.has-emotes) .message {
+        box-shadow: inset 0 3px 3px #fff,
+          inset 0 -3px 4px color-mix(in oklch, currentColor 30%, transparent),
+          0 0 0 calc(var(--1px) * 0.5) color-mix(in oklch, currentColor 90%, #000);
+        filter: drop-shadow(0 1px 3px currentColor);
+        border-radius: calc(var(--1px) * 10);
+        padding: calc(var(--1px) * 8) calc(var(--1px) * 12);
+      }
+    }
+
+    .event--toast {
+      box-shadow: inset 0 3px 3px #fff,
+        inset 0 -3px 4px color-mix(in oklch, currentColor 30%, transparent),
+        0 0 0 calc(var(--1px) * 1) color-mix(in oklch, currentColor 90%, #000);
+      filter: drop-shadow(0 1px 3px currentColor);
+      margin: 0 calc(var(--1px) * 1);
+
+      &.event-show-as--sticky {
+        background-image: var(--spring-guard-icon);
+        background-size: calc(var(--event-font-size) * 3.25);
+      }
+
+      &.event-show-as--normal {
+        overflow: hidden;
+        background-image: none;
+        margin: calc(var(--1px) * 10) calc(var(--1px) * 5);
+
+        .toast-icon-wrap-alt-bottom {
+          position: absolute;
+          top: 50%;
+          right: calc(var(--1px) * 10);
+          display: flex;
+          z-index: 10;
+          transform: translateY(calc(var(--1px) * -32));
+          background-image: var(--spring-guard-icon);
+
+          picture img {
+            width: calc(var(--1px) * 64);
+            height: calc(var(--1px) * 64);
+            opacity: 0;
+          }
+        }
+
+        &::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: calc(100% - calc(var(--1px) * 242));
+          width: calc(var(--1px) * 400);
+          height: calc(var(--1px) * 400);
+          display: block;
+          background-size: cover;
+          transform: translateY(calc(var(--1px) * -200)) scale(1);
+          opacity: 1;
+          animation: zoom-in 2s ease 1;
+          background-image: var(--spring-guard-deco);
+        }
+      }
+    }
+
+    .event--gift {
+      --event-gift-text-1: var(--text-level-3);
+      --event-gift-text-2: rgb(48, 93, 57);
+      --event-gift-text-3: rgb(141, 94, 29);
+      --event-gift-text-4: rgb(145, 54, 26);
+      --event-gift-text-5: rgb(145, 26, 38);
+      --event-gift-text-6: rgb(135, 23, 66);
+
+      --event-gift-bg-1: var(--event-toast-bg-3);
+      --event-gift-bg-2: rgb(190, 230, 211);
+      --event-gift-bg-3: rgb(237, 222, 169);
+      --event-gift-bg-4: rgb(241, 197, 168);
+      --event-gift-bg-5: rgb(240, 183, 183);
+      --event-gift-bg-6: rgb(241, 168, 196);
+
+      &.event-size--highlight {
+        box-shadow: inset 0 3px 3px #fff,
+          inset 0 -3px 4px color-mix(in oklch, currentColor 30%, transparent),
+          0 0 0 calc(var(--1px) * 1) color-mix(in oklch, currentColor 90%, #000);
+        filter: drop-shadow(0 1px 3px currentColor);
+
+        &.event-show-as--sticky {
+          margin: 0 calc(var(--1px) * 1);
+        }
+
+        &.event-show-as--normal {
+          margin: calc(var(--1px) * 10) calc(var(--1px) * 5);
+        }
+      }
+    }
+
+    .event--superchat {
+      --event-superchat-message-text-1: rgb(46, 90, 148);
+      --event-superchat-message-text-2: rgb(57, 110, 68);
+      --event-superchat-message-text-3: rgb(155, 105, 36);
+      --event-superchat-message-text-4: rgb(167, 73, 23);
+      --event-superchat-message-text-5: rgb(163, 27, 40);
+      --event-superchat-message-text-6: rgb(148, 23, 71);
+
+      --event-superchat-bg-1: rgb(200, 228, 244);
+      --event-superchat-bg-2: rgb(205, 240, 223);
+      --event-superchat-bg-3: rgb(237, 222, 169);
+      --event-superchat-bg-4: rgb(240, 201, 175);
+      --event-superchat-bg-5: rgb(245, 192, 192);
+      --event-superchat-bg-6: rgb(253, 198, 219);
+
+      color: var(--coerced-color);
+      filter: drop-shadow(0 1px 3px currentColor);
+
+      &.event-show-as--sticky {
+        margin: 0 calc(var(--1px) * 1);
+      }
+
+      &.event-show-as--normal {
+        margin: calc(var(--1px) * 10) calc(var(--1px) * 5);
+      }
+
+      &.event-superchat-rank--1 {
+        --coerced-color: var(--event-superchat-message-text-1);
+      }
+
+      &.event-superchat-rank--2 {
+        --coerced-color: var(--event-superchat-message-text-2);
+      }
+
+      &.event-superchat-rank--3 {
+        --coerced-color: var(--event-superchat-message-text-3);
+      }
+
+      &.event-superchat-rank--4 {
+        --coerced-color: var(--event-superchat-message-text-4);
+      }
+
+      &.event-superchat-rank--5 {
+        --coerced-color: var(--event-superchat-message-text-5);
+      }
+
+      &.event-superchat-rank--6 {
+        --coerced-color: var(--event-superchat-message-text-6);
+      }
+
+      .event-show-as--sticky.dark,
+      .content {
+
+        .top {
+          color: #fff;
+          background-color: color-mix(in oklch, var(--coerced-color) 90%, #fff);
+          box-shadow: inset 0 3px 3px color-mix(in oklch, currentColor 30%, transparent), 0 0 0 var(--1px) color-mix(in oklch, var(--coerced-color) 90%, #000);
+        }
+
+        .message {
+          box-shadow: inset 0 -3px 4px color-mix(in oklch, currentColor 30%, transparent), 0 0 0 var(--1px) color-mix(in oklch, currentColor 90%, #000);
+        }
+      }
+    }
+
+    .event--lottery-result,
+    .event--lottery-start {
+      --color: var(--color-blue-900);
+      box-shadow: inset 0 3px 3px rgba(255, 255, 255, 0.5),
+        inset 0 -3px 4px color-mix(in oklch, var(--color) 30%, transparent),
+        0 0 0 calc(var(--1px) * 1) color-mix(in oklch, var(--color) 90%, #000);
+      filter: drop-shadow(0 1px 3px var(--color));
+    }
+
+    .event--lottery-start {
+
+      &.event-show-as--sticky {
+        margin: 0 calc(var(--1px) * 1);
+      }
+
+      &.event-show-as--normal {
+        margin: calc(var(--1px) * 10) calc(var(--1px) * 5);
+      }
+    }
+
+    .event--lottery-result {
+      margin: calc(var(--1px) * 10) calc(var(--1px) * 5);
+    }
+
+    .event--red-envelope-start {
+      --color: var(--color-red-900);
+
+      &.event-size--highlight {
+        box-shadow: inset 0 3px 3px rgba(255, 255, 255, 0.5),
+          inset 0 -3px 4px color-mix(in oklch, var(--color) 30%, transparent),
+          0 0 0 calc(var(--1px) * 1) color-mix(in oklch, var(--color) 90%, #000);
+        filter: drop-shadow(0 1px 3px var(--color));
+
+        &.event-show-as--sticky {
+          margin: 0 calc(var(--1px) * 1);
+        }
+
+        &.event-show-as--normal {
+          margin: calc(var(--1px) * 10) calc(var(--1px) * 5);
+        }
+      }
+    }
+
+    .event--red-envelope-result {
+      --color: var(--color-red-900);
+      box-shadow: inset 0 3px 3px rgba(255, 255, 255, 0.5),
+        inset 0 -3px 4px color-mix(in oklch, var(--color) 30%, transparent),
+        0 0 0 calc(var(--1px) * 1) color-mix(in oklch, var(--color) 90%, #000);
+      filter: drop-shadow(0 1px 3px var(--color));
+      margin: calc(var(--1px) * 10) calc(var(--1px) * 5);
+    }
+
+    .gift-sticky-bar {
+      --padding: calc(var(--1px) * 3);
+      padding-top: var(--padding);
+      padding-bottom: var(--padding);
+    }
+  }
+
+  /*
+    黑板，花店开场 - Nov 20, 2025
+  */
+  .scene-shop {
+    .event {
+      --event-font-family: 'ZCOOL KuaiLe', var(--font-sans);
+
+      --event-username-text-0: #ffffff;
+      --event-username-text-1: var(--color-red-200);
+      --event-username-text-2: var(--color-purple-200);
+      --event-username-text-3: var(--color-sky-200);
+
+      --event-system-text: #fff;
+    }
+
+    .event--message {
+      --text: #b1dbc0;
+      --bg: #f1fbf5;
+      transform-origin: left top;
+
+      /* 总督变量 */
+      &.guard-level--1 {
+        --text: var(--color-red-100);
+        --bg: var(--color-red-100);
+      }
+
+      /* 提督变量 */
+      &.guard-level--2 {
+        --text: var(--color-purple-100);
+        --bg: var(--color-purple-100);
+      }
+
+      /* 舰长变量 */
+      &.guard-level--3 {
+        --text: var(--color-sky-100);
+        --bg: var(--color-sky-100);
+      }
+
+      /* 主播变量 */
+      &.user-type--streamer {
+        --text: var(--color-green-100);
+        --bg: var(--color-green-100);
+      }
+
+      .username {
+        filter: drop-shadow(0 0 1px #000);
+      }
+
+      .message {
+        background: transparent;
+        padding: 0;
+        filter: drop-shadow(0 0 1px #000);
+
+        &::before {
+          display: none !important;
+        }
+      }
+    }
+  }
+
+  @keyframes zoom-in {
+    0% {
+      transform: translateY(calc(var(--1px) * -200)) scale(0.6);
+      opacity: 0;
+    }
+  }
+
+  @keyframes pop-in {
+    0% {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+
+    30% {
+      transform: scale(1.05);
+      opacity: 1;
+    }
+  }
+

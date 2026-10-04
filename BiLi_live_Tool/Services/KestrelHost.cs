@@ -900,6 +900,9 @@ public sealed class KestrelHost
                 var uname = body?["uname"]?.GetValue<string>() ?? "小帮手体验官";
                 var isGuard = body?["isGuard"]?.GetValue<bool>() ?? false;
                 var isEntry = body?["isEntry"]?.GetValue<bool>() ?? false;
+                var isGift = body?["isGift"]?.GetValue<bool>() ?? false;
+                var isSuperChat = body?["isSuperChat"]?.GetValue<bool>() ?? false;
+                var isGuardBuy = body?["isGuardBuy"]?.GetValue<bool>() ?? false;
                 var now = DateTime.Now;
 
                 if (isEntry)
@@ -922,6 +925,49 @@ public sealed class KestrelHost
                         uname,
                         uface = entryEv.Uface,
                         msg = text
+                    });
+                    return Results.Json(new { ok = true }, JsonWeb);
+                }
+
+                if (isGift)
+                {
+                    _hub.PublishOutbound("danmu_test", new
+                    {
+                        isGift = true,
+                        uname,
+                        uface = "https://i0.hdslb.com/bfs/face/member/noface.jpg",
+                        giftName = "小心心",
+                        num = 10,
+                        price = 1000,
+                        totalPrice = 10.0,
+                        coinType = "gold"
+                    });
+                    return Results.Json(new { ok = true }, JsonWeb);
+                }
+
+                if (isSuperChat)
+                {
+                    _hub.PublishOutbound("danmu_test", new
+                    {
+                        isSuperChat = true,
+                        uname,
+                        uface = "https://i0.hdslb.com/bfs/face/member/noface.jpg",
+                        price = 50.0,
+                        msg = text
+                    });
+                    return Results.Json(new { ok = true }, JsonWeb);
+                }
+
+                if (isGuardBuy)
+                {
+                    _hub.PublishOutbound("danmu_test", new
+                    {
+                        isGuardBuy = true,
+                        uname,
+                        uface = "https://i0.hdslb.com/bfs/face/member/noface.jpg",
+                        guardLevel = 3,
+                        num = 1,
+                        unit = "月"
                     });
                     return Results.Json(new { ok = true }, JsonWeb);
                 }
@@ -2056,7 +2102,11 @@ public sealed class KestrelHost
     {
         ["enabled"] = true,
         ["theme"] = "classic-glass",
+        ["themeType"] = "classic",
+        ["laplaceTemplate"] = "laplace-nailv",
         ["displayMode"] = "card",
+        ["avatarPosition"] = "left",
+        ["badgePosition"] = "before-name",
         ["nicknameFont"] = "system-ui",
         ["nicknameColor"] = "#ffd04b",
         ["nicknameOpacity"] = 100,

@@ -1,0 +1,235 @@
+/* 奇幻样式 by LAPLACE Chat */
+/* 引入 Google Fonts 字体，理论上国内可以直接访问 */
+@import url('https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,400;0,600;1,400;1,600&display=swap');
+
+
+  /* 全局背景透明，可保证 OBS 载入弹幕机的过程中背景全程透明 */
+  body { background-color: rgba(0, 0, 0, 0); }
+
+  /* 全局事件变量 */
+  .event {
+    /* 应用全局自定义字体 */
+    /* --font-sans 为 LAPLACE Chat 内置变量，可调用非衬线字体 */
+    --event-font-family: 'Jost', var(--font-sans);
+
+    /* 应用变量 */
+    --event-danmaku-streamer-text: rgb(255, 255, 255);
+    --event-danmaku-mod-text: currentColor;
+  }
+
+  /* 一个朴素的动画效果 */
+  @keyframes eventIn {
+    0% {
+      opacity: 0;
+      transform: scale3d(.8, .1, 1);
+    }
+    100% {
+      opacity: 1;
+      transform: scale3d(1, 1, 1)
+    }
+  }
+
+  /* 在 OBS 模式下增加一个朴素的 3D 透视效果 */
+  .in-obs {
+    perspective: 1000px;
+    perspective-origin: 50% 50%;
+  }
+
+  /* 如果不想要 3D 效果，可以删掉下面这段 */
+  .gift-sticky-bar,
+  .event-list {
+    transform: scaleX(0.85) rotateY(15deg);
+  }
+
+  /* 简简单单给置顶条换个位置 */
+  .gift-sticky-bar {
+    order: 1;
+  }
+
+  /* 配置弹幕变量 */
+  .event {
+    --text: #f7f2cf;
+    --bg: rgba(33, 36, 27, 0.65);
+  }
+
+  .event--message {
+    --avatar-size: 18px;
+  }
+
+  /* 总督变量 */
+  .event.guard-level--1 {
+    --text: #ffd9d3;
+    --bg: rgba(135, 45, 13, 0.654);
+  }
+
+  /* 提督变量 */
+  .event.guard-level--2 {
+    --text: #efcff7;
+    --bg: rgba(62, 25, 89, 0.654);
+  }
+
+  /* 舰长变量 */
+  .event.guard-level--3 {
+    --text: #cfe5f7;
+    --bg: rgba(24, 43, 76, 0.652);
+  }
+
+  /* 主播变量 */
+  .event--message.user-type--streamer {
+    --text: rgb(255, 255, 255);
+    --bg: rgba(255, 173, 51, 0.6);
+  }
+
+  /* 全局间距 */
+  .event {
+    margin: calc(var(--1px) * 8) 0;
+  }
+
+  /* 弹幕正文改为聊天泡泡样式 */
+  .event--message {
+    position: relative;
+    display: block;
+    /*
+      上方用户名字体偏小，下方文本字体偏大，导致下方 line-height 更高
+      因此此处要调高上方 padding 来实现 visual align
+      */
+    padding: calc(var(--1px) * 8) calc(var(--1px) * 14) calc(var(--1px) * 6);
+    box-shadow: inset 0 0 0 2px var(--bg), inset 0 0 0 3.5px rgba(255, 255, 255, .2);
+    color: var(--text);
+    font-weight: bold;
+    background-color: var(--bg);
+    border-radius: calc(var(--1px) * 8);
+    overflow: hidden;
+    font-style: italic;
+    animation: eventIn .6s ease;
+  }
+
+  /* 新换行显示弹幕正文 */
+  .event--message .message {
+    display: block;
+  }
+
+  /* 粉丝勋章样式 */
+  .event--message .fans-medal {
+    position: absolute;
+    bottom: calc(var(--event-font-size) * -1.25);
+    right: calc(var(--event-font-size) * -.5);
+    border: none;
+    background: none;
+    font-weight: bold;
+    font-style: italic;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  /* 修改粉丝勋章名称样式 */
+  .event--message .fans-medal-content {
+    font-size: calc(var(--event-font-size) * 3);
+    opacity: .15;
+  }
+
+  /* 隐藏粉丝勋章中的舰长图标 */
+  .event--message .fans-medal-content .guard-badge {
+    display: none;
+  }
+
+  /* 修改粉丝勋章等级样式 */
+  .event--message .fans-medal-level {
+    font-size: calc(var(--event-font-size) * 4);
+    filter: brightness(1000%) saturate(40%) opacity(0.4);
+    background: none;
+  }
+
+  /* 降低未点亮粉丝勋章的透明度 */
+  .event--message .fans-medal-lightened--0 {
+    opacity: .4;
+  }
+
+  /* 修改「榜1」图标 */
+  /* 变量定义可从 https://master--60f5c0ae4a7e3f003ba05641.chromatic.com/ 查看 */
+  .event--message .current-rank {
+    color: var(--amber-light);
+    background-color: var(--amber-20);
+  }
+
+  /* 舰长事件样式 */
+  /*
+    .event-show-as--normal 将排除置顶礼物条
+    .event-show-as--sticky 用于置顶礼物条
+    */
+  .event--toast.event-show-as--normal {
+    padding: calc(var(--1px) * 8) calc(var(--1px) * 14);
+    box-shadow: inset 0 0 0 2px var(--bg), inset 0 0 0 3.5px rgba(255, 255, 255, .2);
+    color: var(--text);
+    /* background-color: var(--bg); */
+    border-radius: calc(var(--1px) * 8);
+    font-style: italic;
+  }
+
+  /* 礼物事件样式 */
+  /*
+    .event-size--highlight 将排除非高亮礼物事件
+    .event-size--normal 用于非高亮事件
+    */
+  .event--gift.event-show-as--normal.event-size--highlight {
+    padding: calc(var(--1px) * 8) calc(var(--1px) * 14);
+    box-shadow: inset 0 0 0 2px var(--bg), inset 0 0 0 3.5px rgba(255, 255, 255, .2);
+    color: var(--text);
+    /* background-color: var(--bg); */
+    border-radius: calc(var(--1px) * 8);
+    font-style: italic;
+  }
+
+  /* SC 样式 */
+  /* SC 颜色分为上下两个部分，因此需要单独定义背景 */
+  .event--superchat.event-show-as--normal {
+    box-shadow: inset 0 0 0 2px var(--bg), inset 0 0 0 3.5px rgba(255, 255, 255, .2);
+    background-color: var(--bg);
+    font-style: italic;
+  }
+
+  .event--superchat.event-show-as--normal .top {
+    padding: calc(var(--1px) * 8) calc(var(--1px) * 14);
+  }
+
+  .event--superchat.event-show-as--normal .message {
+    color: var(--text);
+    padding: calc(var(--1px) * 8) calc(var(--1px) * 14);
+  }
+
+  /* 礼物/SC文本颜色变量 */
+  /*
+    此处可使用 .event-superchat-rank--[n] 和 .event-gift-rank--[n] 分别定义样式，
+    也可以像我这样使用 .event-price-rank--[n] 统一定义样式
+    */
+  .event.event-price-rank--1 {
+    --text: rgb(212, 233, 247);
+  }
+
+  .event.event-price-rank--2 {
+    --text: rgb(211, 246, 229);
+  }
+
+  .event.event-price-rank--3 {
+    --text: rgb(246, 242, 211);
+  }
+
+  .event.event-price-rank--4 {
+    --text: rgb(255, 226, 216);
+  }
+
+  .event.event-price-rank--5 {
+    --text: rgb(255, 208, 223);
+  }
+
+  .event.event-price-rank--6 {
+    --text: rgb(255, 226, 227);
+  }
+
+  /* 一个简易的渐变淡出效果，可以让组件边缘看起来没那么突兀 */
+  .event-list {
+    --offset: 30px;
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) var(--offset), rgba(0, 0, 0, 1) calc(100% - var(--offset)), rgba(0, 0, 0, 0));
+            mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) var(--offset), rgba(0, 0, 0, 1) calc(100% - var(--offset)), rgba(0, 0, 0, 0));
+  }
+

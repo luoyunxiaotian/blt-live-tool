@@ -146,21 +146,36 @@ body.theme-type-laplace #danmu-box:not(.box-explicit-enabled) {
 
 /* ── 📐 排版布局与元素位置支持 (Left / Top-Left / Top-Center / Hidden) ── */
 
-/* 1. 经典横向左侧排列 (Left) */
+/* 1. 经典横向左侧排列 (Left) - 头像在左，ID与弹幕内容同行横向排列 */
 .danmu-item.layout-avatar-left,
 .layout-avatar-left {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 10px;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
 }
 .danmu-item.layout-avatar-left .danmu-content,
 .danmu-item.layout-avatar-left .event-content {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+.danmu-item.layout-avatar-left .danmu-meta,
+.danmu-item.layout-avatar-left .event-meta {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+}
+.danmu-item.layout-avatar-left .danmu-text,
+.danmu-item.layout-avatar-left .message {
+  display: inline-block !important;
+  margin-left: 0 !important;
+  margin-top: 0 !important;
 }
 
 /* 2. 左上角排列 (Top-Left) */
@@ -240,7 +255,37 @@ body.theme-type-laplace #danmu-box:not(.box-explicit-enabled) {
   margin-right: auto !important;
 }
 
-/* 4. 隐藏头像模式 (Hidden) */
+/* 4. 隐藏头像模式 (Hidden) - 纯文字同行横向排列 */
+.danmu-item.layout-avatar-hidden,
+.layout-avatar-hidden {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.danmu-item.layout-avatar-hidden .danmu-content,
+.danmu-item.layout-avatar-hidden .event-content {
+  flex: 1;
+  min-width: 0;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+.danmu-item.layout-avatar-hidden .danmu-meta,
+.danmu-item.layout-avatar-hidden .event-meta {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+}
+.danmu-item.layout-avatar-hidden .danmu-text,
+.danmu-item.layout-avatar-hidden .message {
+  display: inline-block !important;
+  margin-left: 0 !important;
+  margin-top: 0 !important;
+}
 .danmu-item.layout-avatar-hidden .avatar-wrap,
 .danmu-item.layout-avatar-hidden .danmu-avatar-wrap,
 .layout-avatar-hidden .avatar-wrap,

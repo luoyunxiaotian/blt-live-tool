@@ -448,27 +448,7 @@
                             </div>
                         }
                         <div style="@PreviewStageStyle()">
-                            @* 模拟弹幕 1：普通粉丝 *@
-                            <div style="@ItemCardStyle(0)">
-                                @if (_cfg.ThemeType == "classic")
-                                {
-                                    @if (IsWin98Theme)
-                                    {
-                                        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(0);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
-                                            <div style="display:flex;align-items:center;gap:4px">
-                                                <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
-                                                <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(0)</span>
-                                            </div>
-                                            <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
-                                        </div>
-                                    }
-                                    @if (HasThemeOrnaments)
-                                    {
-                                        <div style="position:absolute;right:4px;top:0;bottom:0;width:140px;background:url('@ThemePatternUrl(0)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.85;z-index:0"></div>
-                                    }
-                                }
-
-                                @{
+                            @{
                                     var pos = _cfg.AvatarPosition ?? "left";
                                     var showAv = _cfg.ShowAvatar && pos != "hidden";
                                     var isCenter = pos == "top-center";
@@ -585,9 +565,9 @@
                                     }
                                     else if (isHidden)
                                     {
-                                        @* 模式 4: 隐藏头像 (Hidden) *@
-                                        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%">
-                                            <div style="display:flex;align-items:center;gap:6px;width:100%;flex-wrap:wrap">
+                                        @* 模式 4: 隐藏头像 (Hidden 纯文本横排同行) *@
+                                        <div style="display:flex;align-items:center;gap:6px;width:100%;flex-wrap:wrap">
+                                            <div style="display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;flex-shrink:0">
                                                 @if (_cfg.BadgePosition == "before-name")
                                                 {
                                                     @if (_cfg.ShowWealthMedal)
@@ -601,7 +581,7 @@
                                                 }
                                                 @if (_cfg.ShowUsername)
                                                 {
-                                                    <span style="@UnameStyle(0)">喵喵小布丁</span>
+                                                    <span style="@UnameStyle(0)">喵喵小布丁:</span>
                                                 }
                                                 @if (_cfg.BadgePosition == "after-name")
                                                 {
@@ -615,56 +595,52 @@
                                                     }
                                                 }
                                             </div>
-                                            <div style="width:100%">
-                                                <div style="@DanmuTextStyle(0)">主播下午好呀！今天播什么好玩的游戏？</div>
-                                            </div>
+                                            <span style="@DanmuTextStyle(0)">主播下午好呀！今天播什么好玩的游戏？</span>
                                         </div>
                                     }
                                     else
                                     {
-                                        @* 模式 1: 左侧横向排列 (Left 经典) *@
-                                        <div style="display:flex;align-items:flex-start;gap:10px;width:100%">
+                                        @* 模式 1: 左侧横向排列 (Left 经典横排同行) *@
+                                        <div style="display:flex;align-items:center;gap:8px;width:100%;flex-wrap:wrap">
                                             @if (_cfg.ThemeType == "classic" && IsGamingSlateTheme)
                                             {
-                                                <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(0);box-shadow:0 0 4px @GamingSlateBarColor(0);margin-right:2px;flex-shrink:0;align-self:center"></div>
+                                                <div style="width:3.5px;height:22px;border-radius:2px;background:@GamingSlateBarColor(0);box-shadow:0 0 4px @GamingSlateBarColor(0);margin-right:2px;flex-shrink:0"></div>
                                             }
                                             @if (showAv)
                                             {
-                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 36)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 36)px">
+                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px">
                                                     <img src="@TestFanAvatar" style="@AvatarImageStyle()" alt="avatar" />
                                                 </div>
                                             }
-                                            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
-                                                <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-                                                    @if (_cfg.BadgePosition == "before-name")
+                                            <div style="display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;flex-shrink:0">
+                                                @if (_cfg.BadgePosition == "before-name")
+                                                {
+                                                    @if (_cfg.ShowWealthMedal)
                                                     {
-                                                        @if (_cfg.ShowWealthMedal)
-                                                        {
-                                                            <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.22</span>
-                                                        }
-                                                        @if (_cfg.ShowMedal)
-                                                        {
-                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.12</span>
-                                                        }
+                                                        <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.22</span>
                                                     }
-                                                    @if (_cfg.ShowUsername)
+                                                    @if (_cfg.ShowMedal)
                                                     {
-                                                        <span style="@UnameStyle(0)">喵喵小布丁</span>
+                                                        <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.12</span>
                                                     }
-                                                    @if (_cfg.BadgePosition == "after-name")
+                                                }
+                                                @if (_cfg.ShowUsername)
+                                                {
+                                                    <span style="@UnameStyle(0)">喵喵小布丁:</span>
+                                                }
+                                                @if (_cfg.BadgePosition == "after-name")
+                                                {
+                                                    @if (_cfg.ShowWealthMedal)
                                                     {
-                                                        @if (_cfg.ShowWealthMedal)
-                                                        {
-                                                            <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.22</span>
-                                                        }
-                                                        @if (_cfg.ShowMedal)
-                                                        {
-                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.12</span>
-                                                        }
+                                                        <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.22</span>
                                                     }
-                                                </div>
-                                                <div style="@DanmuTextStyle(0)">主播下午好呀！今天播什么好玩的游戏？</div>
+                                                    @if (_cfg.ShowMedal)
+                                                    {
+                                                        <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.12</span>
+                                                    }
+                                                }
                                             </div>
+                                            <span style="@DanmuTextStyle(0)">主播下午好呀！今天播什么好玩的游戏？</span>
                                         </div>
                                     }
                                 </div>
@@ -819,9 +795,9 @@
                                     }
                                     else if (isHidden)
                                     {
-                                        @* 模式 4: 隐藏头像 (Hidden) *@
-                                        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%">
-                                            <div style="display:flex;align-items:center;gap:6px;width:100%;flex-wrap:wrap">
+                                        @* 模式 4: 隐藏头像 (Hidden 纯文本横排同行) *@
+                                        <div style="display:flex;align-items:center;gap:6px;width:100%;flex-wrap:wrap">
+                                            <div style="display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;flex-shrink:0">
                                                 @if (_cfg.BadgePosition == "before-name")
                                                 {
                                                     @if (_cfg.ShowWealthMedal)
@@ -841,13 +817,13 @@
                                                 {
                                                     <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(3)">
                                                         <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                        <span style="@UnameStyle(3)">金色舰队先锋</span>
+                                                        <span style="@UnameStyle(3)">金色舰队先锋:</span>
                                                         <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
                                                     </div>
                                                 }
                                                 else if (_cfg.ShowUsername)
                                                 {
-                                                    <span style="@UnameStyle(3)">金色舰队先锋</span>
+                                                    <span style="@UnameStyle(3)">金色舰队先锋:</span>
                                                 }
                                                 @if (_cfg.BadgePosition == "after-name")
                                                 {
@@ -865,22 +841,20 @@
                                                     }
                                                 }
                                             </div>
-                                            <div style="width:100%">
-                                                <div style="@DanmuTextStyle(3)">舰队打卡！今天也是元气满满的一天 ⚓</div>
-                                            </div>
+                                            <span style="@DanmuTextStyle(3)">舰队打卡！今天也是元气满满的一天 ⚓</span>
                                         </div>
                                     }
                                     else
                                     {
-                                        @* 模式 1: 左侧横向排列 (Left 经典) *@
-                                        <div style="display:flex;align-items:flex-start;gap:10px;width:100%">
+                                        @* 模式 1: 左侧横向排列 (Left 经典横排同行) *@
+                                        <div style="display:flex;align-items:center;gap:8px;width:100%;flex-wrap:wrap">
                                             @if (_cfg.ThemeType == "classic" && IsGamingSlateTheme)
                                             {
-                                                <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(3);box-shadow:0 0 4px @GamingSlateBarColor(3);margin-right:2px;flex-shrink:0;align-self:center"></div>
+                                                <div style="width:3.5px;height:22px;border-radius:2px;background:@GamingSlateBarColor(3);box-shadow:0 0 4px @GamingSlateBarColor(3);margin-right:2px;flex-shrink:0"></div>
                                             }
                                             @if (showAv)
                                             {
-                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 36)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 36)px;position:relative">
+                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px;position:relative">
                                                     <img src="@TestGuardAvatar" style="@AvatarImageStyle()" alt="avatar" />
                                                     @if (_cfg.ThemeType == "classic" && HasThemeOrnaments)
                                                     {
@@ -888,53 +862,51 @@
                                                     }
                                                 </div>
                                             }
-                                            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
-                                                <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-                                                    @if (_cfg.BadgePosition == "before-name")
+                                            <div style="display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;flex-shrink:0">
+                                                @if (_cfg.BadgePosition == "before-name")
+                                                {
+                                                    @if (_cfg.ShowWealthMedal)
                                                     {
-                                                        @if (_cfg.ShowWealthMedal)
-                                                        {
-                                                            <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.35</span>
-                                                        }
-                                                        @if (_cfg.ShowGuardBadge)
-                                                        {
-                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
-                                                        }
-                                                        @if (_cfg.ShowMedal)
-                                                        {
-                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.24</span>
-                                                        }
+                                                        <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.35</span>
                                                     }
-                                                    @if (_cfg.ThemeType == "classic" && HasThemeOrnaments)
+                                                    @if (_cfg.ShowGuardBadge)
                                                     {
-                                                        <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(3)">
-                                                            <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                            <span style="@UnameStyle(3)">金色舰队先锋</span>
-                                                            <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                        </div>
+                                                        <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
                                                     }
-                                                    else if (_cfg.ShowUsername)
+                                                    @if (_cfg.ShowMedal)
                                                     {
-                                                        <span style="@UnameStyle(3)">金色舰队先锋</span>
+                                                        <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.24</span>
                                                     }
-                                                    @if (_cfg.BadgePosition == "after-name")
+                                                }
+                                                @if (_cfg.ThemeType == "classic" && HasThemeOrnaments)
+                                                {
+                                                    <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(3)">
+                                                        <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                        <span style="@UnameStyle(3)">金色舰队先锋:</span>
+                                                        <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                    </div>
+                                                }
+                                                else if (_cfg.ShowUsername)
+                                                {
+                                                    <span style="@UnameStyle(3)">金色舰队先锋:</span>
+                                                }
+                                                @if (_cfg.BadgePosition == "after-name")
+                                                {
+                                                    @if (_cfg.ShowWealthMedal)
                                                     {
-                                                        @if (_cfg.ShowWealthMedal)
-                                                        {
-                                                            <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.35</span>
-                                                        }
-                                                        @if (_cfg.ShowGuardBadge)
-                                                        {
-                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
-                                                        }
-                                                        @if (_cfg.ShowMedal)
-                                                        {
-                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.24</span>
-                                                        }
+                                                        <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.35</span>
                                                     }
-                                                </div>
-                                                <div style="@DanmuTextStyle(3)">舰队打卡！今天也是元气满满的一天 ⚓</div>
+                                                    @if (_cfg.ShowGuardBadge)
+                                                    {
+                                                        <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
+                                                    }
+                                                    @if (_cfg.ShowMedal)
+                                                    {
+                                                        <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.24</span>
+                                                    }
+                                                }
                                             </div>
+                                            <span style="@DanmuTextStyle(3)">舰队打卡！今天也是元气满满的一天 ⚓</span>
                                         </div>
                                     }
                                 </div>
@@ -995,7 +967,7 @@
                                                 </div>
                                             </div>
                                         }
-                                        else if (isTopLeft || isHidden)
+                                        else if (isTopLeft)
                                         {
                                             <div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%">
                                                 <div style="display:flex;align-items:center;gap:6px;width:100%;flex-wrap:wrap">
@@ -1047,57 +1019,54 @@
                                         }
                                         else
                                         {
-                                            <div style="display:flex;align-items:flex-start;gap:10px;width:100%">
+                                            <div style="display:flex;align-items:center;gap:8px;width:100%;flex-wrap:wrap">
                                                 @if (showAv)
                                                 {
-                                                    <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 36)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 36)px">
+                                                    <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 32)px">
                                                         <img src="@(string.IsNullOrEmpty(ev.Uface) ? TestFanAvatar : ev.Uface)" style="@AvatarImageStyle()" alt="avatar" />
                                                     </div>
                                                 }
-                                                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
-                                                    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-                                                        @if (_cfg.BadgePosition == "before-name")
+                                                <div style="display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;flex-shrink:0">
+                                                    @if (_cfg.BadgePosition == "before-name")
+                                                    {
+                                                        @if (_cfg.ShowWealthMedal && evHonor > 0)
                                                         {
-                                                            @if (_cfg.ShowWealthMedal && evHonor > 0)
-                                                            {
-                                                                <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.@evHonor</span>
-                                                            }
-                                                            @if (_cfg.ShowGuardBadge && evGuardLevel > 0)
-                                                            {
-                                                                <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ @(evGuardLevel == 1 ? "总督" : evGuardLevel == 2 ? "提督" : "舰长")</span>
-                                                            }
-                                                            @if (_cfg.ShowMedal && ev.MedalLevel > 0)
-                                                            {
-                                                                <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.@ev.MedalLevel</span>
-                                                            }
+                                                            <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.@evHonor</span>
                                                         }
-                                                        @if (_cfg.ShowUsername)
+                                                        @if (_cfg.ShowGuardBadge && evGuardLevel > 0)
                                                         {
-                                                            <span style="@UnameStyle(evGuardLevel)">@(ev.Uname ?? "测试用户")</span>
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ @(evGuardLevel == 1 ? "总督" : evGuardLevel == 2 ? "提督" : "舰长")</span>
                                                         }
-                                                        @if (_cfg.BadgePosition == "after-name")
+                                                        @if (_cfg.ShowMedal && ev.MedalLevel > 0)
                                                         {
-                                                            @if (_cfg.ShowWealthMedal && evHonor > 0)
-                                                            {
-                                                                <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.@evHonor</span>
-                                                            }
-                                                            @if (_cfg.ShowGuardBadge && evGuardLevel > 0)
-                                                            {
-                                                                <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ @(evGuardLevel == 1 ? "总督" : evGuardLevel == 2 ? "提督" : "舰长")</span>
-                                                            }
-                                                            @if (_cfg.ShowMedal && ev.MedalLevel > 0)
-                                                            {
-                                                                <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.@ev.MedalLevel</span>
-                                                            }
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.@ev.MedalLevel</span>
                                                         }
-                                                    </div>
-                                                    <div style="@DanmuTextStyle(evGuardLevel)">@(ev.Msg ?? ev.GiftName ?? "动态测试事件")</div>
+                                                    }
+                                                    @if (_cfg.ShowUsername)
+                                                    {
+                                                        <span style="@UnameStyle(evGuardLevel)">@(ev.Uname ?? "测试用户"):</span>
+                                                    }
+                                                    @if (_cfg.BadgePosition == "after-name")
+                                                    {
+                                                        @if (_cfg.ShowWealthMedal && evHonor > 0)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;box-shadow:0 1px 3px rgba(217,119,6,0.3)">UL.@evHonor</span>
+                                                        }
+                                                        @if (_cfg.ShowGuardBadge && evGuardLevel > 0)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ @(evGuardLevel == 1 ? "总督" : evGuardLevel == 2 ? "提督" : "舰长")</span>
+                                                        }
+                                                        @if (_cfg.ShowMedal && ev.MedalLevel > 0)
+                                                        {
+                                                            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(30,144,255,0.22);color:#64b5f6;border:1px solid rgba(100,181,246,0.45)">Lv.@ev.MedalLevel</span>
+                                                        }
+                                                    }
                                                 </div>
+                                                <span style="@DanmuTextStyle(evGuardLevel)">@(ev.Msg ?? ev.GiftName ?? "动态测试事件")</span>
                                             </div>
                                         }
                                     </div>
                                 }
-                            </div>
                         </div>
                     </div>
 

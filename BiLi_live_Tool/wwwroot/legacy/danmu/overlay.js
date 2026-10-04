@@ -415,7 +415,8 @@
     }
 
     // 用户名与徽章排版
-    let unameOnlyHtml = `<span class="danmu-uname event-username username"><span class="username-text">${esc(uname)}</span></span>`;
+    let colon = (cfg.showUsername !== false && (avatarPos === 'left' || avatarPos === 'hidden')) ? '：' : '';
+    let unameOnlyHtml = `<span class="danmu-uname event-username username"><span class="username-text">${esc(uname)}</span>${colon}</span>`;
     let metaContent = '';
     if (cfg.showUsername !== false) {
       metaContent = (cfg.badgePosition === 'after-name')

@@ -79,11 +79,14 @@ public sealed class TtsHost
         catch { }
     }
 
-    public void StartEdge()
+    public void StartEdge() => EnsureEdge();
+
+    public object EnsureEdge()
     {
         lock (_lock)
         {
-            if (_edge is { HasExited: false }) return;
+            if (_edge is { HasExited: false } && TtsProcessGuard.IsPortAlive(EdgePort))
+                return EdgeStatusNoLock();
             SweepOrphansOnce();
             // Reuse a healthy server when one is already serving (e.g. the
             // Electron version started it, or a previous instance survived).
@@ -91,21 +94,49 @@ public sealed class TtsHost
             {
                 _edgeReused = true;
                 _edgePath = "(reused)";
-                return;
+                return EdgeStatusNoLock();
             }
             var exe = FindExe("edge_tts_server.exe");
-            if (exe == null) return;   // panel falls back to built-in / system voices
+            if (exe == null) return EdgeStatusNoLock();   // panel falls back to built-in / system voices
             _edge = Spawn(exe, EdgePort.ToString());
             _edgePath = exe;
             _edgeReused = false;
+            return EdgeStatusNoLock();
         }
+    }
+
+    public object StopEdge()
+    {
+        Process? toKill;
+        lock (_lock)
+        {
+            toKill = _edge;
+            _edge = null;
+        }
+        try { toKill?.Kill(true); } catch { }
+        toKill?.Dispose();
+        return EdgeStatus();
+    }
+
+    public async Task<object> RestartEdgeAsync()
+    {
+        StopEdge();
+        await Task.Delay(800);
+        return EnsureEdge();
     }
 
     public object EdgeStatus()
     {
-        lock (_lock)
-            return new { running = _edge is { HasExited: false } || (_edgeReused && TtsProcessGuard.IsPortAlive(EdgePort)), port = EdgePort, execPath = _edgePath };
+        lock (_lock) return EdgeStatusNoLock();
     }
+
+    private object EdgeStatusNoLock()
+        => new
+        {
+            running = (_edge is { HasExited: false } && TtsProcessGuard.IsPortAlive(EdgePort)) || (_edgeReused && TtsProcessGuard.IsPortAlive(EdgePort)),
+            port = EdgePort,
+            execPath = _edgePath
+        };
 
     public object EnsureMoss()
     {

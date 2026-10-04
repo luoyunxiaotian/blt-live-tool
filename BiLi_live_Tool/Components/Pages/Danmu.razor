@@ -21,6 +21,7 @@
         <button class="blt-btn" style="padding:2px 10px" @onclick="SendTestEmoteDanmu">测试表情弹幕</button>
         <button class="blt-btn amber" style="padding:2px 10px" @onclick="SendTestGuardDanmu">测试舰长弹幕</button>
         <button class="blt-btn" style="padding:2px 10px;background:rgba(255,77,109,0.2);color:#ff4d6d;border:1px solid rgba(255,77,109,0.4)" @onclick="SendTestGovernorDanmu">测试总督弹幕</button>
+        <button class="blt-btn" style="padding:2px 10px;background:rgba(156,163,175,0.18);border:1px solid rgba(156,163,175,0.35)" @onclick="SendTestEntryDanmu">测试进房通知</button>
         <button class="blt-btn subtle" style="padding:2px 10px" @onclick="ResetCurrentThemeDefaults">恢复皮肤默认值</button>
         <button class="blt-btn blue" style="padding:2px 12px;font-weight:600" @onclick="SaveConfig">保存配置</button>
     </span>
@@ -48,6 +49,7 @@
                         <label class="blt-label">预设皮肤</label>
                         <select class="blt-input" value="@_cfg.Theme" @onchange="OnThemeSelectChanged">
                             <option value="classic-glass">★ 现代半透明极简玻璃 (Classic Glass)</option>
+                            <option value="gaming-slate">⚔️ 战术岩灰 · 极简主机 (灰色圆角双层无底框进房)</option>
                             <option value="frost-palace">❄️ 凛冬圣殿 · 冰凌结晶 (冰晶花环冰魄羽翼)</option>
                             <option value="violet-cyber">⚡ 幻紫电竞 · 赛博光环 (八边视窗脉冲翼)</option>
                             <option value="titan-tactical">🛡️ 战术重工 · 钛金雷达 (防爆装甲重装翼)</option>
@@ -646,6 +648,71 @@
                 </div>
             </div>
         </div>
+
+        @* 边缘虚化渐隐与进房播报设置 *@
+        <div class="blt-panel" style="margin-top:12px">
+            <div class="blt-panel-head">
+                <span class="t"><BltIcon Emoji="🌫️" /> 边缘虚化消失与进房播报</span>
+                <span class="en">EDGE FADE & ROOM ENTRY</span>
+            </div>
+            <div class="blt-panel-body">
+                @* 边缘虚化渐隐模式 *@
+                <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px dashed var(--line)">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                        <label class="blt-label" style="margin:0;font-weight:600">
+                            边缘虚化渐隐模式 (通用)
+                        </label>
+                        <span style="font-size:11px;color:var(--ink-3)">OBS 硬件加速遮罩渐隐</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                        <div>
+                            <select class="blt-input" @bind="_cfg.EdgeFadeMode">
+                                <option value="none">不启用虚化 (默认完整显示)</option>
+                                <option value="top">仅顶部虚化消失 (向上滚动淡出)</option>
+                                <option value="bottom">仅底部虚化消失 (底部进场渐入)</option>
+                                <option value="both">顶部与底部双向虚化消失 (推荐)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <span style="font-size:11px;color:var(--ink-3);white-space:nowrap">虚化距离 (@_cfg.EdgeFadeDistance px)：</span>
+                                <input type="range" min="30" max="150" step="5" @bind="_cfg.EdgeFadeDistance" @bind:event="oninput" style="flex:1" disabled="@(_cfg.EdgeFadeMode == "none")" />
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <span style="font-size:11px;color:var(--ink-3)">距离预设：</span>
+                        <button class="blt-btn subtle" style="padding:1px 8px;font-size:11px" disabled="@(_cfg.EdgeFadeMode == "none")" @onclick="() => _cfg.EdgeFadeDistance = 40">40px 轻度</button>
+                        <button class="blt-btn subtle" style="padding:1px 8px;font-size:11px" disabled="@(_cfg.EdgeFadeMode == "none")" @onclick="() => _cfg.EdgeFadeDistance = 80">80px 标准 (推荐)</button>
+                        <button class="blt-btn subtle" style="padding:1px 8px;font-size:11px" disabled="@(_cfg.EdgeFadeMode == "none")" @onclick="() => _cfg.EdgeFadeDistance = 120">120px 大范围</button>
+                    </div>
+                </div>
+
+                @* 进房欢迎通知设置 *@
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                        <label class="blt-check" style="font-weight:600">
+                            <input type="checkbox" @bind="_cfg.ShowEnterRoom" /> 显示观众进房通知（无底框极简穿插）
+                        </label>
+                        <button class="blt-btn subtle" style="padding:2px 8px;font-size:11px" @onclick="SendTestEntryDanmu">测试进房通知</button>
+                    </div>
+                    @if (_cfg.ShowEnterRoom)
+                    {
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+                            <div>
+                                <label class="blt-label">进房后缀文案</label>
+                                <input class="blt-input" @bind="_cfg.EnterRoomText" placeholder="进入直播间" />
+                            </div>
+                            <div style="display:flex;align-items:flex-end">
+                                <span style="font-size:11px;color:var(--ink-3);line-height:1.4;margin-bottom:4px">
+                                    💡 进房消息将以无底框、单行紧凑轻量样式穿插于弹幕流中，避免遮挡游戏画面。
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
     </div>
 
     @* ── 右侧：1:1 动态实时交互预览画布 ── *@
@@ -675,238 +742,348 @@
                         <div style="@PreviewStageStyle()">
                             @* 模拟弹幕 1：普通粉丝 *@
                             <div style="@ItemCardStyle(0)">
-                                @if (IsWin98Theme)
+                                @if (IsGamingSlateTheme)
                                 {
-                                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(0);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
-                                        <div style="display:flex;align-items:center;gap:4px">
-                                            <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
-                                            <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(0)</span>
-                                        </div>
-                                        <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
-                                    </div>
-                                }
-                                @if (HasThemeOrnaments)
-                                {
-                                    <div style="position:absolute;right:4px;top:0;bottom:0;width:140px;background:url('@ThemePatternUrl(0)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.85;z-index:0"></div>
-                                }
-                                <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
-                                    @if (_cfg.ShowAvatar)
-                                    {
-                                        <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
-                                            <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                            @if (HasThemeOrnaments)
+                                    <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(0);box-shadow:0 0 4px @GamingSlateBarColor(0);margin-right:2px;flex-shrink:0;align-self:center"></div>
+                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                                        <div style="display:flex;align-items:center;gap:6px">
+                                            @if (_cfg.ShowAvatar)
                                             {
-                                                <img src="@ThemeAvatarFrameUrl(0)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
+                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px">
+                                                    <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                                </div>
                                             }
-                                        </div>
-                                    }
-                                    @if (HasThemeOrnaments)
-                                    {
-                                        <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
-                                    }
-                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
-                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
                                             @if (_cfg.ShowMedal)
                                             {
                                                 <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.12</span>
                                             }
-                                            @if (HasThemeOrnaments)
-                                            {
-                                                <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(0)">
-                                                    <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
-                                                    <span style="@UnameStyle(0)">喵喵小布丁</span>
-                                                    <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <span style="@UnameStyle(0)">喵喵小布丁</span>
-                                            }
+                                            <span style="@UnameStyle(0)">喵喵小布丁</span>
                                         </div>
-                                        <div style="@DanmuContentBoxStyle(0)">
-                                            <div style="@DanmuTextStyle()">主播下午好呀！今天播什么好玩的游戏？</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            @* 模拟弹幕 2：舰长专享 *@
-                            <div style="@ItemCardStyle(3)">
-                                @if (IsWin98Theme)
-                                {
-                                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(3);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
-                                        <div style="display:flex;align-items:center;gap:4px">
-                                            <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
-                                            <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(3)</span>
-                                        </div>
-                                        <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
+                                        <div style="@DanmuTextStyle()">主播下午好呀！今天播什么好玩的游戏？</div>
                                     </div>
                                 }
-                                @if (HasThemeOrnaments)
+                                else
                                 {
-                                    <div style="position:absolute;right:4px;top:0;bottom:0;width:150px;background:url('@ThemePatternUrl(3)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.9;z-index:0"></div>
-                                    <img src="@ThemeWingLeftUrl()" style="position:absolute;left:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-l" />
-                                    <img src="@ThemeWingRightUrl()" style="position:absolute;right:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-r" />
-                                }
-                                <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
-                                    @if (_cfg.ShowAvatar)
+                                    @if (IsWin98Theme)
                                     {
-                                        <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
-                                            <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                            @if (HasThemeOrnaments)
-                                            {
-                                                <img src="@ThemeAvatarFrameUrl(3)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
-                                            }
+                                        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(0);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
+                                            <div style="display:flex;align-items:center;gap:4px">
+                                                <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
+                                                <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(0)</span>
+                                            </div>
+                                            <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
                                         </div>
                                     }
                                     @if (HasThemeOrnaments)
                                     {
-                                        <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                        <div style="position:absolute;right:4px;top:0;bottom:0;width:140px;background:url('@ThemePatternUrl(0)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.85;z-index:0"></div>
                                     }
-                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
-                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                    <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
+                                        @if (_cfg.ShowAvatar)
+                                        {
+                                            <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
+                                                <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                                @if (HasThemeOrnaments)
+                                                {
+                                                    <img src="@ThemeAvatarFrameUrl(0)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
+                                                }
+                                            </div>
+                                        }
+                                        @if (HasThemeOrnaments)
+                                        {
+                                            <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                        }
+                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
+                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                                @if (_cfg.ShowMedal)
+                                                {
+                                                    <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.12</span>
+                                                }
+                                                @if (HasThemeOrnaments)
+                                                {
+                                                    <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(0)">
+                                                        <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
+                                                        <span style="@UnameStyle(0)">喵喵小布丁</span>
+                                                        <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span style="@UnameStyle(0)">喵喵小布丁</span>
+                                                }
+                                            </div>
+                                            <div style="@DanmuContentBoxStyle(0)">
+                                                <div style="@DanmuTextStyle()">主播下午好呀！今天播什么好玩的游戏？</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            @* 模拟进房通知：无底框轻量单行 *@
+                            @if (_cfg.ShowEnterRoom)
+                            {
+                                <div style="display:flex;align-items:center;gap:6px;padding:3px 6px;margin:2px 0">
+                                    <div style="width:20px;height:20px;flex-shrink:0">
+                                        <img src="@TestFanAvatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block" alt="avatar" />
+                                    </div>
+                                    <div style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:1.2">
+                                        <span style="font-weight:600;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,0.8)">甜茶小布丁</span>
+                                        <span style="font-weight:400;color:#9ca3af;font-size:12.5px;text-shadow:0 1px 2px rgba(0,0,0,0.7)">@(!string.IsNullOrEmpty(_cfg.EnterRoomText) ? _cfg.EnterRoomText : "进入直播间")</span>
+                                    </div>
+                                </div>
+                            }
+
+                            @* 模拟弹幕 2：舰长专享 *@
+                            <div style="@ItemCardStyle(3)">
+                                @if (IsGamingSlateTheme)
+                                {
+                                    <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(3);box-shadow:0 0 4px @GamingSlateBarColor(3);margin-right:2px;flex-shrink:0;align-self:center"></div>
+                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                                        <div style="display:flex;align-items:center;gap:6px">
+                                            @if (_cfg.ShowAvatar)
+                                            {
+                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px">
+                                                    <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                                </div>
+                                            }
                                             <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
                                             @if (_cfg.ShowMedal)
                                             {
                                                 <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.24</span>
                                             }
-                                            @if (HasThemeOrnaments)
-                                            {
-                                                <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(3)">
-                                                    <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                    <span style="@UnameStyle(3)">星空守望者</span>
-                                                    <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <span style="@UnameStyle(3)">星空守望者</span>
-                                            }
+                                            <span style="@UnameStyle(3)">星空守望者</span>
                                         </div>
-                                        <div style="@DanmuContentBoxStyle(3)">
-                                            <div style="@DanmuTextStyle()">打卡上舰！主播继续加油，刚刚那波操作太帅了！666666</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            @* 模拟弹幕 3：总督专享 *@
-                            <div style="@ItemCardStyle(1)">
-                                @if (IsWin98Theme)
-                                {
-                                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(1);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
-                                        <div style="display:flex;align-items:center;gap:4px">
-                                            <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
-                                            <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(1)</span>
-                                        </div>
-                                        <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
+                                        <div style="@DanmuTextStyle()">打卡上舰！主播继续加油，刚刚那波操作太帅了！666666</div>
                                     </div>
                                 }
-                                @if (HasThemeOrnaments)
+                                else
                                 {
-                                    <div style="position:absolute;right:4px;top:0;bottom:0;width:150px;background:url('@ThemePatternUrl(1)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.9;z-index:0"></div>
-                                    <img src="@ThemeWingLeftUrl()" style="position:absolute;left:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-l" />
-                                    <img src="@ThemeWingRightUrl()" style="position:absolute;right:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-r" />
-                                }
-                                <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
-                                    @if (_cfg.ShowAvatar)
+                                    @if (IsWin98Theme)
                                     {
-                                        <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
-                                            <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                            @if (HasThemeOrnaments)
-                                            {
-                                                <img src="@ThemeAvatarFrameUrl(1)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
-                                            }
+                                        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(3);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
+                                            <div style="display:flex;align-items:center;gap:4px">
+                                                <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
+                                                <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(3)</span>
+                                            </div>
+                                            <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
                                         </div>
                                     }
                                     @if (HasThemeOrnaments)
                                     {
-                                        <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                        <div style="position:absolute;right:4px;top:0;bottom:0;width:150px;background:url('@ThemePatternUrl(3)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.9;z-index:0"></div>
+                                        <img src="@ThemeWingLeftUrl()" style="position:absolute;left:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-l" />
+                                        <img src="@ThemeWingRightUrl()" style="position:absolute;right:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-r" />
                                     }
-                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
-                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                    <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
+                                        @if (_cfg.ShowAvatar)
+                                        {
+                                            <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
+                                                <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                                @if (HasThemeOrnaments)
+                                                {
+                                                    <img src="@ThemeAvatarFrameUrl(3)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
+                                                }
+                                            </div>
+                                        }
+                                        @if (HasThemeOrnaments)
+                                        {
+                                            <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                        }
+                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
+                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:linear-gradient(135deg,#0077b6,#023e8a);color:#fff;border:1px solid rgba(255,255,255,0.4)">⚓ 舰长</span>
+                                                @if (_cfg.ShowMedal)
+                                                {
+                                                    <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.24</span>
+                                                }
+                                                @if (HasThemeOrnaments)
+                                                {
+                                                    <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(3)">
+                                                        <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                        <span style="@UnameStyle(3)">星空守望者</span>
+                                                        <img src="@ThemeNameSideUrl(3)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span style="@UnameStyle(3)">星空守望者</span>
+                                                }
+                                            </div>
+                                            <div style="@DanmuContentBoxStyle(3)">
+                                                <div style="@DanmuTextStyle()">打卡上舰！主播继续加油，刚刚那波操作太帅了！666666</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            @* 模拟弹幕 3：总督专享 *@
+                            <div style="@ItemCardStyle(1)">
+                                @if (IsGamingSlateTheme)
+                                {
+                                    <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(1);box-shadow:0 0 4px @GamingSlateBarColor(1);margin-right:2px;flex-shrink:0;align-self:center"></div>
+                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                                        <div style="display:flex;align-items:center;gap:6px">
+                                            @if (_cfg.ShowAvatar)
+                                            {
+                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px">
+                                                    <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                                </div>
+                                            }
                                             <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;border:1px solid rgba(255,255,255,0.4)">👑 总督</span>
                                             @if (_cfg.ShowMedal)
                                             {
                                                 <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(255,77,109,0.25);color:#ff758f;border:1px solid rgba(255,77,109,0.5)">Lv.36</span>
                                             }
-                                            @if (HasThemeOrnaments)
-                                            {
-                                                <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(1)">
-                                                    <img src="@ThemeNameSideUrl(1)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                    <span style="@UnameStyle(1)">幻夜幽灵总督</span>
-                                                    <img src="@ThemeNameSideUrl(1)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <span style="@UnameStyle(1)">幻夜幽灵总督</span>
-                                            }
+                                            <span style="@UnameStyle(1)">幻夜幽灵总督</span>
                                         </div>
-                                        <div style="@DanmuContentBoxStyle(1)">
-                                            <div style="@DanmuTextStyle()">总督降临！全场排面拉满，这专属特效太华丽了！👑✨</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            @* 模拟弹幕 4：B站表情富文本弹幕 *@
-                            <div style="@ItemCardStyle(0)">
-                                @if (IsWin98Theme)
-                                {
-                                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(0);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
-                                        <div style="display:flex;align-items:center;gap:4px">
-                                            <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
-                                            <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(0)</span>
-                                        </div>
-                                        <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
+                                        <div style="@DanmuTextStyle()">总督降临！全场排面拉满，这专属特效太华丽了！👑✨</div>
                                     </div>
                                 }
-                                @if (HasThemeOrnaments)
+                                else
                                 {
-                                    <div style="position:absolute;right:4px;top:0;bottom:0;width:140px;background:url('@ThemePatternUrl(0)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.85;z-index:0"></div>
-                                }
-                                <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
-                                    @if (_cfg.ShowAvatar)
+                                    @if (IsWin98Theme)
                                     {
-                                        <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
-                                            <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
-                                            @if (HasThemeOrnaments)
-                                            {
-                                                <img src="@ThemeAvatarFrameUrl(0)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
-                                            }
+                                        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(1);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
+                                            <div style="display:flex;align-items:center;gap:4px">
+                                                <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
+                                                <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(1)</span>
+                                            </div>
+                                            <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
                                         </div>
                                     }
                                     @if (HasThemeOrnaments)
                                     {
-                                        <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                        <div style="position:absolute;right:4px;top:0;bottom:0;width:150px;background:url('@ThemePatternUrl(1)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.9;z-index:0"></div>
+                                        <img src="@ThemeWingLeftUrl()" style="position:absolute;left:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-l" />
+                                        <img src="@ThemeWingRightUrl()" style="position:absolute;right:4px;bottom:-10px;width:125px;height:40px;pointer-events:none;z-index:3" alt="wing-r" />
                                     }
-                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
-                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                    <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
+                                        @if (_cfg.ShowAvatar)
+                                        {
+                                            <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
+                                                <img src="@TestGuardAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                                @if (HasThemeOrnaments)
+                                                {
+                                                    <img src="@ThemeAvatarFrameUrl(1)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
+                                                }
+                                            </div>
+                                        }
+                                        @if (HasThemeOrnaments)
+                                        {
+                                            <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                        }
+                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
+                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                                <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:700;background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;border:1px solid rgba(255,255,255,0.4)">👑 总督</span>
+                                                @if (_cfg.ShowMedal)
+                                                {
+                                                    <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(255,77,109,0.25);color:#ff758f;border:1px solid rgba(255,77,109,0.5)">Lv.36</span>
+                                                }
+                                                @if (HasThemeOrnaments)
+                                                {
+                                                    <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(1)">
+                                                        <img src="@ThemeNameSideUrl(1)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                        <span style="@UnameStyle(1)">幻夜幽灵总督</span>
+                                                        <img src="@ThemeNameSideUrl(1)" style="width:15px;height:15px;object-fit:contain" alt="wing" />
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span style="@UnameStyle(1)">幻夜幽灵总督</span>
+                                                }
+                                            </div>
+                                            <div style="@DanmuContentBoxStyle(1)">
+                                                <div style="@DanmuTextStyle()">总督降临！全场排面拉满，这专属特效太华丽了！👑✨</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            @* 模拟弹幕 4：B站表情富文本弹幕 *@
+                            <div style="@ItemCardStyle(0)">
+                                @if (IsGamingSlateTheme)
+                                {
+                                    <div style="width:3.5px;height:26px;border-radius:2px;background:@GamingSlateBarColor(0);box-shadow:0 0 4px @GamingSlateBarColor(0);margin-right:2px;flex-shrink:0;align-self:center"></div>
+                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                                        <div style="display:flex;align-items:center;gap:6px">
+                                            @if (_cfg.ShowAvatar)
+                                            {
+                                                <div style="flex-shrink:0;width:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px;height:@(_cfg.AvatarSize > 0 ? _cfg.AvatarSize : 20)px">
+                                                    <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                                </div>
+                                            }
                                             @if (_cfg.ShowMedal)
                                             {
                                                 <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.18</span>
                                             }
-                                            @if (HasThemeOrnaments)
-                                            {
-                                                <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(0)">
-                                                    <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
-                                                    <span style="@UnameStyle(0)">みこAyayaya</span>
-                                                    <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <span style="@UnameStyle(0)">みこAyayaya</span>
-                                            }
+                                            <span style="@UnameStyle(0)">みこAyayaya</span>
                                         </div>
-                                        <div style="@DanmuContentBoxStyle(0)">
-                                            <div style="@DanmuTextStyle()">
-                                                主播这波太强了 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/82d3858c422c5e5f5f4b5d259c47e0ee093f416c.png" alt="[doge]" title="[doge]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" /> 必须给个大大的 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/5070058b75e11f10cfec9524ecfb7aee07fa4830.png" alt="[点赞]" title="[点赞]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" />！✨
+                                        <div style="@DanmuTextStyle()">
+                                            主播这波太强了 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/82d3858c422c5e5f5f4b5d259c47e0ee093f416c.png" alt="[doge]" title="[doge]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" /> 必须给个大大的 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/5070058b75e11f10cfec9524ecfb7aee07fa4830.png" alt="[点赞]" title="[点赞]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" />！✨
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    @if (IsWin98Theme)
+                                    {
+                                        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;height:18px;background:@Win98TitleBg(0);padding:0 4px;margin-bottom:4px;box-sizing:border-box">
+                                            <div style="display:flex;align-items:center;gap:4px">
+                                                <img src="legacy/danmu/themes/win98-retro/win98-pc.svg" style="width:12px;height:12px" alt="icon" />
+                                                <span style="font-size:10px;font-family:'SimSun',monospace;font-weight:700;color:#ffffff">@Win98TitleText(0)</span>
+                                            </div>
+                                            <img src="legacy/danmu/themes/win98-retro/win98-btns.svg" style="height:12px;object-fit:contain" alt="btns" />
+                                        </div>
+                                    }
+                                    @if (HasThemeOrnaments)
+                                    {
+                                        <div style="position:absolute;right:4px;top:0;bottom:0;width:140px;background:url('@ThemePatternUrl(0)') no-repeat right center;background-size:contain;pointer-events:none;opacity:0.85;z-index:0"></div>
+                                    }
+                                    <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
+                                        @if (_cfg.ShowAvatar)
+                                        {
+                                            <div style="flex-shrink:0;width:@(_cfg.AvatarSize)px;height:@(_cfg.AvatarSize)px;position:relative;z-index:2">
+                                                <img src="@TestFanAvatar" style="@AvatarImageStyle()" referrerpolicy="no-referrer" alt="avatar" />
+                                                @if (HasThemeOrnaments)
+                                                {
+                                                    <img src="@ThemeAvatarFrameUrl(0)" style="position:absolute;width:165%;height:165%;left:-32%;top:-33%;pointer-events:none;z-index:3" alt="frame" />
+                                                }
+                                            </div>
+                                        }
+                                        @if (HasThemeOrnaments)
+                                        {
+                                            <div style="width:4px;align-self:stretch;background:url('@ThemeDotUrl()') repeat-y center;background-size:contain;opacity:0.75;margin:0 2px;flex-shrink:0;z-index:2"></div>
+                                        }
+                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
+                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+                                                @if (_cfg.ShowMedal)
+                                                {
+                                                    <span style="font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(30,144,255,0.25);color:#64b5f6;border:1px solid rgba(100,181,246,0.5)">Lv.18</span>
+                                                }
+                                                @if (HasThemeOrnaments)
+                                                {
+                                                    <div style="display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-radius:4px;background:@ThemeNameBg(0)">
+                                                        <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
+                                                        <span style="@UnameStyle(0)">みこAyayaya</span>
+                                                        <img src="@ThemeNameSideUrl(0)" style="width:14px;height:14px;object-fit:contain" alt="wing" />
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span style="@UnameStyle(0)">みこAyayaya</span>
+                                                }
+                                            </div>
+                                            <div style="@DanmuContentBoxStyle(0)">
+                                                <div style="@DanmuTextStyle()">
+                                                    主播这波太强了 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/82d3858c422c5e5f5f4b5d259c47e0ee093f416c.png" alt="[doge]" title="[doge]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" /> 必须给个大大的 <img style="height:1.35em;vertical-align:-0.22em;margin:0 2px;display:inline-block" src="https://i0.hdslb.com/bfs/live/5070058b75e11f10cfec9524ecfb7aee07fa4830.png" alt="[点赞]" title="[点赞]" onerror="this.outerHTML=this.alt" referrerpolicy="no-referrer" />！✨
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                }
                             </div>
                         </div>
                     </div>
@@ -2203,6 +2380,44 @@
                 _cfg.CaptainBorderOpacity = 90;
                 _cfg.CaptainTextColor = "#059669";
                 break;
+            case "gaming-slate":
+                _cfg.BgColor = "#2e3038";
+                _cfg.BgOpacity = 88;
+                _cfg.BorderColor = "#ffffff";
+                _cfg.BorderOpacity = 8;
+                _cfg.BorderWidth = 1;
+                _cfg.CardRadius = 8;
+                _cfg.CardPadding = 7;
+                _cfg.CardGap = 6;
+                _cfg.NicknameColor = "#d1d5db";
+                _cfg.NicknameSize = 13;
+                _cfg.NicknameBold = true;
+                _cfg.DanmuColor = "#ffffff";
+                _cfg.DanmuSize = 15;
+                _cfg.DanmuStroke = "shadow";
+                _cfg.AvatarSize = 20;
+                _cfg.AvatarShape = "circle";
+                _cfg.ShowAvatarBorder = false;
+                _cfg.AvatarBorderWidth = 0;
+                _cfg.ShowAvatar = true;
+                _cfg.ShowMedal = true;
+                _cfg.ShowBox = true;
+                _cfg.BoxWidth = 380;
+                _cfg.BoxHeight = 500;
+                _cfg.BoxBgColor = "#1a1c23";
+                _cfg.BoxBgOpacity = 60;
+                _cfg.BoxRadius = 12;
+                _cfg.BoxPadding = 12;
+                _cfg.ShowBoxBorder = true;
+                _cfg.BoxBorderColor = "#ffffff";
+                _cfg.BoxBorderOpacity = 10;
+                _cfg.BoxBorderWidth = 1;
+                _cfg.Animation = "slide";
+                _cfg.EdgeFadeMode = "both";
+                _cfg.EdgeFadeDistance = 80;
+                _cfg.ShowEnterRoom = true;
+                _cfg.EnterRoomText = "进入直播间";
+                break;
             case "classic-glass":
             default:
                 _cfg.BgColor = "#1e222d";
@@ -2364,6 +2579,32 @@
         Notify("已向 OBS 浮层发送一条总督尊享测试弹幕！", true);
     }
 
+    private void SendTestEntryDanmu()
+    {
+        var now = DateTime.Now;
+        var action = string.IsNullOrWhiteSpace(_cfg.EnterRoomText) ? "进入直播间" : _cfg.EnterRoomText.Trim();
+        var ev = new LiveEvent
+        {
+            Type = "interact",
+            MsgType = 1,
+            Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+            Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+            Uid = "777888",
+            Uname = "甜茶小布丁",
+            Msg = action,
+            Uface = TestFanAvatar,
+        };
+        Hub.Publish(ev);
+        Hub.PublishOutbound("danmu_test", new
+        {
+            isEntry = true,
+            uname = ev.Uname,
+            uface = ev.Uface,
+            msg = action
+        });
+        Notify("已向 OBS 浮层发送一条观众进房测试通知！", true);
+    }
+
     private void ResetGuardColors()
     {
         _cfg.GovernorBgColor = "#581c2b";
@@ -2420,6 +2661,7 @@
 
     private string ThemeDisplayName(string id) => id switch
     {
+        "gaming-slate" => "战术岩灰 · 极简主机",
         "classic-glass" => "现代半透明极简玻璃",
         "frost-palace" => "凛冬圣殿 · 冰凌结晶",
         "violet-cyber" => "幻紫电竞 · 赛博光环",
@@ -2452,6 +2694,15 @@
         "obsidian-gold" => "曜石黑金尊享",
         "pixel-arcade" => "复古街机像素",
         _ => id
+    };
+
+    private bool IsGamingSlateTheme => _cfg.Theme == "gaming-slate";
+    private string GamingSlateBarColor(int guardLevel) => guardLevel switch
+    {
+        1 => "#ff4d6d",
+        2 => "#c77dff",
+        3 => "#4ea8de",
+        _ => "rgba(175, 182, 195, 0.75)"
     };
 
     private bool IsFrostPalaceTheme => _cfg.Theme == "frost-palace";
@@ -2662,7 +2913,23 @@
     }
 
     private string PreviewStageStyle()
-        => $"display:flex;flex-direction:column;gap:{_cfg.CardGap}px;width:100%;pointer-events:none;padding-bottom:14px;";
+    {
+        var mask = "";
+        var dist = _cfg.EdgeFadeDistance > 0 ? _cfg.EdgeFadeDistance : 80;
+        if (_cfg.EdgeFadeMode == "top")
+        {
+            mask = $"-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 {dist}px, #000 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 {dist}px, #000 100%);";
+        }
+        else if (_cfg.EdgeFadeMode == "bottom")
+        {
+            mask = $"-webkit-mask-image: linear-gradient(to top, transparent 0, #000 {dist}px, #000 100%); mask-image: linear-gradient(to top, transparent 0, #000 {dist}px, #000 100%);";
+        }
+        else if (_cfg.EdgeFadeMode == "both")
+        {
+            mask = $"-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 {dist}px, #000 calc(100% - {dist}px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 {dist}px, #000 calc(100% - {dist}px), transparent 100%);";
+        }
+        return $"display:flex;flex-direction:column;gap:{_cfg.CardGap}px;width:100%;pointer-events:none;padding-bottom:14px;{mask}";
+    }
 
     private string ItemCardStyle(int guardLevel = 0)
     {
@@ -2694,6 +2961,10 @@
             }
         }
 
+        if (IsGamingSlateTheme)
+        {
+            return $"display:flex;align-items:flex-start;gap:8px;padding:{pad}px 10px;background-color:{bg};border-radius:{_cfg.CardRadius}px;border:{bWidth}px solid {bColor};box-shadow:0 4px 16px rgba(0,0,0,0.35);backdrop-filter:blur(8px);position:relative;word-break:break-all;";
+        }
         if (IsWin98Theme)
         {
             return "display:flex;flex-direction:column;gap:4px;padding:4px 6px;background-color:#c0c0c0;border-radius:0;border:2px solid;border-top-color:#ffffff;border-left-color:#ffffff;border-right-color:#404040;border-bottom-color:#404040;box-shadow:2px 2px 0 rgba(0,0,0,0.35);position:relative;word-break:break-word;";
@@ -3088,7 +3359,8 @@
         var font = _cfg.DanmuFont == "system-ui" ? "system-ui, -apple-system, sans-serif" : _cfg.DanmuFont;
         var color = HexToRgba(_cfg.DanmuColor, _cfg.DanmuOpacity);
         var shadow = StrokeToShadow(_cfg.DanmuStroke);
-        return $"font-family:{font};color:{color};font-size:{_cfg.DanmuSize}px;line-height:{_cfg.DanmuLineHeight};text-shadow:{shadow};word-break:break-all;";
+        var weight = IsGamingSlateTheme ? "700" : "normal";
+        return $"font-family:{font};color:{color};font-size:{_cfg.DanmuSize}px;font-weight:{weight};line-height:{_cfg.DanmuLineHeight};text-shadow:{shadow};word-break:break-all;";
     }
 
     private static string StrokeToShadow(string stroke) => stroke switch
@@ -3201,5 +3473,13 @@
         public string Animation { get; set; } = "slide";
         public int StayDuration { get; set; } = 15;
         public int MaxCount { get; set; } = 15;
+
+        // 边缘虚化渐隐遮罩 (Universal Edge Fade Mask)
+        public string EdgeFadeMode { get; set; } = "none";
+        public int EdgeFadeDistance { get; set; } = 80;
+
+        // 进房欢迎通知 (Room Entry Broadcast)
+        public bool ShowEnterRoom { get; set; } = true;
+        public string EnterRoomText { get; set; } = "进入直播间";
     }
 }

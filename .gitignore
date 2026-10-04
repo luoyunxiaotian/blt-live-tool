@@ -13,3 +13,5 @@ data/
 announce-sample.json
 .wrangler/
 *.wrangler.toml
+# CodeGraph local cache
+.codegraph/

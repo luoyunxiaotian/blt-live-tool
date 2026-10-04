@@ -296,3 +296,64 @@ html, body {
 .display-flat .danmu-meta {
   margin-bottom: 0;
 }
+
+/* 左侧状态指示条/高光条（默认隐藏，确保已有26套皮肤100%兼容） */
+.danmu-bar {
+  display: none;
+}
+
+/* 进房欢迎消息（通用默认样式：单行紧凑无底框，半透明穿插） */
+.danmu-item.danmu-entry {
+  display: flex !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding: 2px 6px !important;
+  min-height: unset !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.danmu-item.danmu-entry .danmu-bar {
+  display: none !important;
+}
+
+.danmu-item.danmu-entry .entry-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.danmu-item.danmu-entry .entry-uname {
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.danmu-item.danmu-entry .entry-action {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 12.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* 全局边缘虚化渐隐遮罩 (Universal Edge Fade Mask) */
+#danmu-stage.fade-top {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-distance, 80px), #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-distance, 80px), #000 100%);
+}
+
+#danmu-stage.fade-bottom {
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 var(--fade-distance, 80px), #000 100%);
+  mask-image: linear-gradient(to top, transparent 0, #000 var(--fade-distance, 80px), #000 100%);
+}
+
+#danmu-stage.fade-both {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-distance, 80px), #000 calc(100% - var(--fade-distance, 80px)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-distance, 80px), #000 calc(100% - var(--fade-distance, 80px)), transparent 100%);
+}
+

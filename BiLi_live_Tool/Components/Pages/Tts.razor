@@ -693,6 +693,7 @@
             ("gift", "礼物"),
             ("superchat", "醒目留言"),
             ("welcome", "欢迎进房"),
+            ("follow", "感谢关注"),
         };
         var list = new List<CatRow>();
         foreach (var (key, label) in defs)
@@ -741,7 +742,7 @@
     {
         _toneByType.Clear();
         var byType = tone?["byType"] as JsonObject;
-        foreach (var (key, label) in new[] { ("danmu", "弹幕"), ("gift", "礼物"), ("superchat", "醒目留言"), ("welcome", "欢迎进房") })
+        foreach (var (key, label) in new[] { ("danmu", "弹幕"), ("gift", "礼物"), ("superchat", "醒目留言"), ("welcome", "欢迎进房"), ("follow", "感谢关注") })
         {
             _toneByType.Add(new ToneRow { Key = key, Label = label, Selected = Str(byType, key) });
         }
@@ -815,12 +816,14 @@
     private async Task SaveAll()
     {
         ApplyToDoc();
+        Speaker.ResetEngineDemotion();
         await SaveAsync("语音配置已保存");
     }
 
     private async Task SaveEngine()
     {
         ApplyToDoc();
+        Speaker.ResetEngineDemotion();
         await SaveAsync("引擎已保存（" + _engine + "）");
         // 下拉清单跟着引擎走：切到谁就把谁的清单拉一遍（原版 rebuildVoiceSelect 的语义）。
         if (_engine == "moss")
@@ -958,6 +961,7 @@
         "gift" => "礼物",
         "superchat" => "SC",
         "welcome" => "进房",
+        "follow" => "关注",
         _ => r.Type,
     };
 
@@ -967,6 +971,7 @@
         "gift" => "tag gifts",
         "superchat" => "tag superchat",
         "welcome" => "tag interact",
+        "follow" => "tag follow",
         _ => "tag info",
     };
 
@@ -1514,6 +1519,7 @@
         "gift" => "感谢{uname}送出的{giftSummary}\n感谢{uname}送出的{num}个{giftName}\n多谢{uname}老板送出的{giftSummary}\n谢谢{uname}投喂的{giftSummary}",
         "superchat" => "醒目留言，{uname}说：{msg}\n收到一条醒目留言，来自{uname}：{msg}",
         "welcome" => "欢迎 {uname} 进入直播间\n{uname} 来啦，欢迎欢迎\n欢迎 {uname} 的到来",
+        "follow" => "感谢 {uname} 的关注\n多谢 {uname} 点的关注\n感谢 {uname} 关注主播\n谢谢 {uname} 的关注支持\n欢迎 {uname} 关注直播间",
         _ => "每行一条，随机抽取"
     };
 
@@ -1523,6 +1529,7 @@
         "gift" => "可用占位符：{giftSummary}（礼物与数量汇总） {uname} {giftName} {num}（中文数字） {count}（阿拉伯数字） · 留空使用默认语",
         "superchat" => "可用占位符：{uname} {msg} {price}（金额数字） · 留空使用默认语",
         "welcome" => "可用占位符：{uname}（观众昵称） · 留空使用默认语",
+        "follow" => "可用占位符：{uname}（关注者昵称） · 留空使用默认语",
         _ => "每行一条，随机抽取 · 留空使用默认语"
     };
 

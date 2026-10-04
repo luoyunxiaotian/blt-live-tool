@@ -899,7 +899,33 @@ public sealed class KestrelHost
                 var text = body?["text"]?.GetValue<string>() ?? "这是一条测试弹幕 666～";
                 var uname = body?["uname"]?.GetValue<string>() ?? "小帮手体验官";
                 var isGuard = body?["isGuard"]?.GetValue<bool>() ?? false;
+                var isEntry = body?["isEntry"]?.GetValue<bool>() ?? false;
                 var now = DateTime.Now;
+
+                if (isEntry)
+                {
+                    var entryEv = new LiveEvent
+                    {
+                        Type = "interact",
+                        MsgType = 1,
+                        Time = now.ToString("yyyy-MM-dd HH:mm:ss"),
+                        Ts = new DateTimeOffset(now, TimeZoneInfo.Local.GetUtcOffset(now)).ToUnixTimeMilliseconds(),
+                        Uid = "888888",
+                        Uname = uname,
+                        Msg = text,
+                        Uface = "https://i0.hdslb.com/bfs/face/member/noface.jpg"
+                    };
+                    _hub.Publish(entryEv);
+                    _hub.PublishOutbound("danmu_test", new
+                    {
+                        isEntry = true,
+                        uname,
+                        uface = entryEv.Uface,
+                        msg = text
+                    });
+                    return Results.Json(new { ok = true }, JsonWeb);
+                }
+
                 var testEv = new LiveEvent
                 {
                     Type = "danmu",
@@ -1430,6 +1456,12 @@ public sealed class KestrelHost
                     return Results.Json(await _tts.RestartMossAsync(), JsonWeb);
                 case "tts/moss/status":
                     return Results.Json(_tts.MossStatus(), JsonWeb);
+                case "tts/edge/ensure":
+                    return Results.Json(_tts.EnsureEdge(), JsonWeb);
+                case "tts/edge/restart":
+                    return Results.Json(await _tts.RestartEdgeAsync(), JsonWeb);
+                case "tts/edge/status":
+                    return Results.Json(_tts.EdgeStatus(), JsonWeb);
                 case "server/start":
                     StartServiceFromTray();
                     return Results.Json(new { ok = true, started = true }, JsonWeb);
@@ -1653,6 +1685,8 @@ public sealed class KestrelHost
 
         app.Map("/api/tts/{engine}/{**rest}", async (HttpContext ctx, string engine, string? rest) =>
         {
+            if (engine == "edge") _tts.EnsureEdge();
+            else if (engine == "moss") _tts.EnsureMoss();
             var port = engine == "moss" ? TtsHost.MossPort : engine == "edge" ? TtsHost.EdgePort : 0;
             if (port == 0) return Results.Json(new { error = "未知引擎: " + engine }, JsonWeb, statusCode: 404);
             var suffix = (rest ?? "") + (ctx.Request.QueryString.HasValue ? ctx.Request.QueryString.Value : "");
@@ -1681,6 +1715,10 @@ public sealed class KestrelHost
             }
             catch (Exception ex)
             {
+                if (engine == "edge")
+                {
+                    try { _tts.EnsureEdge(); } catch { }
+                }
                 return Results.Json(
                     new { error = "TTS 代理失败: " + ex.GetType().Name + ": " + ex.Message },
                     JsonWeb, statusCode: 502);
@@ -2049,7 +2087,11 @@ public sealed class KestrelHost
         ["avatarBorderWidth"] = 2,
         ["animation"] = "slide",
         ["stayDuration"] = 15,
-        ["maxCount"] = 15
+        ["maxCount"] = 15,
+        ["edgeFadeMode"] = "none",
+        ["edgeFadeDistance"] = 80,
+        ["showEnterRoom"] = true,
+        ["enterRoomText"] = "进入直播间"
     };
 
     private sealed record ConnectBody(string? RoomId, string? Cookie);

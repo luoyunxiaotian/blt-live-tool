@@ -1,0 +1,159 @@
+/* Theme: 战术岩灰 · 极简主机 (gaming-slate) */
+/* 参考游戏 HUD 极简设计：灰色长方圆角卡片、左侧浅灰竖条、上下两层紧凑排版、无底框进房通知 */
+
+:root {
+  --theme-primary: #9ca3af;
+  --theme-border: rgba(255, 255, 255, 0.08);
+}
+
+/* 弹幕卡片主体 */
+.danmu-item {
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  background-color: var(--danmu-bg-color, rgba(46, 48, 56, 0.88)) !important;
+  border-radius: var(--danmu-card-radius, 8px) !important;
+  border: var(--danmu-border-width, 1px) solid var(--danmu-border-color, rgba(255, 255, 255, 0.08)) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  padding: var(--danmu-card-padding, 7px 12px 8px 10px) !important;
+  margin-bottom: var(--danmu-card-gap, 6px) !important;
+
+  /* CSS Grid 双层排版：
+     第一行：[左竖条] [圆形头像] [昵称+徽章]
+     第二行：[左竖条] [弹幕正文跨列]        */
+  display: grid !important;
+  grid-template-columns: auto auto 1fr !important;
+  grid-template-rows: auto auto !important;
+  grid-template-areas:
+    "bar avatar meta"
+    "bar text   text" !important;
+  column-gap: 7px !important;
+  row-gap: 3px !important;
+  align-items: center !important;
+  position: relative !important;
+  transition: transform 0.25s ease, opacity 0.35s ease !important;
+}
+
+/* 最左侧浅灰竖条 (Accent Bar) */
+.danmu-bar {
+  display: block !important;
+  grid-area: bar !important;
+  width: 3.5px !important;
+  height: 26px !important;
+  border-radius: 2px !important;
+  background: rgba(175, 182, 195, 0.75) !important;
+  box-shadow: 0 0 4px rgba(175, 182, 195, 0.3) !important;
+  margin-right: 2px !important;
+  align-self: center !important;
+}
+
+/* 头像区域 */
+.danmu-avatar-wrap {
+  grid-area: avatar !important;
+  width: var(--danmu-avatar-size, 20px) !important;
+  height: var(--danmu-avatar-size, 20px) !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+}
+
+.danmu-avatar {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  border: var(--danmu-avatar-border, none) !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+/* 内容穿透，让 meta 与 text 直接作为 grid 单元格参与排列 */
+.danmu-content {
+  display: contents !important;
+}
+
+/* 观众昵称与徽章行（上层） */
+.danmu-meta {
+  grid-area: meta !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.danmu-uname {
+  font-family: var(--danmu-nick-font, system-ui, sans-serif) !important;
+  color: var(--danmu-nick-color, #d1d5db) !important;
+  font-size: var(--danmu-nick-size, 13px) !important;
+  font-weight: var(--danmu-nick-weight, 600) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* 弹幕正文内容（下层，位于头像与昵称下方） */
+.danmu-text {
+  grid-area: text !important;
+  font-family: var(--danmu-text-font, system-ui, sans-serif) !important;
+  color: var(--danmu-text-color, #ffffff) !important;
+  font-size: var(--danmu-text-size, 15px) !important;
+  font-weight: 700 !important;
+  line-height: var(--danmu-line-height, 1.38) !important;
+  text-shadow: var(--danmu-text-shadow, 0 1px 3px rgba(0, 0, 0, 0.85)) !important;
+  word-break: break-all !important;
+}
+
+/* 大航海专属边条高光定制 */
+.danmu-item.guard-level-1 .danmu-bar {
+  background: #ff4d6d !important;
+  box-shadow: 0 0 6px rgba(255, 77, 109, 0.6) !important;
+}
+.danmu-item.guard-level-2 .danmu-bar {
+  background: #c77dff !important;
+  box-shadow: 0 0 6px rgba(199, 125, 255, 0.6) !important;
+}
+.danmu-item.guard-level-3 .danmu-bar {
+  background: #4ea8de !important;
+  box-shadow: 0 0 6px rgba(78, 168, 222, 0.6) !important;
+}
+
+/* 进房欢迎消息：无底框紧凑展示 */
+.danmu-item.danmu-entry {
+  display: flex !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding: 3px 6px !important;
+  margin-bottom: 3px !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.danmu-item.danmu-entry .danmu-bar {
+  display: none !important;
+}
+
+.danmu-item.danmu-entry .danmu-avatar-wrap {
+  width: 20px !important;
+  height: 20px !important;
+  flex-shrink: 0 !important;
+}
+
+.danmu-item.danmu-entry .entry-content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+}
+
+.danmu-item.danmu-entry .entry-uname {
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+}
+
+.danmu-item.danmu-entry .entry-action {
+  font-weight: 400 !important;
+  color: #9ca3af !important;
+  font-size: 12.5px !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7) !important;
+}

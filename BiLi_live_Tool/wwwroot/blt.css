@@ -169,6 +169,7 @@ label.blt-label{display:block;font-size:12px;color:var(--ink-2);letter-spacing:.
 .blt-logrow .tag.guard{background:var(--amber-dim);color:var(--amber-ink)}
 .blt-logrow .tag.superchat{background:var(--amber-dim);color:var(--amber-ink)}
 .blt-logrow .tag.interact{background:var(--green-dim);color:var(--green-ink)}
+.blt-logrow .tag.follow{background:rgba(236,72,153,.15);color:#f472b6}
 .blt-logrow .tag.info{background:rgba(255,255,255,.06);color:var(--ink-2)}
 .blt-logrow .txt{color:var(--ink);word-break:break-all}
 .blt-logrow .txt .u{color:var(--ink-2)}

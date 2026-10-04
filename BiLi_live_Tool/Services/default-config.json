@@ -296,7 +296,8 @@
         "danmu": "",
         "gift": "",
         "superchat": "",
-        "welcome": ""
+        "welcome": "",
+        "follow": ""
       }
     },
     "danmu": {
@@ -348,6 +349,20 @@
       "guardTexts": [
         "欢迎尊贵的{guardName} {uname} 进入直播间！",
         "全体起立，欢迎{guardName} {uname}！"
+      ]
+    },
+    "follow": {
+      "enabled": true,
+      "sayUid": false,
+      "minMedal": 0,
+      "minHonor": 0,
+      "volume": 1,
+      "texts": [
+        "感谢 {uname} 的关注",
+        "多谢 {uname} 点的关注",
+        "感谢 {uname} 关注主播",
+        "谢谢 {uname} 的关注支持",
+        "欢迎 {uname} 关注直播间"
       ]
     }
   },
@@ -504,7 +519,11 @@
     "captainBgOpacity": 80,
     "captainBorderColor": "#4ea8de",
     "captainBorderOpacity": 80,
-    "captainTextColor": "#90e0ef"
+    "captainTextColor": "#90e0ef",
+    "edgeFadeMode": "none",
+    "edgeFadeDistance": 80,
+    "showEnterRoom": true,
+    "enterRoomText": "进入直播间"
   },
   "announceEnabled": true,
   "announceUrl": "https://blt-announce.pages.dev/announcements",

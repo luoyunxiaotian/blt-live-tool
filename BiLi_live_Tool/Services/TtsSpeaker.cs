@@ -24,11 +24,26 @@ public sealed class TtsSpeaker
     private readonly List<Item> _queue = new();
     private readonly Dictionary<string, long> _lastWelcomeUid = new();
     private readonly Dictionary<string, long> _lastWelcomeName = new();
+    private readonly HashSet<string> _followedUids = new();
+    private readonly List<string> _followOrder = new();
+    private const int FollowCap = 5000;
+    private long _demotedAt;
+    private string? _lastKnownEngine;
     private bool _speaking;
     private string _currentText = "";
     private readonly Dictionary<string, int> _fails = new();
     private string? _effectiveEngine;
     private volatile bool _skipRequested;
+
+    public void ResetEngineDemotion()
+    {
+        lock (_lock)
+        {
+            _effectiveEngine = null;
+            _demotedAt = 0;
+            _fails.Clear();
+        }
+    }
 
     // Diagnostics for /api/maui/debug/tray
     public string LastResult { get; private set; } = "not-run";
@@ -138,13 +153,35 @@ public sealed class TtsSpeaker
                 // 仅消费按用户聚合汇总后的 gifts_merged 事件，原始 gifts 事件不入队（防连击与多次送礼重复播报，对标原版 tts.js 铁律）
                 "gifts_merged" => "gift",
                 "superchat" => "superchat",
-                // 仅进入直播间 (msgType=1) 或进场特效 (msgType=0) 触发欢迎语音，过滤点赞、分享、关注等其它互动
+                // 关注 (msgType=2)
+                "interact" when ev.MsgType == 2 => "follow",
+                // 仅进入直播间 (msgType=1) 或进场特效 (msgType=0) 触发欢迎语音，过滤点赞、分享等其它互动
                 "interact" when (ev.MsgType == 1 || ev.MsgType == 0) => "welcome",
                 "guard" => "welcome",
                 _ => null,
             };
             if (typeKey == null) return;
             if (!ShouldSpeak(cfg, typeKey, ev)) return;
+
+            if (typeKey == "follow")
+            {
+                var uidKey = (ev.Uid ?? "").Trim();
+                if (uidKey.Length > 0 && uidKey != "0")
+                {
+                    lock (_lock)
+                    {
+                        if (_followedUids.Contains(uidKey)) return;
+                        _followedUids.Add(uidKey);
+                        _followOrder.Add(uidKey);
+                        if (_followOrder.Count > FollowCap)
+                        {
+                            var old = _followOrder[0];
+                            _followOrder.RemoveAt(0);
+                            _followedUids.Remove(old);
+                        }
+                    }
+                }
+            }
 
             if (typeKey == "welcome")
             {
@@ -332,6 +369,15 @@ public sealed class TtsSpeaker
                 var tpl = pool[Random.Shared.Next(pool.Count)];
                 return FormatWelcome(tpl, uname, guardName);
             }
+
+            case "follow":
+            {
+                var pool = (tc?.Texts != null && tc.Texts.Count > 0)
+                    ? tc.Texts
+                    : new List<string> { "感谢 {uname} 的关注", "多谢 {uname} 点的关注", "感谢 {uname} 关注主播" };
+                var tpl = pool[Random.Shared.Next(pool.Count)];
+                return FormatFollow(tpl, uname);
+            }
         }
         return "";
     }
@@ -426,6 +472,28 @@ public sealed class TtsSpeaker
                   .Trim();
     }
 
+    private static string FormatFollow(string tpl, string uname)
+    {
+        var res = tpl;
+        if (uname.Length > 0)
+        {
+            res = res.Replace("{uname}", uname);
+        }
+        else
+        {
+            res = res.Replace("感谢 {uname} 的关注", "感谢关注")
+                     .Replace("感谢{uname}的关注", "感谢关注")
+                     .Replace("多谢 {uname} 点的关注", "多谢点关注")
+                     .Replace("多谢{uname}点的关注", "多谢点关注")
+                     .Replace("感谢 {uname} 关注主播", "感谢关注主播")
+                     .Replace("感谢{uname}关注主播", "感谢关注主播")
+                     .Replace("感谢{uname}", "感谢")
+                     .Replace("多谢{uname}", "多谢")
+                     .Replace("{uname}", "");
+        }
+        return res.Trim();
+    }
+
     private void Enqueue(Settings cfg, string text, string typeKey, LiveEvent ev)
     {
         var isGuard = ev.IsGuard || ev.GuardLevel >= 1 || ev.Type == "guard";
@@ -501,6 +569,18 @@ public sealed class TtsSpeaker
             var text = prefix + item.Text;
             var volume = ComputeVolume(cfg, item.TypeKey);
 
+            var now = Environment.TickCount64;
+            // 自动探活与恢复机制：
+            // 如果由于此前偶发网络抖动导致临时降级，在冷却期（30 秒）后自动尝试恢复主播配置的首选引擎！
+            if (_effectiveEngine != null && _effectiveEngine != cfg.Engine)
+            {
+                if (now - _demotedAt >= 30_000)
+                {
+                    _effectiveEngine = null;
+                    _fails.Clear();
+                }
+            }
+
             var engine = _effectiveEngine ?? cfg.Engine;
             var ok = await TryEngineAsync(engine, text, voice, cfg, rate, pitchHz, volume);
             if (!ok && _skipRequested)
@@ -519,7 +599,9 @@ public sealed class TtsSpeaker
                     _fails[engine] = 0;
                     var next = Next(engine);
                     _effectiveEngine = next;
+                    _demotedAt = Environment.TickCount64;
                     LastResult = $"demote {engine}->{next}";
+                    ServiceLog.Warn("语音", $"{engine} TTS 暂时不可用，临时降级至 {next} 语音，30秒后将自动尝试恢复...");
                     // 本条立即降级重试一次
                     ok = await TryEngineAsync(next, text, voice, cfg, rate, pitchHz, volume);
                 }
@@ -528,6 +610,15 @@ public sealed class TtsSpeaker
             {
                 _fails[engine] = 0;
                 LastResult = "ok:" + engine;
+                if (engine == cfg.Engine)
+                {
+                    if (_demotedAt > 0)
+                    {
+                        ServiceLog.Info("语音", $"{cfg.Engine} TTS 已自动恢复正常。");
+                        _demotedAt = 0;
+                    }
+                    _effectiveEngine = null;
+                }
             }
         }
         catch (Exception ex)
@@ -579,6 +670,12 @@ public sealed class TtsSpeaker
                         ["volume"] = "+0%",
                     };
                     var bytes = await PostSynthAsync("edge", body);
+                    if (bytes == null || bytes.Length < 100)
+                    {
+                        // 快速重试一次：可能 edge 服务瞬时连接重置或正在自愈拉起
+                        await Task.Delay(300);
+                        bytes = await PostSynthAsync("edge", body);
+                    }
                     if (bytes == null || bytes.Length < 100) { LastResult = "edge:synth-fail"; return false; }
                     var edgePlay = await _audio.PlayBase64Async(Convert.ToBase64String(bytes), "audio/mpeg", volume, 1);
                     if (!edgePlay.Ok) { LastResult = "edge:play:" + edgePlay.Error; LastEngineError = LastResult; }
@@ -655,6 +752,11 @@ public sealed class TtsSpeaker
         if (_cfg != null && now - _cfgTime < 2000) return _cfg;
         _cfg = ParseConfig(_config.GetNode("tts") as JsonObject);
         _cfgTime = now;
+        if (_lastKnownEngine != null && _lastKnownEngine != _cfg.Engine)
+        {
+            ResetEngineDemotion();
+        }
+        _lastKnownEngine = _cfg.Engine;
         return _cfg;
     }
 
@@ -682,6 +784,7 @@ public sealed class TtsSpeaker
         s.Types["gift"] = ParseType(t, "gift");
         s.Types["superchat"] = ParseType(t, "superchat");
         s.Types["welcome"] = ParseType(t, "welcome");
+        s.Types["follow"] = ParseType(t, "follow");
 
         if (t.TryGetPropertyValue("tonePresets", out var tp) && tp is JsonObject presets)
         {

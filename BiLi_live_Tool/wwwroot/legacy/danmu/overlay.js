@@ -50,6 +50,11 @@
     boxBorderColor: '#3a4256',
     boxBorderOpacity: 60,
     boxBorderWidth: 1,
+    // 全局边缘虚化与进房播报
+    edgeFadeMode: 'none',
+    edgeFadeDistance: 80,
+    showEnterRoom: true,
+    enterRoomText: '进入直播间',
     animation: 'slide',
     stayDuration: 15,
     maxCount: 15
@@ -216,6 +221,14 @@
       stage.style.removeProperty('--danmu-guard3-text');
     }
 
+    // 全局边缘虚化渐隐遮罩 (Universal Edge Fade Mask)
+    const fadeMode = cfg.edgeFadeMode || 'none';
+    const fadeDist = Math.max(20, Math.min(200, Number(cfg.edgeFadeDistance) || 80));
+    stage.style.setProperty('--fade-distance', fadeDist + 'px');
+    stage.classList.toggle('fade-top', fadeMode === 'top');
+    stage.classList.toggle('fade-bottom', fadeMode === 'bottom');
+    stage.classList.toggle('fade-both', fadeMode === 'both');
+
     stage.classList.toggle('no-avatar', !cfg.showAvatar);
     stage.classList.toggle('display-flat', cfg.displayMode === 'flat');
   }
@@ -263,6 +276,7 @@
     }
 
     item.innerHTML = `
+      <div class="danmu-bar"></div>
       <div class="danmu-avatar-wrap">
         <img class="danmu-avatar" src="${esc(face)}" alt="${esc(uname)}" referrerpolicy="no-referrer" onerror="this.src='${DEFAULT_AVATAR}'" />
       </div>
@@ -272,6 +286,54 @@
           <span class="danmu-uname">${esc(uname)}</span>
         </div>
         <div class="danmu-text">${formatDanmuContent(msg, ev.emotes || ev.Emotes)}</div>
+      </div>
+    `;
+
+    stage.appendChild(item);
+
+    // 最大条数限制
+    const maxCount = Math.max(3, cfg.maxCount || 15);
+    while (stage.children.length > maxCount) {
+      const oldest = stage.firstElementChild;
+      if (oldest) stage.removeChild(oldest);
+      else break;
+    }
+
+    // 停留时间自动淡出
+    const staySec = Number(cfg.stayDuration != null ? cfg.stayDuration : 15);
+    if (staySec > 0) {
+      setTimeout(() => {
+        if (item && item.parentNode) {
+          item.classList.add('fading-out');
+          setTimeout(() => {
+            if (item && item.parentNode) {
+              item.parentNode.removeChild(item);
+            }
+          }, 500);
+        }
+      }, staySec * 1000);
+    }
+  }
+
+  function addEntry(ev) {
+    if (!cfg.enabled || cfg.showEnterRoom === false) return;
+    const uname = ev.uname || ev.Uname || (ev.uid || ev.Uid ? '用户' + (ev.uid || ev.Uid) : '观众');
+    let face = ev.uface || ev.Uface || DEFAULT_AVATAR;
+    if (face.startsWith('//')) face = 'https:' + face;
+    const actionText = cfg.enterRoomText || '进入直播间';
+
+    const item = document.createElement('div');
+    const animClass = 'anim-' + (cfg.animation || 'slide');
+    item.className = `danmu-item danmu-entry ${animClass}`;
+
+    item.innerHTML = `
+      <div class="danmu-bar"></div>
+      <div class="danmu-avatar-wrap">
+        <img class="danmu-avatar" src="${esc(face)}" alt="${esc(uname)}" referrerpolicy="no-referrer" onerror="this.src='${DEFAULT_AVATAR}'" />
+      </div>
+      <div class="entry-content">
+        <span class="entry-uname">${esc(uname)}</span>
+        <span class="entry-action">${esc(actionText)}</span>
       </div>
     `;
 
@@ -321,11 +383,16 @@
           return;
         }
 
-        // 弹幕事件 (普通弹幕 / 测试弹幕)
+        // 弹幕事件 (普通弹幕 / 进房通知 / SC / 测试)
         if (frame.type === 'event' && frame.data) {
           const ev = frame.data;
           if (ev.type === 'danmu') {
             addDanmu(ev);
+          } else if (ev.type === 'interact') {
+            // 进房消息 (msgType === 1 或 0 视作进入直播间)
+            if (ev.msgType == null || ev.msgType === 1 || ev.msgType === 0) {
+              addEntry(ev);
+            }
           } else if (ev.type === 'superchat') {
             addDanmu({
               uname: ev.uname || ev.Uname,
@@ -337,7 +404,11 @@
             });
           }
         } else if (frame.type === 'danmu_test' && frame.data) {
-          addDanmu(frame.data);
+          if (frame.data.isEntry) {
+            addEntry(frame.data);
+          } else {
+            addDanmu(frame.data);
+          }
         }
       } catch (err) {
         console.error('[DanmuOverlay] 解析消息异常', err);

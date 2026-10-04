@@ -473,6 +473,7 @@
     "nicknameSize": 14,
     "nicknameBold": true,
     "showMedal": true,
+    "showWealthMedal": true,
     "danmuFont": "system-ui",
     "danmuColor": "#ffffff",
     "danmuOpacity": 100,

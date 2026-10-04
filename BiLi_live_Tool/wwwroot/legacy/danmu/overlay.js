@@ -388,6 +388,10 @@
 
     // 徽章 HTML
     let badgesHtml = '';
+    const honorLevel = Number(ev.honorLevel || ev.HonorLevel || ev.wealthLevel || ev.WealthLevel || 0);
+    if (cfg.showWealthMedal !== false && honorLevel > 0) {
+      badgesHtml += `<span class="danmu-badge event-badge wealth-medal event-wealth-medal" title="荣耀等级 UL.${honorLevel}"><span class="wealth-medal-level">UL.${honorLevel}</span></span>`;
+    }
     if (cfg.showGuardBadge !== false && isGuard && guardName) {
       badgesHtml += `<span class="danmu-badge event-badge guard guard-badge guard-badge-in-meta">${esc(guardName)}</span>`;
     }
@@ -501,12 +505,17 @@
 
     const priceText = totalAmount > 0 ? `¥${totalAmount.toFixed(1)}` : '';
 
+    const giftHonorLevel = Number(ev.honorLevel || ev.HonorLevel || ev.wealthLevel || ev.WealthLevel || 0);
+    const giftHonorHtml = (cfg.showWealthMedal !== false && giftHonorLevel > 0)
+      ? `<span class="danmu-badge event-badge wealth-medal event-wealth-medal" title="荣耀等级 UL.${giftHonorLevel}"><span class="wealth-medal-level">UL.${giftHonorLevel}</span></span> `
+      : '';
+
     item.innerHTML = `
       <div class="danmu-bar event-bar"></div>
       ${avatarHtml}
       <div class="danmu-content event-content content">
         <div class="danmu-meta event-meta">
-          <span class="danmu-uname event-username username"><span class="username-text">${esc(uname)}</span></span>
+          ${giftHonorHtml}<span class="danmu-uname event-username username"><span class="username-text">${esc(uname)}</span></span>
           <span class="event-action" style="font-size:12px;opacity:0.75;margin-left:4px">送出</span>
         </div>
         <div class="danmu-text event-message message">
@@ -546,12 +555,17 @@
       `;
     }
 
+    const scHonorLevel = Number(ev.honorLevel || ev.HonorLevel || ev.wealthLevel || ev.WealthLevel || 0);
+    const scHonorHtml = (cfg.showWealthMedal !== false && scHonorLevel > 0)
+      ? `<span class="danmu-badge event-badge wealth-medal event-wealth-medal" title="荣耀等级 UL.${scHonorLevel}"><span class="wealth-medal-level">UL.${scHonorLevel}</span></span> `
+      : '';
+
     item.innerHTML = `
       <div class="danmu-bar event-bar"></div>
       ${avatarHtml}
       <div class="danmu-content event-content content">
         <div class="danmu-meta event-meta superchat-meta">
-          <span class="danmu-uname event-username username"><span class="username-text">${esc(uname)}</span></span>
+          ${scHonorHtml}<span class="danmu-uname event-username username"><span class="username-text">${esc(uname)}</span></span>
           <span class="price event-price superchat-price" style="margin-left:auto;font-weight:700;color:#ff4757">CN¥${price}</span>
         </div>
         <div class="danmu-text event-message message superchat-text">${esc(msg)}</div>
@@ -581,6 +595,11 @@
     item.setAttribute('data-event-type', 'toast');
     item.setAttribute('data-guard-level', guardLevel);
 
+    const gbHonorLevel = Number(ev.honorLevel || ev.HonorLevel || ev.wealthLevel || ev.WealthLevel || 0);
+    const gbHonorHtml = (cfg.showWealthMedal !== false && gbHonorLevel > 0)
+      ? `<span class="danmu-badge event-badge wealth-medal event-wealth-medal" title="荣耀等级 UL.${gbHonorLevel}"><span class="wealth-medal-level">UL.${gbHonorLevel}</span></span> `
+      : '';
+
     item.innerHTML = `
       <div class="danmu-bar event-bar"></div>
       <div class="danmu-avatar-wrap event-avatar-wrap avatar-wrap">
@@ -588,7 +607,7 @@
       </div>
       <div class="danmu-content event-content content">
         <div class="danmu-meta event-meta">
-          <span class="danmu-badge event-badge guard guard-badge guard-badge-in-meta">${esc(guardName)}</span>
+          ${gbHonorHtml}<span class="danmu-badge event-badge guard guard-badge guard-badge-in-meta">${esc(guardName)}</span>
           <span class="danmu-uname event-username username"><span class="username-text">${esc(uname)}</span></span>
         </div>
         <div class="danmu-text event-message message">

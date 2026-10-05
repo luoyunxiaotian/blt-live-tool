@@ -477,6 +477,7 @@ public class SystemMediaService : IDisposable
                                 {
                                     _trackedPositionSec = 0;
                                 }
+                                position = _trackedPositionSec;
                             }
 
                             // 如果网易云数据库提供了封面且当前无封面
@@ -539,13 +540,20 @@ public class SystemMediaService : IDisposable
                 {
                     if (sig != _prevSignature)
                     {
-                        _trackedPositionSec = position > 0 ? position : 0;
+                        if (position <= 0 && _trackedPositionSec > 0)
+                        {
+                            position = _trackedPositionSec;
+                        }
+                        else
+                        {
+                            _trackedPositionSec = position > 0 ? position : 0;
+                        }
                         _lastSmtcPosition = position;
                         _sameSmtcPosCount = 0;
                     }
                     else
                     {
-                        if (position > 0)
+                        if (position > 0 && fromSmtc)
                         {
                             // 检测 SMTC 传回的 position 是否发生实质变动
                             if (Math.Abs(position - _lastSmtcPosition) > 0.3)

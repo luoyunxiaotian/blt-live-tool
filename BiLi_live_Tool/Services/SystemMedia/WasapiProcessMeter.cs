@@ -8,13 +8,14 @@ using System.Runtime.InteropServices;
 namespace BiLi_live_Tool.Services.SystemMedia;
 
 /// <summary>
-/// 纯原生 Windows CoreAudio (WASAPI) 进程音频峰值采样器。
+/// 纯原生 Windows CoreAudio (WASAPI) 进程音频峰值与会话状态采样器。
 /// 彻底替代陈旧存在终结器抛出异常崩溃漏洞的 CSCore 1.2.1.2。
 /// 特点：
 /// 1. 绝不注册任何 IAudioSessionEvents 通知（拔除 UnregisterAudioSessionNotification 0x80070490 崩溃病根）；
 /// 2. 底层 COM 方法全量 [PreserveSig]，纯 HRESULT 整型返回，绝不向托管层抛出异常；
-/// 3. 所有枚举和获取的 COM 接口通过 try...finally 显式调用 Marshal.ReleaseComObject 即用即销，彻底杜绝非托管内存泄漏；
-/// 4. 无 C# 终结器（析构函数），GC Finalizer 线程永远不会介入，100% 免疫终结器线程 Fatal Crash。
+/// 3. 支持遍历系统所有活跃音频输出设备（eRender，活跃状态），全方位覆盖耳机、音箱、独立声卡及虚拟音频通道；
+/// 4. 所有枚举和获取的 COM 接口通过 try...finally 显式调用 Marshal.ReleaseComObject 即用即销，彻底杜绝非托管内存泄漏；
+/// 5. 无 C# 终结器（析构函数），GC Finalizer 线程永远不会介入，100% 免疫终结器线程 Fatal Crash。
 /// </summary>
 public static class WasapiProcessMeter
 {
@@ -31,9 +32,7 @@ public static class WasapiProcessMeter
         if (processNames == null || processNames.Length == 0) return new ProcessAudioStatus(false, 0f);
 
         IMMDeviceEnumerator? enumerator = null;
-        IMMDevice? defaultDevice = null;
-        IAudioSessionManager2? sessionManager = null;
-        IAudioSessionEnumerator? sessionEnum = null;
+        IMMDeviceCollection? devCol = null;
 
         try
         {
@@ -41,74 +40,95 @@ public static class WasapiProcessMeter
             enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
             if (enumerator == null) return new ProcessAudioStatus(false, 0f);
 
-            // 2. 获取默认音频渲染输出设备 (eRender = 0, eMultimedia = 1)
-            int hr = enumerator.GetDefaultAudioEndpoint(0, 1, out defaultDevice);
-            if (hr != 0 || defaultDevice == null) return new ProcessAudioStatus(false, 0f);
+            // 2. 枚举所有当前处于活跃状态的音频渲染输出端点 (eRender = 0, DEVICE_STATE_ACTIVE = 1)
+            int hr = enumerator.EnumAudioEndpoints(0, 1, out devCol);
+            if (hr != 0 || devCol == null) return new ProcessAudioStatus(false, 0f);
 
-            // 3. 激活 IAudioSessionManager2
-            var iid = IID_IAudioSessionManager2;
-            hr = defaultDevice.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out var mgrObj);
-            if (hr != 0 || mgrObj == null) return new ProcessAudioStatus(false, 0f);
-            sessionManager = (IAudioSessionManager2)mgrObj;
-
-            // 4. 获取音频会话枚举器
-            hr = sessionManager.GetSessionEnumerator(out sessionEnum);
-            if (hr != 0 || sessionEnum == null) return new ProcessAudioStatus(false, 0f);
-
-            hr = sessionEnum.GetCount(out int count);
-            if (hr != 0 || count <= 0) return new ProcessAudioStatus(false, 0f);
+            hr = devCol.GetCount(out int devCount);
+            if (hr != 0 || devCount <= 0) return new ProcessAudioStatus(false, 0f);
 
             float maxPeak = 0f;
             bool isActive = false;
+            var iid = IID_IAudioSessionManager2;
 
-            // 5. 遍历各个音频会话，按 ProcessId 匹配目标进程并读取状态与音量峰值
-            for (int i = 0; i < count; i++)
+            // 3. 逐个设备遍历其音频会话
+            for (int d = 0; d < devCount; d++)
             {
-                IAudioSessionControl? session = null;
+                IMMDevice? dev = null;
+                IAudioSessionManager2? sessionManager = null;
+                IAudioSessionEnumerator? sessionEnum = null;
+
                 try
                 {
-                    hr = sessionEnum.GetSession(i, out session);
-                    if (hr != 0 || session == null) continue;
+                    if (devCol.Item(d, out dev) != 0 || dev == null) continue;
 
-                    // 转换为 IAudioSessionControl2 获取 PID
-                    if (session is IAudioSessionControl2 session2)
+                    hr = dev.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out var mgrObj);
+                    if (hr != 0 || mgrObj == null) continue;
+                    sessionManager = (IAudioSessionManager2)mgrObj;
+
+                    hr = sessionManager.GetSessionEnumerator(out sessionEnum);
+                    if (hr != 0 || sessionEnum == null) continue;
+
+                    hr = sessionEnum.GetCount(out int sCount);
+                    if (hr != 0 || sCount <= 0) continue;
+
+                    for (int s = 0; s < sCount; s++)
                     {
-                        hr = session2.GetProcessId(out uint pid);
-                        if (hr == 0 && pid != 0)
+                        IAudioSessionControl? session = null;
+                        try
                         {
-                            string procName = ResolveProcessName(pid);
-                            if (!string.IsNullOrEmpty(procName) && processNames.Any(p => procName.Contains(p, StringComparison.OrdinalIgnoreCase)))
-                            {
-                                int stateHr = session2.GetState(out int state);
-                                if (stateHr == 0 && state == 1) // 1 = AudioSessionStateActive
-                                {
-                                    isActive = true;
-                                }
+                            if (sessionEnum.GetSession(s, out session) != 0 || session == null) continue;
 
-                                // 转换为 IAudioMeterInformation 获取音量峰值
-                                if (session is IAudioMeterInformation meter)
+                            // 转换为 IAudioSessionControl2 获取 PID
+                            if (session is IAudioSessionControl2 session2)
+                            {
+                                hr = session2.GetProcessId(out uint pid);
+                                if (hr == 0 && pid > 0)
                                 {
-                                    hr = meter.GetPeakValue(out float peak);
-                                    if (hr == 0)
+                                    string procName = ResolveProcessName(pid);
+                                    if (!string.IsNullOrEmpty(procName) && processNames.Any(p => procName.Contains(p, StringComparison.OrdinalIgnoreCase)))
                                     {
-                                        if (peak > 0.0001f) isActive = true;
-                                        if (peak > maxPeak) maxPeak = peak;
+                                        int stateHr = session2.GetState(out int state);
+                                        if (stateHr == 0 && state == 1) // 1 = AudioSessionStateActive
+                                        {
+                                            isActive = true;
+                                        }
+
+                                        // 转换为 IAudioMeterInformation 获取音量峰值
+                                        if (session is IAudioMeterInformation meter)
+                                        {
+                                            hr = meter.GetPeakValue(out float peak);
+                                            if (hr == 0)
+                                            {
+                                                if (peak > 0.0001f) isActive = true;
+                                                if (peak > maxPeak) maxPeak = peak;
+                                            }
+                                        }
                                     }
                                 }
+                            }
+                        }
+                        catch
+                        {
+                            // 绝不向外扩散任何异常
+                        }
+                        finally
+                        {
+                            if (session != null)
+                            {
+                                try { Marshal.ReleaseComObject(session); } catch { }
                             }
                         }
                     }
                 }
                 catch
                 {
-                    // 绝不向外扩散任何异常
                 }
                 finally
                 {
-                    if (session != null)
-                    {
-                        try { Marshal.ReleaseComObject(session); } catch { }
-                    }
+                    if (sessionEnum != null) try { Marshal.ReleaseComObject(sessionEnum); } catch { }
+                    if (sessionManager != null) try { Marshal.ReleaseComObject(sessionManager); } catch { }
+                    if (dev != null) try { Marshal.ReleaseComObject(dev); } catch { }
                 }
             }
 
@@ -120,9 +140,7 @@ public static class WasapiProcessMeter
         }
         finally
         {
-            if (sessionEnum != null) try { Marshal.ReleaseComObject(sessionEnum); } catch { }
-            if (sessionManager != null) try { Marshal.ReleaseComObject(sessionManager); } catch { }
-            if (defaultDevice != null) try { Marshal.ReleaseComObject(defaultDevice); } catch { }
+            if (devCol != null) try { Marshal.ReleaseComObject(devCol); } catch { }
             if (enumerator != null) try { Marshal.ReleaseComObject(enumerator); } catch { }
         }
     }
@@ -160,11 +178,20 @@ public static class WasapiProcessMeter
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IMMDeviceEnumerator
     {
-        [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out IntPtr endpoints);
+        [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out IMMDeviceCollection devices);
         [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
         [PreserveSig] int GetDevice([MarshalAs(UnmanagedType.LPWStr)] string id, out IMMDevice endpoint);
         [PreserveSig] int RegisterEndpointNotificationCallback(IntPtr client);
         [PreserveSig] int UnregisterEndpointNotificationCallback(IntPtr client);
+    }
+
+    [ComImport]
+    [Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDeviceCollection
+    {
+        [PreserveSig] int GetCount(out int count);
+        [PreserveSig] int Item(int index, out IMMDevice device);
     }
 
     [ComImport]
@@ -193,7 +220,7 @@ public static class WasapiProcessMeter
     }
 
     [ComImport]
-    [Guid("E2F5EE11-2070-4DC5-8663-C614229249E8")]
+    [Guid("E2F5BB11-0570-40CA-ACDD-3AA01277DEE8")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IAudioSessionEnumerator
     {
@@ -218,7 +245,7 @@ public static class WasapiProcessMeter
     }
 
     [ComImport]
-    [Guid("bfb7ff88-7239-4fc9-8fa2-00889b44e10e")]
+    [Guid("bfb7ff88-7239-4fc9-8fa2-07c950be9c6d")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IAudioSessionControl2
     {

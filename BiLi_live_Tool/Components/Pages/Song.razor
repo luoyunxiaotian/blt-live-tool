@@ -119,8 +119,8 @@
             <div class="blt-panel-head">
                 <span class="t">▶ 正在播放与实时歌词</span><span class="en">PLAYER & LYRICS</span>
                 <span class="right">
-                    <span>@PlayerStateText()</span>
-                    <span class="blt-badge @PlatCls(Player.CurrentPlatform)">@(Player.CurrentPlatform.Length > 0 ? PlatName(Player.CurrentPlatform) : "—")</span>
+                    <span>@CurrentPlaybackStateText()</span>
+                    <span class="blt-badge @CurrentPlaybackPlatformBadgeCls()">@CurrentPlaybackPlatformText()</span>
                 </span>
             </div>
             <div class="blt-panel-body">
@@ -139,14 +139,38 @@
                             }
                         </span>
                     }
+                    else if (MediaService.CurrentTrack.HasSong)
+                    {
+                        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                            <b>@MediaService.CurrentTrack.Title</b>
+                            @if (MediaService.CurrentTrack.Artist.Length > 0)
+                            {
+                                <span style="color:var(--ink-3)"> - @MediaService.CurrentTrack.Artist</span>
+                            }
+                            @if (!string.IsNullOrEmpty(MediaService.CurrentTrack.SourceApp))
+                            {
+                                <span class="blt-badge" style="background:rgba(255,255,255,0.08);color:var(--amber);margin-left:4px">🎧 @MediaService.CurrentTrack.SourceApp</span>
+                            }
+                            @if (!string.IsNullOrEmpty(MediaService.CurrentTrack.Requester))
+                            {
+                                <span class="blt-badge blue" style="margin-left:4px">+ @MediaService.CurrentTrack.Requester</span>
+                            }
+                        </span>
+                    }
                     else
                     {
-                        <span class="blt-hint" style="flex:1;margin:0">未在播放 · 弹幕点歌或点列表「▶」开播</span>
+                        <span class="blt-hint" style="flex:1;margin:0">未在播放 · 弹幕点歌或外部音乐软件放歌时自动呈现</span>
                     }
                 </div>
-                @if (Player.LastNote.Length > 0)
+                @if (Player.LastNote.Length > 0 && Player.CurrentName.Length > 0)
                 {
                     <div class="blt-hint" style="font-family:var(--mono);margin:6px 0 0;color:@NoteCls(Player.LastNote)">@Player.LastNote</div>
+                }
+                else if (Player.CurrentName.Length == 0 && MediaService.CurrentTrack.HasSong)
+                {
+                    <div class="blt-hint" style="font-family:var(--mono);margin:6px 0 0;color:var(--ink-2)">
+                        当前感知外部播放器（@MediaService.CurrentTrack.SourceApp · @(MediaService.CurrentTrack.Status == "Playing" ? "▶ 播放中" : "⏸ 已暂停")）
+                    </div>
                 }
                 <div style="display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap">
                     <button class="blt-btn" style="padding:3px 10px" @onclick="PlayPrev" disabled="@(Player.PlayingIndex < 1)">⏮ 上一首</button>
@@ -155,9 +179,9 @@
                     <button class="blt-btn" style="padding:3px 10px" @onclick="PlayStop" disabled="@(Player.PlayingIndex < 0)">⏹ 停止</button>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
-                    <input type="range" min="0" max="@RangeMax" step="0.5" value="@RangeValue"
-                           style="flex:1;accent-color:var(--amber)" @onchange="OnSeekChanged" />
-                    <span class="blt-hint" style="font-family:var(--mono);color:var(--ink-2);flex:none;margin:0">@MmSs(Player.Current) / @MmSs(Player.Duration)</span>
+                    <input type="range" min="0" max="@CurrentPlaybackRangeMax" step="0.5" value="@CurrentPlaybackRangeValue"
+                           style="flex:1;accent-color:var(--amber)" @onchange="OnSeekChanged" disabled="@(Player.CurrentName.Length == 0)" />
+                    <span class="blt-hint" style="font-family:var(--mono);color:var(--ink-2);flex:none;margin:0">@MmSs(CurrentPlaybackPosition) / @MmSs(CurrentPlaybackDuration)</span>
                 </div>
 
                 @* 实时歌词嵌入区域 *@
@@ -868,9 +892,11 @@
     /// <summary>歌词为空时给出可执行的原因提示。</summary>
     private string LyricEmptyReason()
     {
-        if (Player.CurrentName.Length == 0) return "未播放：点歌单里的 ▶ 播放后会自动加载歌词";
-        if (_lyricSource.Length == 0) return "歌词请求失败（网络或接口异常）：点「重试」，或在 OBS 里刷新浏览器源";
-        if (_lyricSource == "none") return "该平台未取到歌词：可换平台搜索同一首歌；或把同名 .lrc 放进本地歌词目录；VIP 歌曲可先「应用内登录」后再重试";
+        bool hasSong = Player.CurrentName.Length > 0 || MediaService.CurrentTrack.HasSong;
+        if (!hasSong) return "未在播放：可在网易云/QQ音乐等播放软件放歌，或在点歌单点击 ▶ 播放";
+        if (_lyricLoading) return "歌词加载中…";
+        if (_lyricSource.Length == 0) return "歌词请求失败（网络或接口异常）：可点下方「重试加载歌词」";
+        if (_lyricSource == "none") return "未检索到歌词：可能为伴奏、纯音乐或未匹配到曲库歌词；可把同名 .lrc 放进本地歌词目录";
         return "暂无歌词（来源：" + LyricSourceText() + "）";
     }
 
@@ -1024,7 +1050,19 @@
 
     private void OnSystemTrackChanged(BiLi_live_Tool.Services.SystemMedia.SystemMediaTrack track)
     {
-        _ = InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(async () =>
+        {
+            if (Player.CurrentName.Length == 0)
+            {
+                var key = track.Title + "\n" + track.Artist;
+                if (key != _lyricSongKey)
+                {
+                    _lyricSongKey = key;
+                    await LoadLyricsAsync();
+                }
+            }
+            StateHasChanged();
+        });
     }
 
     private void OnSystemProgressChanged(double pos, double dur)
@@ -1112,6 +1150,11 @@
         try
         {
             await MediaService.ForceRefreshAsync();
+            if (Player.CurrentName.Length == 0 && MediaService.CurrentTrack.HasSong)
+            {
+                _lyricSongKey = "";
+                await LoadLyricsAsync();
+            }
             SetMsg("已重新感知媒体并同步 OBS 浮层", "green");
         }
         catch (Exception ex)
@@ -1169,7 +1212,9 @@
     {
         _ = InvokeAsync(async () =>
         {
-            var key = Player.CurrentName + "\n" + Player.CurrentArtist;
+            var key = Player.CurrentName.Length > 0
+                ? (Player.CurrentName + "\n" + Player.CurrentArtist)
+                : (MediaService.CurrentTrack.Title + "\n" + MediaService.CurrentTrack.Artist);
             if (key != _lyricSongKey)
             {
                 _lyricSongKey = key;
@@ -1188,13 +1233,69 @@
         });
     }
 
-    private string RangeMax => (Player.Duration > 1 ? Player.Duration : 1).ToString("0.###", CultureInfo.InvariantCulture);
-    private string RangeValue
+    private string CurrentPlaybackStateText()
+    {
+        if (Player.CurrentName.Length > 0)
+        {
+            return Player.IsPlaying ? "PLAYING" : Player.PlayingIndex >= 0 ? "PAUSED" : "IDLE";
+        }
+        if (MediaService.CurrentTrack.HasSong)
+        {
+            return MediaService.CurrentTrack.Status == "Playing" ? "PLAYING" : "PAUSED";
+        }
+        return "IDLE";
+    }
+
+    private string CurrentPlaybackPlatformText()
+    {
+        if (Player.CurrentName.Length > 0)
+        {
+            return Player.CurrentPlatform.Length > 0 ? PlatName(Player.CurrentPlatform) : "—";
+        }
+        if (MediaService.CurrentTrack.HasSong)
+        {
+            return !string.IsNullOrEmpty(MediaService.CurrentTrack.SourceApp) ? MediaService.CurrentTrack.SourceApp : "外部媒体";
+        }
+        return "—";
+    }
+
+    private string CurrentPlaybackPlatformBadgeCls()
+    {
+        if (Player.CurrentName.Length > 0)
+        {
+            return PlatCls(Player.CurrentPlatform);
+        }
+        if (MediaService.CurrentTrack.HasSong)
+        {
+            var app = (MediaService.CurrentTrack.SourceApp ?? "").ToLowerInvariant();
+            if (app.Contains("qq")) return PlatCls("qq");
+            if (app.Contains("网易") || app.Contains("cloudmusic") || app.Contains("163")) return PlatCls("netease");
+            if (app.Contains("kugou") || app.Contains("酷狗")) return PlatCls("kugou");
+            if (app.Contains("migu") || app.Contains("咪咕")) return PlatCls("migu");
+            if (app.Contains("bili") || app.Contains("b站")) return PlatCls("bilibili");
+            return "blue";
+        }
+        return "";
+    }
+
+    private double CurrentPlaybackPosition => Player.CurrentName.Length > 0 ? Player.Current : MediaService.CurrentTrack.PositionSec;
+    private double CurrentPlaybackDuration => Player.CurrentName.Length > 0 ? Player.Duration : MediaService.CurrentTrack.DurationSec;
+
+    private string CurrentPlaybackRangeMax
     {
         get
         {
-            var max = Player.Duration > 1 ? Player.Duration : 1;
-            var cur = Player.Current < 0 ? 0 : Player.Current;
+            var d = CurrentPlaybackDuration;
+            return (d > 1 ? d : 1).ToString("0.###", CultureInfo.InvariantCulture);
+        }
+    }
+
+    private string CurrentPlaybackRangeValue
+    {
+        get
+        {
+            var max = CurrentPlaybackDuration > 1 ? CurrentPlaybackDuration : 1;
+            var cur = CurrentPlaybackPosition < 0 ? 0 : CurrentPlaybackPosition;
             return (cur > max ? max : cur).ToString("0.###", CultureInfo.InvariantCulture);
         }
     }
@@ -1251,18 +1352,16 @@
 
     private async Task LoadLyricsAsync()
     {
-        if (Player.CurrentName.Length == 0)
+        string songName = "";
+        string artist = "";
+        string platform = "";
+        string id = "";
+
+        if (Player.CurrentName.Length > 0)
         {
-            _lyricLines = new List<(double, string)>();
-            _lyricSource = "";
-            return;
-        }
-        _lyricLoading = true;
-        StateHasChanged();
-        try
-        {
-            var id = "";
-            var platform = Player.CurrentPlatform;
+            songName = Player.CurrentName;
+            artist = Player.CurrentArtist;
+            platform = Player.CurrentPlatform;
             var idx = Player.PlayingIndex;
             if (idx >= 0 && idx < _playlist.Count)
             {
@@ -1273,8 +1372,28 @@
                 if (id.Length == 0) id = Js(entry, "bvid");
                 if (platform.Length == 0) platform = Js(entry, "platform");
             }
-            var url = "/api/lyrics?song=" + Uri.EscapeDataString(Player.CurrentName)
-                    + "&artist=" + Uri.EscapeDataString(Player.CurrentArtist)
+        }
+        else if (MediaService.CurrentTrack.HasSong)
+        {
+            songName = MediaService.CurrentTrack.Title;
+            artist = MediaService.CurrentTrack.Artist;
+            platform = MediaService.CurrentTrack.Platform;
+            id = MediaService.CurrentTrack.SongId;
+        }
+
+        if (string.IsNullOrWhiteSpace(songName))
+        {
+            _lyricLines = new List<(double, string)>();
+            _lyricSource = "";
+            return;
+        }
+
+        _lyricLoading = true;
+        StateHasChanged();
+        try
+        {
+            var url = "/api/lyrics?song=" + Uri.EscapeDataString(songName)
+                    + "&artist=" + Uri.EscapeDataString(artist)
                     + "&platform=" + Uri.EscapeDataString(platform)
                     + "&id=" + Uri.EscapeDataString(id);
             var data = await GetJson(url) as JsonObject;
@@ -1318,7 +1437,8 @@
 
     private int ActiveLyricIndex()
     {
-        var t = Player.Current + 0.05;
+        var pos = Player.CurrentName.Length > 0 ? Player.Current : MediaService.CurrentTrack.PositionSec;
+        var t = pos + 0.05;
         var idx = -1;
         for (var i = 0; i < _lyricLines.Count; i++)
             if (_lyricLines[i].Time <= t) idx = i;
@@ -1330,16 +1450,24 @@
             ? "padding:4px 6px;font-weight:600;color:var(--ink)"
             : "padding:4px 6px;color:var(--ink-3)";
 
-    private string LyricSourceText() => _lyricSource switch
+    private string LyricSourceText()
     {
-        "local" => "本地 .lrc",
-        "netease" => "网易云",
-        "qq" => "QQ音乐",
-        "kugou" => "酷狗",
-        "migu" => "咪咕",
-        "" => "—",
-        _ => _lyricSource,
-    };
+        var text = _lyricSource switch
+        {
+            "local" => "本地 .lrc",
+            "netease" => "网易云曲库",
+            "qq" => "QQ音乐曲库",
+            "kugou" => "酷狗曲库",
+            "migu" => "咪咕曲库",
+            "" => "—",
+            _ => _lyricSource,
+        };
+        if (Player.CurrentName.Length == 0 && MediaService.CurrentTrack.HasSong && !string.IsNullOrEmpty(MediaService.CurrentTrack.SourceApp))
+        {
+            text += $" · {MediaService.CurrentTrack.SourceApp}";
+        }
+        return text;
+    }
 
     private string PlayerStateText()
         => Player.IsPlaying ? "PLAYING" : Player.PlayingIndex >= 0 ? "PAUSED" : "IDLE";

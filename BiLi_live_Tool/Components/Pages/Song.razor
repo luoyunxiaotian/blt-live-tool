@@ -331,7 +331,10 @@
         <div class="blt-panel">
             <div class="blt-panel-head">
                 <span class="t"><BltIcon Emoji="🎧" /> 媒体感知与 OBS 音乐浮层 (Now Playing)</span><span class="en">NOW PLAYING</span>
-                <span class="right">
+                <span class="right" style="display:flex;align-items:center;gap:8px">
+                    <button class="blt-btn" style="padding:2px 10px;font-size:11px;display:flex;align-items:center;gap:4px" @onclick="ForceRefreshMedia" disabled="@_mediaRefreshing" title="重新扫描外部播放器与系统媒体，解决曲目或歌词卡住问题">
+                        <span>🔄</span>@(_mediaRefreshing ? "感知中…" : "重新感知")
+                    </button>
                     <span class="blt-switch @(MediaService.Enabled ? "on" : "")" @onclick="ToggleMediaService" title="切换系统媒体监听">
                         <span class="track"></span>@(MediaService.Enabled ? "ON" : "OFF")
                     </span>
@@ -1095,6 +1098,31 @@
             url += (url.Contains('?') ? "&" : "?") + "h=" + Uri.EscapeDataString(MediaService.CurrentTrack.CoverHash);
         }
         return url;
+    }
+
+    private bool _mediaRefreshing;
+
+    private async Task ForceRefreshMedia()
+    {
+        if (_mediaRefreshing) return;
+        _mediaRefreshing = true;
+        SetMsg("正在重新探测系统媒体与播放器…", "blue");
+        StateHasChanged();
+
+        try
+        {
+            await MediaService.ForceRefreshAsync();
+            SetMsg("已重新感知媒体并同步 OBS 浮层", "green");
+        }
+        catch (Exception ex)
+        {
+            SetMsg("刷新失败: " + ex.Message, "red");
+        }
+        finally
+        {
+            _mediaRefreshing = false;
+            StateHasChanged();
+        }
     }
 
     private void ToggleMediaService()

@@ -210,7 +210,13 @@
           renderTrack(msg.data);
         } else if (msg.type === 'system_media_progress') {
           if (msg.data) {
-            updateProgress(msg.data.position, msg.data.duration);
+            const p = Number(msg.data.position) || 0;
+            const d = Number(msg.data.duration) || 0;
+            if (d > 0) totalSec = d;
+            if (Math.abs(p - curSec) > 2.0 || curSec === 0) {
+              curSec = p;
+            }
+            updateProgress(curSec, totalSec);
           }
         } else if (msg.type === 'song_progress') {
           renderSongProgress(msg.data);

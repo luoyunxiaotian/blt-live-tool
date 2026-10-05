@@ -50,6 +50,9 @@ public class SystemMediaTrack
     [JsonPropertyName("volumePeak")]
     public float VolumePeak { get; set; }
 
+    [JsonPropertyName("force")]
+    public bool Force { get; set; }
+
     [JsonPropertyName("updatedAt")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

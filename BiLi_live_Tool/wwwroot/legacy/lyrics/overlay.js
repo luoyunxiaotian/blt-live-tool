@@ -562,18 +562,26 @@
         } else {
           externalTrack = null;
         }
+        if (d.force) {
+          lrcKey = ''; // 强制重置歌词缓存以重新向曲库检索
+        }
         evaluateCurrentTrack();
       }
       // 3. 外部媒体感知进度更新帧 (Now Playing 每秒广播)
       else if (m.type === 'system_media_progress' && m.data) {
+        const newPos = Number(m.data.position) || 0;
+        const newDur = Number(m.data.duration) || 0;
         if (externalTrack) {
-          externalTrack.position = Number(m.data.position) || 0;
-          if (Number(m.data.duration) > 0) externalTrack.duration = Number(m.data.duration);
+          externalTrack.position = newPos;
+          if (newDur > 0) externalTrack.duration = newDur;
         }
         // 若当前浮层正显示外部媒体，实时更新进度与滚动歌词
         if (song && song.isExternal) {
-          position = Number(m.data.position) || 0;
-          if (Number(m.data.duration) > 0) duration = Number(m.data.duration);
+          if (newDur > 0) duration = newDur;
+          // 平滑校准：若后端推来的进度变化过小（< 2秒）且本地时钟正在平滑向前走，不强制反复往回拉扯
+          if (Math.abs(newPos - position) > 2.0 || position === 0) {
+            position = newPos;
+          }
           render();
         }
       }

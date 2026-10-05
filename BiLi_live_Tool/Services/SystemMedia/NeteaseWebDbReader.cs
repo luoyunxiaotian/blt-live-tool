@@ -13,7 +13,8 @@ public sealed record NeteaseTrackInfo(
     string CoverUrl,
     double DurationSec,
     long PlaytimeMs,
-    string SongId = ""
+    string SongId = "",
+    bool IsFresh = true
 );
 
 /// <summary>
@@ -103,12 +104,16 @@ public static class NeteaseWebDbReader
 
                         string album = node["album"]?["name"]?.GetValue<string>() ?? "";
                         string picUrl = node["album"]?["picUrl"]?.GetValue<string>() ?? "";
-                        long durMs = node["duration"]?.GetValue<long>() ?? 0;
+                        long durMs = node["duration"]?.GetValue<long>() ?? node["dt"]?.GetValue<long>() ?? 0;
                         double durSec = durMs > 0 ? (durMs / 1000.0) : 0;
 
                         if (!string.IsNullOrWhiteSpace(name))
                         {
-                            return new NeteaseTrackInfo(name, artists, album, picUrl, durSec, playtime, songId);
+                            var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                            long elapsedMs = nowMs - playtime;
+                            // 判定近效期：播放时间在合理区间（允许时钟微小偏差，在歌曲时长+45秒内或3分钟内视为新鲜）
+                            bool isFresh = elapsedMs >= -5000 && (durSec > 0 ? elapsedMs <= (durSec + 45) * 1000 : elapsedMs <= 180_000);
+                            return new NeteaseTrackInfo(name, artists, album, picUrl, durSec, playtime, songId, isFresh);
                         }
                     }
                 }

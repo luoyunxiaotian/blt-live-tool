@@ -1047,6 +1047,11 @@ public sealed class KestrelHost
                 _mediaService.PreferInternalPlayer = !_mediaService.PreferInternalPlayer;
             return Results.Json(new { ok = true, preferInternal = _mediaService.PreferInternalPlayer }, JsonWeb);
         });
+        app.MapPost("/api/media/refresh", async () =>
+        {
+            await _mediaService.ForceRefreshAsync();
+            return Results.Json(new { ok = true, track = _mediaService.CurrentTrack }, JsonWeb);
+        });
 
         // ---- lower thirds ----
         app.MapGet("/api/lower-thirds/config", () => Results.Json(_lowerThirds.Data, JsonWeb));

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -38,6 +39,8 @@ public class SystemMediaService : IDisposable
     private string? _currentCoverHash;
     private readonly ConcurrentDictionary<string, double> _durationCache = new(StringComparer.OrdinalIgnoreCase);
     private double _trackedPositionSec = 0;
+    private double _lastSmtcPosition = -1;
+    private int _sameSmtcPosCount = 0;
     private long _lastNeteasePlaytimeMs = 0;
     private double _prevReportedPosition = -1;
     private double _prevReportedDuration = -1;
@@ -239,13 +242,44 @@ public class SystemMediaService : IDisposable
         catch { }
     }
 
+    public async Task ForceRefreshAsync()
+    {
+        lock (_lock)
+        {
+            _prevSignature = "";
+            _prevStatus = "";
+            _prevReportedPosition = -1;
+            _prevReportedDuration = -1;
+            _lastSmtcPosition = -1;
+            _sameSmtcPosCount = 0;
+            _lastNeteasePlaytimeMs = 0;
+            _trackedPositionSec = 0;
+            _currentCoverSig = null;
+            _currentCoverBytes = null;
+            _currentCoverHash = null;
+            _lastInternalCoverUrl = "";
+        }
+
+        try
+        {
+            _smtcManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+            if (_smtcManager != null)
+            {
+                AttachSession(_smtcManager.GetCurrentSession());
+            }
+        }
+        catch { }
+
+        await UpdateMediaStateAsync(forceBroadcast: true);
+    }
+
     private void OnPollTick(object? state)
     {
         if (!_enabled) return;
         _ = UpdateMediaStateAsync();
     }
 
-    public async Task UpdateMediaStateAsync()
+    public async Task UpdateMediaStateAsync(bool forceBroadcast = false)
     {
         if (!_enabled) return;
 
@@ -360,8 +394,27 @@ public class SystemMediaService : IDisposable
                         var timeline = session.GetTimelineProperties();
                         if (timeline != null)
                         {
-                            position = timeline.Position.TotalSeconds;
-                            duration = timeline.EndTime.TotalSeconds;
+                            var dur = timeline.EndTime.TotalSeconds;
+                            if (dur > 0) duration = dur;
+
+                            var rawPos = timeline.Position.TotalSeconds;
+                            // 动态时间轴插值：若 SMTC 处于播放状态且具有有效的 LastUpdatedTime，根据经过时间推算实时秒数，避免被播放器未持续上报的静态快照钉死
+                            if (status == "Playing" && timeline.LastUpdatedTime != default)
+                            {
+                                var elapsedSinceUpdate = (DateTimeOffset.UtcNow - timeline.LastUpdatedTime).TotalSeconds;
+                                if (elapsedSinceUpdate >= 0 && (dur <= 0 || rawPos + elapsedSinceUpdate <= dur + 5))
+                                {
+                                    position = rawPos + elapsedSinceUpdate;
+                                }
+                                else
+                                {
+                                    position = rawPos;
+                                }
+                            }
+                            else
+                            {
+                                position = rawPos;
+                            }
                         }
                     }
                     catch { }
@@ -377,42 +430,58 @@ public class SystemMediaService : IDisposable
                     var neteaseDb = NeteaseWebDbReader.TryGetLatestTrack();
                     if (neteaseDb != null && !string.IsNullOrWhiteSpace(neteaseDb.Title))
                     {
-                        platform = "netease";
-                        if (!string.IsNullOrEmpty(neteaseDb.SongId)) songId = neteaseDb.SongId;
-
-                        if (!fromSmtc || string.IsNullOrWhiteSpace(title))
+                        // 只有当网易云记录具有时效性（IsFresh）时，才作为当前播放曲目采纳；
+                        // 避免读取数小时甚至数天前的远古播放历史，导致主播切歌时被死锁在上一首！
+                        if (neteaseDb.IsFresh)
                         {
-                            title = neteaseDb.Title;
-                            artist = neteaseDb.Artist;
-                            album = neteaseDb.Album;
-                            sourceApp = "网易云音乐";
-                            status = volumePeak > 0.0001f ? "Playing" : "Paused";
-                        }
+                            platform = "netease";
+                            if (!string.IsNullOrEmpty(neteaseDb.SongId)) songId = neteaseDb.SongId;
 
-                        if (duration <= 0 && neteaseDb.DurationSec > 0)
-                        {
-                            duration = neteaseDb.DurationSec;
-                        }
-
-                        if (neteaseDb.PlaytimeMs > 0 && neteaseDb.PlaytimeMs != _lastNeteasePlaytimeMs)
-                        {
-                            _lastNeteasePlaytimeMs = neteaseDb.PlaytimeMs;
-                            var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                            var elapsed = (nowMs - neteaseDb.PlaytimeMs) / 1000.0;
-                            if (elapsed >= 0 && (duration <= 0 || elapsed <= duration + 2))
+                            if (!fromSmtc || string.IsNullOrWhiteSpace(title))
                             {
-                                _trackedPositionSec = Math.Min(elapsed, duration > 0 ? duration : elapsed);
+                                title = neteaseDb.Title;
+                                artist = neteaseDb.Artist;
+                                album = neteaseDb.Album;
+                                sourceApp = "网易云音乐";
+                                status = volumePeak > 0.0001f ? "Playing" : "Paused";
                             }
-                            else
+
+                            if (duration <= 0 && neteaseDb.DurationSec > 0)
                             {
-                                _trackedPositionSec = 0;
+                                duration = neteaseDb.DurationSec;
+                            }
+
+                            if (neteaseDb.PlaytimeMs > 0 && neteaseDb.PlaytimeMs != _lastNeteasePlaytimeMs)
+                            {
+                                _lastNeteasePlaytimeMs = neteaseDb.PlaytimeMs;
+                                var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                var elapsed = (nowMs - neteaseDb.PlaytimeMs) / 1000.0;
+                                if (elapsed >= 0 && (duration <= 0 || elapsed <= duration + 2))
+                                {
+                                    _trackedPositionSec = Math.Min(elapsed, duration > 0 ? duration : elapsed);
+                                }
+                                else
+                                {
+                                    _trackedPositionSec = 0;
+                                }
+                            }
+
+                            // 如果网易云数据库提供了封面且当前无封面
+                            if (!string.IsNullOrEmpty(neteaseDb.CoverUrl) && _currentCoverBytes == null)
+                            {
+                                _ = DownloadAndApplyCoverAsync(neteaseDb.CoverUrl, $"{title} - {artist}", album);
                             }
                         }
-
-                        // 如果网易云数据库提供了封面且当前无封面
-                        if (!string.IsNullOrEmpty(neteaseDb.CoverUrl) && _currentCoverBytes == null)
+                        else if (fromSmtc && !string.IsNullOrWhiteSpace(title) && (neteaseDb.Title.Contains(title) || title.Contains(neteaseDb.Title)))
                         {
-                            _ = DownloadAndApplyCoverAsync(neteaseDb.CoverUrl, $"{title} - {artist}", album);
+                            // 虽然时间戳略有滞后，但如果 SMTC 检出的歌名与数据库一致，补充 ID、封面与时长
+                            platform = "netease";
+                            if (!string.IsNullOrEmpty(neteaseDb.SongId)) songId = neteaseDb.SongId;
+                            if (duration <= 0 && neteaseDb.DurationSec > 0) duration = neteaseDb.DurationSec;
+                            if (!string.IsNullOrEmpty(neteaseDb.CoverUrl) && _currentCoverBytes == null)
+                            {
+                                _ = DownloadAndApplyCoverAsync(neteaseDb.CoverUrl, $"{title} - {artist}", album);
+                            }
                         }
                     }
                 }
@@ -429,9 +498,10 @@ public class SystemMediaService : IDisposable
                         status = volumePeak > 0.0001f ? "Playing" : "Paused";
                     }
                 }
-                else if (status == "None" && volumePeak > 0.0001f)
+
+                // 音量在出声，但 SMTC 误报 None 或卡在 Paused，强制校正为 Playing
+                if ((status == "None" || status == "Paused") && volumePeak > 0.0001f)
                 {
-                    // 音量在出声，但 SMTC 显示 None/Paused，校正为 Playing
                     status = "Playing";
                 }
 
@@ -456,16 +526,36 @@ public class SystemMediaService : IDisposable
                 {
                     if (sig != _prevSignature)
                     {
-                        if (_lastNeteasePlaytimeMs <= 0)
-                        {
-                            _trackedPositionSec = 0;
-                        }
+                        _trackedPositionSec = position > 0 ? position : 0;
+                        _lastSmtcPosition = position;
+                        _sameSmtcPosCount = 0;
                     }
                     else
                     {
                         if (position > 0)
                         {
-                            _trackedPositionSec = position;
+                            // 检测 SMTC 传回的 position 是否发生实质变动
+                            if (Math.Abs(position - _lastSmtcPosition) > 0.3)
+                            {
+                                // 确实向前或向后步进（正常走秒或用户拖动进度条）
+                                _trackedPositionSec = position;
+                                _lastSmtcPosition = position;
+                                _sameSmtcPosCount = 0;
+                            }
+                            else
+                            {
+                                // 连续多次传回完全相同的固定静态值（SMTC 快照停滞），由本地平滑自推进
+                                _sameSmtcPosCount++;
+                                if (status == "Playing")
+                                {
+                                    _trackedPositionSec += 1.0;
+                                    if (duration > 0 && _trackedPositionSec > duration)
+                                    {
+                                        _trackedPositionSec = duration;
+                                    }
+                                }
+                                position = _trackedPositionSec;
+                            }
                         }
                         else
                         {
@@ -485,6 +575,10 @@ public class SystemMediaService : IDisposable
                 if (duration > 0 && !string.IsNullOrWhiteSpace(title))
                 {
                     _durationCache[sig] = duration;
+                }
+                else if (!string.IsNullOrWhiteSpace(title) && duration <= 0)
+                {
+                    _ = ResolveDurationAsync(title, artist, platform, sig);
                 }
 
                 // 外部媒体封面抓取（SMTC 原生流优先，失败或无封面时自动在线曲库搜图）
@@ -585,11 +679,12 @@ public class SystemMediaService : IDisposable
                 Platform = platform,
                 SongId = songId,
                 VolumePeak = volumePeak,
+                Force = forceBroadcast,
                 UpdatedAt = DateTime.UtcNow
             };
 
-            bool trackChanged = !string.Equals($"{title} - {artist}", _prevSignature, StringComparison.Ordinal);
-            bool statusChanged = !string.Equals(status, _prevStatus, StringComparison.Ordinal);
+            bool trackChanged = forceBroadcast || !string.Equals($"{title} - {artist}", _prevSignature, StringComparison.Ordinal);
+            bool statusChanged = forceBroadcast || !string.Equals(status, _prevStatus, StringComparison.Ordinal);
 
             CurrentTrack = updated;
             _prevSignature = $"{title} - {artist}";
@@ -599,11 +694,11 @@ public class SystemMediaService : IDisposable
             {
                 TrackChanged?.Invoke(updated);
             }
-            if (statusChanged)
+            if (statusChanged && !trackChanged)
             {
                 StatusChanged?.Invoke(status);
             }
-            if (hasSong && (Math.Abs(position - _prevReportedPosition) >= 0.5 || Math.Abs(duration - _prevReportedDuration) >= 0.5))
+            if (hasSong && (forceBroadcast || Math.Abs(position - _prevReportedPosition) >= 0.5 || Math.Abs(duration - _prevReportedDuration) >= 0.5))
             {
                 _prevReportedPosition = position;
                 _prevReportedDuration = duration;
@@ -833,6 +928,61 @@ public class SystemMediaService : IDisposable
         }
     }
 
+    private async Task ResolveDurationAsync(string title, string artist, string platform, string sig)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(title) || _durationCache.ContainsKey(sig)) return;
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            string query = string.IsNullOrWhiteSpace(artist) ? title : $"{title} {artist}";
+            double resolvedDuration = 0;
+
+            // 1. 尝试网易云曲库检索
+            try
+            {
+                var hits = await MusicApi.NeteaseSearchAsync(query, 2, "song", cts.Token);
+                var hit = hits.FirstOrDefault();
+                if (hit != null && !string.IsNullOrEmpty(hit.Duration) &&
+                    double.TryParse(hit.Duration, NumberStyles.Any, CultureInfo.InvariantCulture, out var dur) && dur > 0)
+                {
+                    resolvedDuration = dur;
+                }
+            }
+            catch { }
+
+            // 2. 尝试 QQ 音乐检索
+            if (resolvedDuration <= 0)
+            {
+                try
+                {
+                    var hits = await MusicApi.QqSearchAsync(query, 2, "song", cts.Token);
+                    var hit = hits.FirstOrDefault();
+                    if (hit != null && !string.IsNullOrEmpty(hit.Duration) &&
+                        double.TryParse(hit.Duration, NumberStyles.Any, CultureInfo.InvariantCulture, out var dur) && dur > 0)
+                    {
+                        resolvedDuration = dur;
+                    }
+                }
+                catch { }
+            }
+
+            if (resolvedDuration > 0)
+            {
+                _durationCache[sig] = resolvedDuration;
+                lock (_lock)
+                {
+                    if (CurrentTrack.HasSong && CurrentTrack.Title == title && CurrentTrack.DurationSec <= 0)
+                    {
+                        CurrentTrack.DurationSec = resolvedDuration;
+                        ProgressChanged?.Invoke(CurrentTrack.PositionSec, resolvedDuration);
+                    }
+                }
+            }
+        }
+        catch { }
+    }
+
     private static string ComputeHash(byte[] bytes)
     {
         using var sha256 = SHA256.Create();
@@ -908,6 +1058,10 @@ public class SystemMediaService : IDisposable
                 {
                     return (t[..idx].Trim(), t[(idx + 3)..].Trim(), "网易云音乐");
                 }
+            }
+            else if (!t.Contains(" - ") && t != "网易云音乐" && !t.Contains("DesktopLyric") && !t.Contains("MediaPlayer") && t.Length > 1)
+            {
+                return (t, "", "网易云音乐");
             }
         }
 
@@ -1023,7 +1177,8 @@ public class SystemMediaService : IDisposable
     public SystemMediaService(EventHub hub, SongPlayer songPlayer) { }
     public void Start() { }
     public void SimulateTrack(SystemMediaTrack track) { }
-    public Task UpdateMediaStateAsync() => Task.CompletedTask;
+    public Task ForceRefreshAsync() => Task.CompletedTask;
+    public Task UpdateMediaStateAsync(bool forceBroadcast = false) => Task.CompletedTask;
     public void Dispose() { }
 }
 #endif

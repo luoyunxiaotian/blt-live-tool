@@ -22,9 +22,13 @@ public static class WasapiProcessMeter
     private const int CLSCTX_ALL = 23;
     private static readonly Guid IID_IAudioSessionManager2 = new("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F");
 
-    public static float SamplePeakVolume(string[] processNames)
+    public readonly record struct ProcessAudioStatus(bool IsActive, float PeakVolume);
+
+    public static float SamplePeakVolume(string[] processNames) => SampleProcessAudio(processNames).PeakVolume;
+
+    public static ProcessAudioStatus SampleProcessAudio(string[] processNames)
     {
-        if (processNames == null || processNames.Length == 0) return 0f;
+        if (processNames == null || processNames.Length == 0) return new ProcessAudioStatus(false, 0f);
 
         IMMDeviceEnumerator? enumerator = null;
         IMMDevice? defaultDevice = null;
@@ -35,28 +39,29 @@ public static class WasapiProcessMeter
         {
             // 1. 激活 MMDeviceEnumerator
             enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
-            if (enumerator == null) return 0f;
+            if (enumerator == null) return new ProcessAudioStatus(false, 0f);
 
             // 2. 获取默认音频渲染输出设备 (eRender = 0, eMultimedia = 1)
             int hr = enumerator.GetDefaultAudioEndpoint(0, 1, out defaultDevice);
-            if (hr != 0 || defaultDevice == null) return 0f;
+            if (hr != 0 || defaultDevice == null) return new ProcessAudioStatus(false, 0f);
 
             // 3. 激活 IAudioSessionManager2
             var iid = IID_IAudioSessionManager2;
             hr = defaultDevice.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out var mgrObj);
-            if (hr != 0 || mgrObj == null) return 0f;
+            if (hr != 0 || mgrObj == null) return new ProcessAudioStatus(false, 0f);
             sessionManager = (IAudioSessionManager2)mgrObj;
 
             // 4. 获取音频会话枚举器
             hr = sessionManager.GetSessionEnumerator(out sessionEnum);
-            if (hr != 0 || sessionEnum == null) return 0f;
+            if (hr != 0 || sessionEnum == null) return new ProcessAudioStatus(false, 0f);
 
             hr = sessionEnum.GetCount(out int count);
-            if (hr != 0 || count <= 0) return 0f;
+            if (hr != 0 || count <= 0) return new ProcessAudioStatus(false, 0f);
 
             float maxPeak = 0f;
+            bool isActive = false;
 
-            // 5. 遍历各个音频会话，按 ProcessId 匹配目标进程并读取音量峰值
+            // 5. 遍历各个音频会话，按 ProcessId 匹配目标进程并读取状态与音量峰值
             for (int i = 0; i < count; i++)
             {
                 IAudioSessionControl? session = null;
@@ -74,13 +79,20 @@ public static class WasapiProcessMeter
                             string procName = ResolveProcessName(pid);
                             if (!string.IsNullOrEmpty(procName) && processNames.Any(p => procName.Contains(p, StringComparison.OrdinalIgnoreCase)))
                             {
+                                int stateHr = session2.GetState(out int state);
+                                if (stateHr == 0 && state == 1) // 1 = AudioSessionStateActive
+                                {
+                                    isActive = true;
+                                }
+
                                 // 转换为 IAudioMeterInformation 获取音量峰值
                                 if (session is IAudioMeterInformation meter)
                                 {
                                     hr = meter.GetPeakValue(out float peak);
-                                    if (hr == 0 && peak > maxPeak)
+                                    if (hr == 0)
                                     {
-                                        maxPeak = peak;
+                                        if (peak > 0.0001f) isActive = true;
+                                        if (peak > maxPeak) maxPeak = peak;
                                     }
                                 }
                             }
@@ -100,11 +112,11 @@ public static class WasapiProcessMeter
                 }
             }
 
-            return maxPeak;
+            return new ProcessAudioStatus(isActive, maxPeak);
         }
         catch
         {
-            return 0f;
+            return new ProcessAudioStatus(false, 0f);
         }
         finally
         {

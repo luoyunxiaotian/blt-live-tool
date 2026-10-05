@@ -111,8 +111,12 @@ public static class NeteaseWebDbReader
                         {
                             var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                             long elapsedMs = nowMs - playtime;
-                            // 判定近效期：播放时间在合理区间（允许时钟微小偏差，在歌曲时长+45秒内或3分钟内视为新鲜）
-                            bool isFresh = elapsedMs >= -5000 && (durSec > 0 ? elapsedMs <= (durSec + 45) * 1000 : elapsedMs <= 180_000);
+                            bool isProcRunning = IsCloudMusicRunning();
+                            // 判定近效期：
+                            // 1. 若网易云音乐进程完全未运行，直接视为播放器已退出（不采纳历史记录）；
+                            // 2. 若网易云正在运行，只要在合理生命周期内（最长 4 小时暂停/循环/浏览），均保持当前曲目载入；
+                            // 3. 用户切歌时，网易云会在毫秒级写入新曲记录并立即由 ORDER BY playtime DESC LIMIT 1 取得。
+                            bool isFresh = isProcRunning && elapsedMs >= -10_000 && elapsedMs <= 14_400_000;
                             return new NeteaseTrackInfo(name, artists, album, picUrl, durSec, playtime, songId, isFresh);
                         }
                     }
@@ -136,5 +140,31 @@ public static class NeteaseWebDbReader
         }
 
         return null;
+    }
+
+    private static long _lastProcCheckTick = 0;
+    private static bool _cachedProcRunning = false;
+
+    public static bool IsCloudMusicRunning()
+    {
+        long now = Environment.TickCount64;
+        if (now - _lastProcCheckTick < 1500)
+        {
+            return _cachedProcRunning;
+        }
+
+        try
+        {
+            var procs = System.Diagnostics.Process.GetProcessesByName("cloudmusic");
+            _cachedProcRunning = procs.Length > 0;
+            foreach (var p in procs) p.Dispose();
+        }
+        catch
+        {
+            _cachedProcRunning = false;
+        }
+
+        _lastProcCheckTick = now;
+        return _cachedProcRunning;
     }
 }

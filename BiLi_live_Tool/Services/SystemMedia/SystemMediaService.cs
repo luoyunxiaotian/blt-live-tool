@@ -420,8 +420,9 @@ public class SystemMediaService : IDisposable
                     catch { }
                 }
 
-                // WASAPI 音量采样辅助检测
-                volumePeak = SampleProcessVolume(new[] { "cloudmusic", "QQMusic", "kugou", "Spotify", "potplayer", "foobar2000" });
+                // WASAPI 音频会话状态与音量采样辅助检测
+                var audioStatus = WasapiProcessMeter.SampleProcessAudio(new[] { "cloudmusic", "QQMusic", "kugou", "Spotify", "potplayer", "foobar2000" });
+                volumePeak = audioStatus.PeakVolume;
 
                 // 尝试优先读取网易云音乐本地 SQLite 数据库（webdb.dat）
                 bool isNeteaseCandidate = (!fromSmtc || string.IsNullOrWhiteSpace(title) || sourceApp.Contains("网易") || sourceApp.Contains("cloudmusic"));
@@ -430,8 +431,7 @@ public class SystemMediaService : IDisposable
                     var neteaseDb = NeteaseWebDbReader.TryGetLatestTrack();
                     if (neteaseDb != null && !string.IsNullOrWhiteSpace(neteaseDb.Title))
                     {
-                        // 只有当网易云记录具有时效性（IsFresh）时，才作为当前播放曲目采纳；
-                        // 避免读取数小时甚至数天前的远古播放历史，导致主播切歌时被死锁在上一首！
+                        // 只有当网易云记录具有时效性（IsFresh：进程在运行且在合理会话周期内）时，才作为当前播放曲目采纳
                         if (neteaseDb.IsFresh)
                         {
                             platform = "netease";
@@ -443,7 +443,20 @@ public class SystemMediaService : IDisposable
                                 artist = neteaseDb.Artist;
                                 album = neteaseDb.Album;
                                 sourceApp = "网易云音乐";
-                                status = volumePeak > 0.0001f ? "Playing" : "Paused";
+
+                                // 播放状态判断：CoreAudio 会话处于活跃播放状态 (state==1 或 peak>0) 即为 Playing；
+                                // 刚起播时允许 8 秒缓冲期视作 Playing
+                                var neteaseAudio = WasapiProcessMeter.SampleProcessAudio(new[] { "cloudmusic" });
+                                var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                var elapsedSec = (nowMs - neteaseDb.PlaytimeMs) / 1000.0;
+                                if (neteaseAudio.IsActive || neteaseAudio.PeakVolume > 0.0001f || (elapsedSec >= 0 && elapsedSec <= 8))
+                                {
+                                    status = "Playing";
+                                }
+                                else
+                                {
+                                    status = "Paused";
+                                }
                             }
 
                             if (duration <= 0 && neteaseDb.DurationSec > 0)
@@ -486,8 +499,8 @@ public class SystemMediaService : IDisposable
                     }
                 }
 
-                // 如果 SMTC 没有检出有效歌曲，尝试探测本地音乐软件窗口标题
-                if (!fromSmtc || string.IsNullOrWhiteSpace(title))
+                // 仅当 SMTC 与本地数据库均未检出有效歌曲（title 为空）时，才尝试探测本地音乐软件窗口标题
+                if (string.IsNullOrWhiteSpace(title))
                 {
                     var fallback = TryDetectLocalMusicWindow();
                     if (fallback != null)
@@ -495,12 +508,12 @@ public class SystemMediaService : IDisposable
                         title = fallback.Value.Title;
                         artist = fallback.Value.Artist;
                         sourceApp = fallback.Value.AppName;
-                        status = volumePeak > 0.0001f ? "Playing" : "Paused";
+                        status = (volumePeak > 0.0001f || audioStatus.IsActive) ? "Playing" : "Paused";
                     }
                 }
 
-                // 音量在出声，但 SMTC 误报 None 或卡在 Paused，强制校正为 Playing
-                if ((status == "None" || status == "Paused") && volumePeak > 0.0001f)
+                // 音量在出声或音频会话活跃，但 SMTC/状态误报 None 或卡在 Paused，强制校正为 Playing
+                if ((status == "None" || status == "Paused") && (volumePeak > 0.0001f || audioStatus.IsActive))
                 {
                     status = "Playing";
                 }
@@ -1051,17 +1064,23 @@ public class SystemMediaService : IDisposable
             if (t.StartsWith("网易云音乐 - ", StringComparison.OrdinalIgnoreCase))
                 t = t["网易云音乐 - ".Length..].Trim();
 
-            if (t.Contains(" - ") && !t.Contains("MediaPlayer") && t != "网易云音乐")
+            // 严格过滤非歌曲辅助窗口：桌面歌词、mini模式、登录、播放器底层组件等
+            if (t.Equals("网易云音乐", StringComparison.OrdinalIgnoreCase) ||
+                t.Contains("桌面歌词") ||
+                t.Contains("DesktopLyric") ||
+                t.Contains("mini模式", StringComparison.OrdinalIgnoreCase) ||
+                t.Contains("MediaPlayer", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (t.Contains(" - "))
             {
                 var idx = t.LastIndexOf(" - ", StringComparison.Ordinal);
                 if (idx > 0)
                 {
                     return (t[..idx].Trim(), t[(idx + 3)..].Trim(), "网易云音乐");
                 }
-            }
-            else if (!t.Contains(" - ") && t != "网易云音乐" && !t.Contains("DesktopLyric") && !t.Contains("MediaPlayer") && t.Length > 1)
-            {
-                return (t, "", "网易云音乐");
             }
         }
 

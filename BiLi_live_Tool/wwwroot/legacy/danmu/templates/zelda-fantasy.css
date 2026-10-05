@@ -35,10 +35,27 @@
     perspective-origin: 50% 50%;
   }
 
-  /* 如果不想要 3D 效果，可以删掉下面这段 */
+  /* 取消非等比 3D 挤压，避免将圆形头像挤压成椭圆形以及导致左侧边缘被截断 */
   .gift-sticky-bar,
   .event-list {
-    transform: scaleX(0.85) rotateY(15deg);
+    transform: none !important;
+  }
+
+  /* 奇幻主题头像圆形保障与 1:1 比例 */
+  .event .avatar-wrap,
+  .event .danmu-avatar-wrap {
+    width: var(--danmu-avatar-size, 36px) !important;
+    height: var(--danmu-avatar-size, 36px) !important;
+    aspect-ratio: 1 / 1 !important;
+    flex-shrink: 0 !important;
+  }
+  .event .avatar,
+  .event .danmu-avatar {
+    width: 100% !important;
+    height: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
   }
 
   /* 简简单单给置顶条换个位置 */

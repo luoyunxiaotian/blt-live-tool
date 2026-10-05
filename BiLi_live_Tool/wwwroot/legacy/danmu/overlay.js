@@ -9,6 +9,7 @@
   const stage = document.getElementById('danmu-stage');
   const customCssEl = document.getElementById('custom-css');
   const themeEl = document.getElementById('theme-css');
+  const isPreviewMode = location.search.includes('preview=1');
 
   let cfg = {
     enabled: true,
@@ -162,12 +163,13 @@
     if (themeEl) {
       const selectedTheme = cfg.theme || 'classic-glass';
       const isLaplace = cfg.themeType === 'laplace' || LAPLACE_TEMPLATES.has(selectedTheme);
+      const vQuery = (location.protocol === 'http:' || location.protocol === 'https:') ? `?v=${Date.now()}` : '';
       if (isLaplace) {
         const tName = LAPLACE_TEMPLATES.has(selectedTheme) ? selectedTheme : (cfg.laplaceTemplate || 'laplace-nailv');
-        themeEl.href = `./templates/${tName}.css?v=${Date.now()}`;
+        themeEl.href = `./templates/${tName}.css${vQuery}`;
       } else {
         const themeName = String(selectedTheme).replace(/[^a-z0-9_-]/gi, '');
-        themeEl.href = `./themes/${themeName}.css?v=${Date.now()}`;
+        themeEl.href = `./themes/${themeName}.css${vQuery}`;
       }
     }
 
@@ -199,6 +201,7 @@
       : (cfg.showBox !== false && cfg.showStageBox !== false);
     if (boxEl) {
       boxEl.classList.toggle('box-disabled', !isBoxEnabled);
+      boxEl.classList.toggle('box-explicit-enabled', isBoxEnabled);
       const bWidthPx = (cfg.boxWidth || 380) + 'px';
       const bHeightPx = (cfg.boxHeight || 500) + 'px';
       boxEl.style.setProperty('--danmu-box-width', bWidthPx);
@@ -306,6 +309,11 @@
 
     stage.classList.toggle('no-avatar', cfg.showAvatar === false);
     stage.classList.toggle('display-flat', cfg.displayMode === 'flat');
+
+    if (isPreviewMode) {
+      stage.innerHTML = '';
+      initPreviewMock();
+    }
   }
 
   async function loadConfig() {
@@ -333,9 +341,9 @@
       else break;
     }
 
-    // 停留时间自动淡出
+    // 停留时间自动淡出 (预览模式下保持常驻展示，便于主播实时调参)
     const staySec = Number(cfg.stayDuration != null ? cfg.stayDuration : 15);
-    if (staySec > 0) {
+    if (staySec > 0 && !isPreviewMode) {
       setTimeout(() => {
         if (item && item.parentNode) {
           item.classList.add('fading-out');
@@ -729,8 +737,38 @@
     };
   }
 
+  // 预览模式初始化模拟消息
+  function initPreviewMock() {
+    if (!isPreviewMode) return;
+    if (stage.children.length > 0) return;
+    addDanmu({
+      uname: '喵喵小布丁',
+      msg: '主播下午好呀！今天播什么好玩的游戏？✨',
+      guardLevel: 0,
+      medalLevel: 12,
+      honorLevel: 22,
+      uface: DEFAULT_AVATAR
+    });
+    addDanmu({
+      uname: '热血新舰长',
+      msg: '今天下班来打卡，这把游戏必拿下！🚀',
+      guardLevel: 3,
+      medalLevel: 18,
+      honorLevel: 35,
+      uface: DEFAULT_AVATAR
+    });
+    addSuperChat({
+      uname: '榜一真爱粉',
+      msg: '主播加油，这是今天的应援 SC，冲鸭！❤️',
+      price: 50,
+      honorLevel: 42,
+      uface: DEFAULT_AVATAR
+    });
+  }
+
   // 初始化
   loadConfig().then(() => {
+    initPreviewMock();
     connectWs();
   });
 })();

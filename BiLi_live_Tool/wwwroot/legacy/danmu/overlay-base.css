@@ -73,7 +73,7 @@ html, body {
   box-shadow: var(--danmu-box-shadow, 0 8px 32px rgba(0, 0, 0, 0.35));
   padding: var(--danmu-box-padding, 12px);
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible; /* 允许阴影与外凸气泡自然展示，防止硬切截断 */
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -92,6 +92,15 @@ html, body {
   -webkit-backdrop-filter: none !important;
 }
 
+/* 当用户明确开启常驻底框时：强制呈现设定的背景色与边框（含 Laplace 模式下） */
+#danmu-box.box-explicit-enabled {
+  background-color: var(--danmu-box-bg, rgba(20, 24, 36, 0.65)) !important;
+  border: var(--danmu-box-border, 1px solid rgba(58, 66, 86, 0.6)) !important;
+  border-radius: var(--danmu-box-radius, 12px) !important;
+  box-shadow: var(--danmu-box-shadow, 0 8px 32px rgba(0, 0, 0, 0.35)) !important;
+  padding: var(--danmu-box-padding, 12px) !important;
+}
+
 /* 内部舞台容器：占满底框内部空间，弹幕由下至上排列展示 */
 #danmu-stage {
   width: 100%;
@@ -102,10 +111,21 @@ html, body {
   align-items: stretch;
   gap: var(--danmu-card-gap, 8px);
   pointer-events: none;
-  overflow: hidden;
+  overflow-x: visible; /* 横向绝不截断 */
+  overflow-y: hidden;
   box-sizing: border-box;
   margin: 0;
-  padding: 0 0 12px 0;
+  padding: 0 10px 12px 18px; /* 左侧提供 18px 安全间距，防止气泡尾巴(-12px)及大头像贴边截断 */
+}
+
+/* Laplace 模版专用左侧与容器防截断优化 */
+body.theme-type-laplace #danmu-box {
+  overflow: visible !important;
+}
+body.theme-type-laplace #danmu-stage {
+  overflow-x: visible !important;
+  padding-left: 20px !important;
+  padding-right: 14px !important;
 }
 
 .danmu-item {
@@ -135,27 +155,18 @@ body.theme-type-laplace .danmu-item {
   padding: 0;
 }
 
-/* 在 Laplace 模式下，常驻底框默认纯透明无边框，避免黑色方框干扰气泡 */
-body.theme-type-laplace #danmu-box:not(.box-explicit-enabled) {
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
 /* ── 📐 排版布局与元素位置支持 (Left / Top-Left / Top-Center / Hidden) ── */
 
-/* 1. 经典横向左侧排列 (Left) - 头像在左，ID与弹幕内容同行横向排列 */
-.danmu-item.layout-avatar-left,
-.layout-avatar-left {
+/* 1. 经典横向左侧排列 (Left) - 头像在左，ID与弹幕内容同行横向排列（仅针对经典自研皮肤） */
+body.theme-type-classic .danmu-item.layout-avatar-left,
+body:not(.theme-type-laplace) .danmu-item.layout-avatar-left {
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
   gap: 8px !important;
 }
-.danmu-item.layout-avatar-left .danmu-content,
-.danmu-item.layout-avatar-left .event-content {
+body.theme-type-classic .danmu-item.layout-avatar-left .danmu-content,
+body:not(.theme-type-laplace) .danmu-item.layout-avatar-left .danmu-content {
   flex: 1;
   min-width: 0;
   display: flex !important;
@@ -164,15 +175,15 @@ body.theme-type-laplace #danmu-box:not(.box-explicit-enabled) {
   flex-wrap: wrap !important;
   gap: 6px !important;
 }
-.danmu-item.layout-avatar-left .danmu-meta,
-.danmu-item.layout-avatar-left .event-meta {
+body.theme-type-classic .danmu-item.layout-avatar-left .danmu-meta,
+body:not(.theme-type-laplace) .danmu-item.layout-avatar-left .danmu-meta {
   display: inline-flex !important;
   align-items: center !important;
   flex-wrap: wrap !important;
   gap: 4px !important;
 }
-.danmu-item.layout-avatar-left .danmu-text,
-.danmu-item.layout-avatar-left .message {
+body.theme-type-classic .danmu-item.layout-avatar-left .danmu-text,
+body:not(.theme-type-laplace) .danmu-item.layout-avatar-left .danmu-text {
   display: inline-block !important;
   margin-left: 0 !important;
   margin-top: 0 !important;

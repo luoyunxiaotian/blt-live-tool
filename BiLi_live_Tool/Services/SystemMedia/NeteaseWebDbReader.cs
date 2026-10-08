@@ -52,6 +52,9 @@ public static class NeteaseWebDbReader
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "NetEase", "CloudMusic", "Library", "webdb.dat");
 
+    /// <summary>网易云音乐本地 CEF 缓存数据库文件路径。</summary>
+    public static string WebDbPath => DbPath;
+
     public static NeteaseTrackInfo? TryGetLatestTrack()
     {
         if (!File.Exists(DbPath)) return null;

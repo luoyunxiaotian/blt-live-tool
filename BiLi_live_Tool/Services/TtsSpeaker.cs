@@ -45,9 +45,17 @@ public sealed class TtsSpeaker
         }
     }
 
-    // Diagnostics for /api/maui/debug/tray
+    // Diagnostics for /api/maui/debug/tray and DiagnosticService
     public string LastResult { get; private set; } = "not-run";
     public string LastEngineError { get; private set; } = "";
+    public int QueueCount { get { lock (_lock) return _queue.Count; } }
+    public bool Speaking { get { lock (_lock) return _speaking; } }
+    public string CurrentText { get { lock (_lock) return _currentText; } }
+    public string? EffectiveEngine { get { lock (_lock) return _effectiveEngine; } }
+    public long DemotedAt { get { lock (_lock) return _demotedAt; } }
+    public int FollowedCount { get { lock (_lock) return _followedUids.Count; } }
+    public int WelcomeCount { get { lock (_lock) return _lastWelcomeUid.Count; } }
+    public Dictionary<string, int> EngineFails { get { lock (_lock) return new Dictionary<string, int>(_fails); } }
 
     public event Action? Changed;
 
@@ -100,10 +108,6 @@ public sealed class TtsSpeaker
 
     public void Start() => _hub.OnEvent += OnEvent;
     public void Stop() => _hub.OnEvent -= OnEvent;
-
-    public int QueueCount { get { lock (_lock) return _queue.Count; } }
-    public bool Speaking { get { lock (_lock) return _speaking; } }
-    public string CurrentText { get { lock (_lock) return _currentText; } }
 
     /// <summary>One pending queue item, as shown in the panel queue list.</summary>
     public sealed record QueueItem(string Type, string Text, bool Guard, int Priority);

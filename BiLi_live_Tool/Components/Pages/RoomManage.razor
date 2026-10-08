@@ -14,6 +14,7 @@
 @inject NavigationManager Nav
 @inject BiLi_live_Tool.Services.UiKit UI
 @inject DiagnosticService Diagnostics
+@inject BiLi_live_Tool.Services.SystemMedia.SystemMediaService SystemMedia
 @implements IDisposable
 
 <div class="blt-pagehead"><h1>房间管理</h1><span class="en">ROOM MANAGE</span></div>
@@ -547,17 +548,23 @@
             </span>
         </div>
         <div class="blt-panel-body">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+                <span class="blt-tag @LiveStateBadgeClass()"><BltIcon Emoji="📡" /> 直播链路: @LiveStateBadgeText()</span>
+                <span class="blt-tag @MediaStateBadgeClass()"><BltIcon Emoji="🎵" /> 媒体感知: @MediaStateBadgeText()</span>
+                <span class="blt-tag @TtsStateBadgeClass()"><BltIcon Emoji="🔊" /> TTS引擎: @TtsStateBadgeText()</span>
+                <span class="blt-tag @ServerStateBadgeClass()"><BltIcon Emoji="🌐" /> 本地服务: 127.0.0.1:@Api.Port</span>
+            </div>
             <p class="blt-hint" style="margin-top:0">
-                如果遇到直播间无法连接、提示错误、WS 异常等情况，可点击下方按钮一键生成脱敏诊断日志，并将日志文件发送给开发者排障。<br />
-                日志包含：运行环境（.NET/系统/内存）、直播间状态、B站接口实时探测、内部微服务状态及最近运行日志。已自动对个人 Cookie/Token 执行掩码脱敏。
+                遇到直播间断连、弹幕/礼物接收异常、歌曲感知或语音播报故障时，点击下方按钮一键生成全景脱敏诊断日志。<br />
+                <b>覆盖 10 大核心专区</b>：系统环境与音频端点、直播长连接与下行流、系统媒体与WASAPI现场电平、TTS自愈降级、点歌队列、键鼠三路采集与熔断防卡死、OBS浮层、WebView2缓存、增强型网络/Comet探针、脱敏配置快照。所有个人 Cookie/Token 均已自动执行掩码脱敏。
             </p>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <button class="blt-btn primary" @onclick="ExportDiagnosticLog" disabled="@_isExportingLog"
-                        data-tip="在桌面生成完整的排障诊断日志文件并自动在文件夹中定位">
-                    @(_isExportingLog ? "正在生成与探测…" : "📄 生成并导出日志文件")
+                        data-tip="在桌面生成覆盖十大专区的排障诊断日志文件并自动定位">
+                    @(_isExportingLog ? "正在采样与探测…" : "📄 生成并导出日志文件")
                 </button>
                 <button class="blt-btn" @onclick="CopyDiagnosticLog" disabled="@_isExportingLog"
-                        data-tip="将全量脱敏诊断日志直接复制到剪贴板，方便通过QQ或微信发送">
+                        data-tip="将全景脱敏诊断日志直接复制到剪贴板，方便通过 QQ、微信或 GitHub Issue 反馈">
                     📋 复制日志文本
                 </button>
                 @if (!string.IsNullOrEmpty(_lastExportedPath))
@@ -1964,16 +1971,46 @@
     private bool _showLogPreview;
     private string _previewLogContent = "";
 
+    private string LiveStateBadgeClass() => Hub.LastStatus.State switch
+    {
+        "connected" => "green",
+        "resolving" or "checking_live" or "getting_danmu" or "reconnecting" => "amber",
+        "error" => "red",
+        _ => ""
+    };
+
+    private string LiveStateBadgeText() => Hub.LastStatus.State switch
+    {
+        "connected" => "已连接",
+        "resolving" => "解析中",
+        "checking_live" => "检测中",
+        "getting_danmu" => "寻址中",
+        "reconnecting" => "重连中",
+        "error" => "连接异常",
+        _ => "未连接"
+    };
+
+    private string MediaStateBadgeClass() => SystemMedia.CurrentTrack.HasSong ? "green" : (SystemMedia.Enabled ? "blue" : "");
+    private string MediaStateBadgeText() => SystemMedia.CurrentTrack.HasSong
+        ? $"感知中 ({SystemMedia.CurrentTrack.Title})"
+        : (SystemMedia.Enabled ? "待命中" : "未开启");
+
+    private string TtsStateBadgeClass() => TtsProcessGuard.IsPortAlive(TtsHost.EdgePort) ? "green" : "";
+    private string TtsStateBadgeText() => TtsProcessGuard.IsPortAlive(TtsHost.EdgePort) ? "就绪 (8020)" : "未启动";
+
+    private string ServerStateBadgeClass() => Api.IsRunning ? "green" : "red";
+
     private async Task ExportDiagnosticLog()
     {
         _isExportingLog = true;
-        _diagnosticNote = "正在采集系统运行环境与现场网络探测…";
+        _diagnosticNote = "正在采集系统运行环境、微服务状态与现场网络探测…";
         StateHasChanged();
         try
         {
             var savedPath = await Diagnostics.ExportToFileAsync();
             _lastExportedPath = savedPath;
-            _diagnosticNote = $"✓ 诊断日志已保存至：{savedPath}（已自动脱敏）";
+            var fi = new FileInfo(savedPath);
+            _diagnosticNote = $"✓ 10 大专区全景诊断日志已保存至：{savedPath} ({fi.Length / 1024.0:F1} KB，已自动脱敏)";
             _previewLogContent = await Diagnostics.GenerateReportAsync();
             DiagnosticService.OpenFolderAndSelect(savedPath);
         }
@@ -1991,14 +2028,14 @@
     private async Task CopyDiagnosticLog()
     {
         _isExportingLog = true;
-        _diagnosticNote = "正在生成诊断日志…";
+        _diagnosticNote = "正在生成 10 大专区诊断日志…";
         StateHasChanged();
         try
         {
             var text = await Diagnostics.GenerateReportAsync();
             _previewLogContent = text;
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
-            _diagnosticNote = "✓ 诊断日志已复制到剪贴板！可直接粘贴发送给开发者。";
+            _diagnosticNote = $"✓ 10 大专区全景诊断日志已复制到剪贴板 ({text.Length} 字符)！可直接粘贴反馈。";
         }
         catch (Exception ex)
         {

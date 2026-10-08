@@ -125,6 +125,9 @@ public class SystemMediaService : IDisposable
         }
     }
 
+    public bool SmtcInitialized => _smtcManager != null;
+    public string? CurrentSessionSourceApp => _currentSession?.SourceAppUserModelId;
+
     public event Action<SystemMediaTrack>? TrackChanged;
     public event Action<string>? StatusChanged;
     public event Action<double, double>? ProgressChanged;

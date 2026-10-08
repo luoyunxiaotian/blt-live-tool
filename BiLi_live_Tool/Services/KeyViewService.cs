@@ -30,6 +30,9 @@ public sealed class KeyViewService
     /// <summary>钩子重挂次数（诊断）。</summary>
     public int HookReinstalls => _hook.Reinstalls;
 
+    /// <summary>底层按键钩子实例（诊断分析）。</summary>
+    public KeyViewHook Hook => _hook;
+
     public bool Running
     {
         get { lock (_lock) return _running; }

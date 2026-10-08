@@ -12,6 +12,7 @@ public sealed class LiveService
     public LiveService(EventHub hub) { _hub = hub; }
 
     public bool IsRunning => _client != null;
+    public DanmuClient? Client => _client;
     public string CurrentRoomId { get; private set; } = "";
 
     /// <summary>Raw frames from the live connection (parse diagnostics only).</summary>

@@ -118,6 +118,19 @@ public sealed class DanmuClient
         lock (_rawLock) return _rawByCmd.ToDictionary(kv => kv.Key, kv => kv.Value.Count);
     }
 
+    /// <summary>当前连接的弹幕服务器节点（Host:Port）。</summary>
+    public string CurrentHost { get; private set; } = "";
+
+    /// <summary>当前握手鉴权所用的 UID（>0 为用户UID，0 为匿名访客，-1 为未连接）。</summary>
+    public long CurrentAuthUid { get; private set; } = -1;
+
+    /// <summary>最后一次收到弹幕数据包的 TickCount64（诊断下行流活跃度）。</summary>
+    public long LastDataTicks { get; private set; }
+
+    private long _totalPacketsReceived;
+    /// <summary>累计成功接收并解析的数据包总数（诊断）。</summary>
+    public long TotalPacketsReceived => Interlocked.Read(ref _totalPacketsReceived);
+
     private void CaptureFrame(string cmd, JsonElement msg)
     {
         try
@@ -150,6 +163,8 @@ public sealed class DanmuClient
         try { _ws?.Abort(); } catch { }
         _cts = null;
         _ws = null;
+        CurrentHost = "";
+        CurrentAuthUid = -1;
     }
 
     private void Status(string state, string realRoomId = "", long popularity = -1, string error = "", string title = "", string uid = "")
@@ -338,6 +353,9 @@ public sealed class DanmuClient
             }
 
             // 握手认证成功后，正式标记状态为已连接（避免提前变绿导致绿黄高频闪烁）
+            CurrentHost = $"{host.Host}:{port}";
+            CurrentAuthUid = authUid;
+            var lastDataTicks = LastDataTicks = Environment.TickCount64;
             Status("connected", realRoomId.ToString(), uid: uid.ToString());
             if (authUid > 0)
             {
@@ -348,7 +366,6 @@ public sealed class DanmuClient
                 ServiceLog.Info("直播", $"已成功以访客模式连接弹幕服务器 {host.Host}:{port}");
             }
 
-            var lastDataTicks = Environment.TickCount64;
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
             var heartbeat = Task.Run(async () =>
@@ -389,7 +406,7 @@ public sealed class DanmuClient
                 if (res.MessageType == WebSocketMessageType.Close) break;
                 if (res.Count > 0)
                 {
-                    lastDataTicks = Environment.TickCount64;
+                    lastDataTicks = LastDataTicks = Environment.TickCount64;
                     buf.Append(chunk, res.Count);
                     foreach (var pkt in buf.DrainPackets())
                         HandlePacket(pkt, realRoomId);
@@ -438,6 +455,7 @@ public sealed class DanmuClient
 
     private void HandlePacket(Packet pkt, long realRoomId)
     {
+        Interlocked.Increment(ref _totalPacketsReceived);
         if (pkt.Op == 8) return; // 认证回包，忽略
         if (pkt.Op == 3)
         {

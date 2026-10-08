@@ -740,7 +740,7 @@ public static partial class MusicApi
 // ─────────────────────────────────────────────────────────────────────────────
 public sealed class SongRequestService
 {
-    private sealed record PlaylistEntry(
+    public sealed record PlaylistEntry(
         string Id, string Name, string Artist, string Album, string Platform, bool Vip,
         string Requester, long AddedAt,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Mid = null,
@@ -753,6 +753,12 @@ public sealed class SongRequestService
     private readonly object _lock = new();
     private readonly List<PlaylistEntry> _playlist = new();
     private int _currentIndex = -1;
+
+    /// <summary>当前点歌队列总曲目数（诊断）。</summary>
+    public int PlaylistCount { get { lock (_lock) return _playlist.Count; } }
+
+    /// <summary>获取当前点歌队列快照（诊断）。</summary>
+    public List<PlaylistEntry> PlaylistSnapshot() { lock (_lock) return _playlist.ToList(); }
 
     /// <summary>Set by LivePipeline: (playing index, is playing, playing song id).</summary>
     public Func<(int, bool, string)>? PlayerState { get; set; }

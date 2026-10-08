@@ -27,6 +27,35 @@ public static class WasapiProcessMeter
 
     public static float SamplePeakVolume(string[] processNames) => SampleProcessAudio(processNames).PeakVolume;
 
+    /// <summary>枚举系统当前活跃音频渲染端点（用于诊断）。</summary>
+    public static (int ActiveRenderDevices, string Summary) QueryAudioEndpoints()
+    {
+        IMMDeviceEnumerator? enumerator = null;
+        IMMDeviceCollection? devCol = null;
+        try
+        {
+            enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
+            if (enumerator == null) return (0, "无法初始化 MMDeviceEnumerator");
+
+            int hr = enumerator.EnumAudioEndpoints(0, 1, out devCol);
+            if (hr != 0 || devCol == null) return (0, $"获取音频端点集合失败 (hr=0x{hr:X8})");
+
+            hr = devCol.GetCount(out int devCount);
+            if (hr != 0) return (0, $"获取设备数失败 (hr=0x{hr:X8})");
+
+            return (devCount, $"已枚举 {devCount} 个当前活跃音频渲染端点 (扬声器/耳机/虚拟通道)");
+        }
+        catch (Exception ex)
+        {
+            return (0, $"探测异常: {ex.Message}");
+        }
+        finally
+        {
+            if (devCol != null) Marshal.ReleaseComObject(devCol);
+            if (enumerator != null) Marshal.ReleaseComObject(enumerator);
+        }
+    }
+
     public static ProcessAudioStatus SampleProcessAudio(string[] processNames)
     {
         if (processNames == null || processNames.Length == 0) return new ProcessAudioStatus(false, 0f);

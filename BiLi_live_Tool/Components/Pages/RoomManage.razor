@@ -86,11 +86,12 @@
             </div>
             <div class="blt-hint">房间号与自动连接改动即时保存 · @AutoSaveText()</div>
 
-            @* B站浏览器控制条 —— 固定三键，隐藏/关闭在最左（停靠时左栏 38% 可见区必可点） *@
-            <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center">
+            @* B站浏览器控制条 —— 固定四键并列，隐藏/关闭/打开B站浏览器/清除Cookie *@
+            <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center;flex-wrap:wrap">
                 <button class="blt-btn amber" @onclick="HideBiliBrowser" data-tip="挪到屏幕外，内存保留"><BltIcon Name="eye-off" /> 隐藏浏览器</button>
                 <button class="blt-btn danger" @onclick="CloseBiliBrowser" data-tip="销毁窗口释放内存，再打开自动重建"><BltIcon Name="close" /> 关闭浏览器</button>
                 <button class="blt-btn primary" @onclick="OpenBiliBrowser" data-tip="在内置浏览器打开直播间页面（主面板会临时收窄）"><BltIcon Name="external" /> 打开B站浏览器</button>
+                <button class="blt-btn danger" @onclick="ClearLogin" data-tip="清空已保存的 B站 Cookie 及浏览器登录缓存，以便重新扫码登录"><BltIcon Name="logout" /> 清除Cookie</button>
             </div>
 
             @* 闲置自动关闭（biliBrowser.idleCloseMin）：开关与分钟数都走本页自动保存 *@
@@ -123,14 +124,8 @@
             <div class="blt-kv"><span class="k">UID</span><span class="v">@(string.IsNullOrEmpty(Config.Uid) ? "—" : Config.Uid)</span></div>
             <div class="blt-kv"><span class="k">Cookie</span><span class="v">@(HasCookie() ? "已捕获（SESSDATA/bili_jct）" : "未捕获")</span></div>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-                <button class="blt-btn primary" @onclick="OpenBiliBrowser">打开B站浏览器</button>
-                <button class="blt-btn" @onclick="ClearLogin" disabled="@(!_disclaimerAgreed)"
-                        data-tip="删除本机保存的登录 Cookie（需先勾选风险声明）">清除登录态</button>
+                <button class="blt-btn primary" @onclick="OpenBiliBrowser"><BltIcon Name="external" /> 打开B站浏览器</button>
             </div>
-            @if (!_disclaimerAgreed)
-            {
-                <div class="blt-hint" style="color:var(--amber-ink)">已禁用：请先在下方「手动导入 Cookie」卡片勾选风险声明。</div>
-            }
         </div>
     </div>
 
@@ -145,24 +140,13 @@
                 推荐用上方「B站登录」扫码。无法扫码时：按 F12 → 网络(Network) → 筛选 Fetch/XHR →
                 点一个 web-room 开头的请求 → 复制「请求标头」里的整段 Cookie，粘贴到下面，会自动解析并保存。
             </p>
-            @* 免责声明门禁：未勾选前，粘贴框与「解析并保存」全部 disabled（原版语义） *@
-            <label class="blt-label" style="display:inline-flex;align-items:center;gap:6px;letter-spacing:0;margin:0 0 8px;cursor:pointer"
-                   data-tip="勾选后才能粘贴、导入或清除登录 Cookie">
-                <input type="checkbox" style="width:auto;margin:0;accent-color:var(--amber)"
-                       @bind="_disclaimerAgreed" @bind:after="SaveDisclaimer" />
-                我已知晓：使用登录 Cookie 存在账号风险，且仅在本机保存
-            </label>
-<BltSecretInput Multiline="true" Disabled="@(!_disclaimerAgreed)" @bind-Value="_cookieInput"
-                                     Placeholder="粘贴整段 Cookie（含 SESSDATA=… 等）"
-                                     Tip="从浏览器 F12 请求标头里复制整段 Cookie 粘贴到这里" />
+            <BltSecretInput Multiline="true" @bind-Value="_cookieInput"
+                            Placeholder="粘贴整段 Cookie（含 SESSDATA=… 等）"
+                            Tip="从浏览器 F12 请求标头里复制整段 Cookie 粘贴到这里" />
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-                <button class="blt-btn primary" @onclick="ImportCookie" disabled="@(!_disclaimerAgreed)"
+                <button class="blt-btn primary" @onclick="ImportCookie"
                         data-tip="解析粘贴的 Cookie 并写入本机 config.json">解析并保存</button>
             </div>
-            @if (!_disclaimerAgreed)
-            {
-                <div class="blt-hint" style="color:var(--amber-ink)">未勾选上方风险声明：Cookie 粘贴框与「解析并保存」按钮暂不可用。</div>
-            }
             @if (_cookieInfo.Length > 0)
             {
                 <div class="blt-hint" style="color:var(--green-ink);margin:8px 0 0">@_cookieInfo</div>
@@ -648,9 +632,6 @@
     private string _cookieWarn = "";
     private string _cookieError = "";
 
-    // 免责声明门禁（config: disclaimerAgreed）：未勾选前 Cookie 粘贴/导入/清除全部禁用。
-    private bool _disclaimerAgreed;
-
     // 「打开B站浏览器」会收窄主面板 —— 每个会话只提示一次 toast。
     private bool _narrowTipShown;
 
@@ -706,7 +687,6 @@
         var skin = (Config.GetNode("skin") as JsonValue)?.GetValue<string>() ?? "";
         if (skin.Length == 0 || skin == "default") skin = "console";
         if (Themes.Contains(skin)) _skin = skin;
-        _disclaimerAgreed = Config.GetNode("disclaimerAgreed") is JsonValue dv && dv.TryGetValue<bool>(out var da) && da;
         LoadIdleCloseConfig();
         _idleSeenAt = MainPage.Current?.BiliIdleClosedAt ?? 0;   // only new auto-closes raise the note
         Hub.OnEvent += OnEvent;
@@ -961,7 +941,7 @@
         {
             var doc = Config.Snapshot();
             doc["autoConnect"] = _autoConnectBool;
-            doc["disclaimerAgreed"] = _disclaimerAgreed;   // 风险声明勾选态跟随同一份配置保存
+            doc["disclaimerAgreed"] = Config.DisclaimerAgreed;
             WriteIdleCloseConfig(doc);   // biliBrowser.idleCloseMin rides the same debounced write
             var rid = _roomId.Trim();
             if (rid.Length > 0) doc["roomId"] = rid;   // never wipe a stored id from an empty box
@@ -1003,13 +983,6 @@
     }
 
     private void SaveIdleSoon() => SaveRoomConfigSoon();
-
-    /// <summary>风险声明勾选态：立即放开/收紧控件，持久化走同一份 debounced 配置写入。</summary>
-    private void SaveDisclaimer()
-    {
-        SaveRoomConfigSoon(150);
-        StateHasChanged();
-    }
 
     /// <summary>Writes the switch + minutes into the snapshot (0 = the switch is off).</summary>
     private void WriteIdleCloseConfig(JsonObject doc)
@@ -1055,7 +1028,6 @@
     /// <summary>Parses the pasted cookie and writes it through the same config path as SaveRoomConfig.</summary>
     private async Task ImportCookie()
     {
-        if (!_disclaimerAgreed) return;   // gate: the button is disabled anyway
         _cookieInfo = "";
         _cookieWarn = "";
         _cookieError = "";
@@ -1805,18 +1777,25 @@
     private void HideBiliBrowser() => MainPage.Current?.HideBiliBrowser();
     private void CloseBiliBrowser() => MainPage.Current?.CloseBiliBrowser();
 
-    /// <summary>危险操作：先二次确认，再清空本机保存的登录 Cookie（文案对齐原版 confirm）。</summary>
+    /// <summary>危险操作：先二次确认，再清空本机保存的登录 Cookie 及浏览器缓存。</summary>
     private async Task ClearLogin()
     {
-        if (!_disclaimerAgreed) return;   // gate: the button is disabled anyway
-        if (!await UI.ConfirmAsync("确定要清除已保存的登录 Cookie 吗？")) return;
+        if (!await UI.ConfirmAsync("确定要清除当前保存的 B 站登录凭据（Cookie）吗？\n清除后将以游客模式连接直播间，您可随时点击『打开B站浏览器』重新扫码登录。")) return;
         try
         {
             Config.SetBiliCookie("", "");
+            if (MainPage.Current != null)
+            {
+                await MainPage.Current.ClearBiliCookiesAsync();
+            }
+            _cookieInput = "";
+            _cookieInfo = "";
+            _cookieWarn = "";
+            _cookieError = "";
             _view.Clear();
             Hub.PublishStatus(Hub.LastStatus); // refresh trigger
             StateHasChanged();
-            await UI.ToastAsync("已清除登录 Cookie", true);
+            await UI.ToastAsync("已清除登录 Cookie 及浏览器缓存", true);
         }
         catch (Exception ex)
         {

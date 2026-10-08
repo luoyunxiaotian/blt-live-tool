@@ -246,6 +246,25 @@ public sealed class DanmuClient
 
     private async Task<CloseReason> TryHostAsync(long realRoomId, long uid, DanmuInfo info, DanmuHost host, string cookie, CancellationToken ct)
     {
+        // Auth: use DedeUserID from cookie as uid when present, else anonymous 0.
+        long authUid = 0;
+        var m = DedeUserIdRegex.Match(cookie ?? "");
+        if (m.Success) long.TryParse(m.Groups[1].Value, out authUid);
+
+        var (reason, authed) = await ConnectAndRunHostAsync(realRoomId, uid, info, host, cookie, authUid, ct);
+        // 如果握手阶段未收到鉴权确认包便断开，且原先使用了具体 UID（可能 Cookie 已过期失效导致 B站 Comet 拒绝），自动降级为访客模式（UID: 0）重试
+        if (!authed && authUid > 0 && !ct.IsCancellationRequested)
+        {
+            ServiceLog.Warn("直播", $"弹幕节点鉴权未通过 (UID: {authUid})，可能是本地登录凭据已过期；自动降级为访客模式 (UID: 0) 重试连接...");
+            var fallback = await ConnectAndRunHostAsync(realRoomId, uid, info, host, cookie, 0, ct);
+            return fallback.Reason;
+        }
+        return reason;
+    }
+
+    private async Task<(CloseReason Reason, bool Authed)> ConnectAndRunHostAsync(
+        long realRoomId, long uid, DanmuInfo info, DanmuHost host, string? cookie, long authUid, CancellationToken ct)
+    {
         var port = host.WssPort > 0 ? host.WssPort : (host.Port > 0 ? host.Port : 443);
         var url = $"wss://{host.Host}:{port}/sub";
         var ws = new ClientWebSocket();
@@ -258,6 +277,7 @@ public sealed class DanmuClient
         _ws = ws;
 
         var opened = false;
+        var authed = false;
         var stale = false;
         try
         {
@@ -268,15 +288,65 @@ public sealed class DanmuClient
             }
             opened = true;
 
-            // Auth: use DedeUserID from cookie as uid when present, else anonymous 0.
-            long authUid = 0;
-            var m = DedeUserIdRegex.Match(cookie ?? "");
-            if (m.Success) long.TryParse(m.Groups[1].Value, out authUid);
             var auth = JsonSerializer.Serialize(new { uid = authUid, roomid = realRoomId, protover = 3, platform = "web", type = 2, key = info.Token });
             var authBytes = BuildPacket(7, Encoding.UTF8.GetBytes(auth));
             await ws.SendAsync(authBytes, WebSocketMessageType.Binary, true, ct);
+
+            var buf = new PacketBuffer();
+            var chunk = new byte[64 * 1024];
+
+            // 1. 握手鉴权阶段：等待服务端返回 Op == 8 ({"code":0})，超时 6 秒
+            using (var authCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            {
+                authCts.CancelAfter(TimeSpan.FromSeconds(6));
+                while (ws.State == WebSocketState.Open && !authed && !authCts.IsCancellationRequested)
+                {
+                    WebSocketReceiveResult res;
+                    try { res = await ws.ReceiveAsync(new ArraySegment<byte>(chunk), authCts.Token); }
+                    catch { break; }
+                    if (res.MessageType == WebSocketMessageType.Close) break;
+                    if (res.Count > 0)
+                    {
+                        buf.Append(chunk, res.Count);
+                        foreach (var pkt in buf.DrainPackets())
+                        {
+                            if (pkt.Op == 8)
+                            {
+                                try
+                                {
+                                    using var doc = JsonDocument.Parse(pkt.Body);
+                                    if (doc.RootElement.TryGetProperty("code", out var code) && code.GetInt32() == 0)
+                                    {
+                                        authed = true;
+                                    }
+                                }
+                                catch { }
+                            }
+                            else
+                            {
+                                HandlePacket(pkt, realRoomId);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!authed)
+            {
+                // 鉴权未成功（握手被服务器直接 RST 断开或鉴权超时）
+                return (opened ? CloseReason.Dropped : CloseReason.ConnectFail, false);
+            }
+
+            // 握手认证成功后，正式标记状态为已连接（避免提前变绿导致绿黄高频闪烁）
             Status("connected", realRoomId.ToString(), uid: uid.ToString());
-            ServiceLog.Info("直播", $"已成功连接弹幕服务器 {host.Host}:{port} (Auth UID: {authUid})");
+            if (authUid > 0)
+            {
+                ServiceLog.Info("直播", $"已成功连接弹幕服务器 {host.Host}:{port} (Auth UID: {authUid})");
+            }
+            else
+            {
+                ServiceLog.Info("直播", $"已成功以访客模式连接弹幕服务器 {host.Host}:{port}");
+            }
 
             var lastDataTicks = Environment.TickCount64;
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -310,8 +380,7 @@ public sealed class DanmuClient
                 }
             }, CancellationToken.None);
 
-            var buf = new PacketBuffer();
-            var chunk = new byte[64 * 1024];
+            // 2. 正常运行阶段：持续接收并分发弹幕/礼物/心跳包
             while (ws.State == WebSocketState.Open && !ct.IsCancellationRequested)
             {
                 WebSocketReceiveResult res;
@@ -331,22 +400,22 @@ public sealed class DanmuClient
             try { await heartbeat; } catch { }
             try { await watchdog; } catch { }
 
-            if (ct.IsCancellationRequested) return CloseReason.Cancelled;
+            if (ct.IsCancellationRequested) return (CloseReason.Cancelled, authed);
             if (stale)
             {
                 Status("reconnecting", realRoomId.ToString(), error: "数据停滞，正在重连");
-                return CloseReason.Stale;
+                return (CloseReason.Stale, authed);
             }
-            return opened ? CloseReason.Dropped : CloseReason.ConnectFail;
+            return (opened ? CloseReason.Dropped : CloseReason.ConnectFail, authed);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            return CloseReason.Cancelled;
+            return (CloseReason.Cancelled, authed);
         }
         catch (Exception ex)
         {
             ServiceLog.Warn("直播", $"弹幕节点 {host.Host}:{port} 连接异常: {ex.Message}");
-            return opened ? CloseReason.Dropped : CloseReason.ConnectFail;
+            return (opened ? CloseReason.Dropped : CloseReason.ConnectFail, authed);
         }
         finally
         {
@@ -369,6 +438,7 @@ public sealed class DanmuClient
 
     private void HandlePacket(Packet pkt, long realRoomId)
     {
+        if (pkt.Op == 8) return; // 认证回包，忽略
         if (pkt.Op == 3)
         {
             // Heartbeat reply (op=3): popularity value (deprecated by B站, kept for parity).

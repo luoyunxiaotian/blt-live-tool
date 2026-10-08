@@ -3,6 +3,8 @@
    挂载方式：<FirstRunWizard /> （放在 MainLayout 的 .blt-app 内即可，位置不影响 fixed 遮罩）。
    注意：本页 Razor 属性值里不出现嵌套双引号，样式串一律由 @code 中的无参/纯参数方法给出。 *@
 @inject IJSRuntime JS
+@using BiLi_live_Tool.Services
+@inject AppConfig Config
 
 @if (_visible)
 {
@@ -11,9 +13,6 @@
             <div class="blt-panel-head">
                 <span class="t"><BltIcon Emoji="@Step.Icon" /> @Step.Title</span>
                 <span class="en">FIRST RUN · @StepNo() / @Steps.Length</span>
-                <span class="right">
-                    <button class="blt-btn" style="padding:2px 10px" @onclick="SkipAsync">跳过</button>
-                </span>
             </div>
             <div class="blt-panel-body">
                 <div style="display:flex;gap:14px;align-items:flex-start">
@@ -29,6 +28,16 @@
                                 </div>
                             }
                         </div>
+                        @if (_step == Steps.Length - 1)
+                        {
+                            <div style="margin-top:14px;padding:10px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:8px">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--ink);user-select:none;margin:0">
+                                    <input type="checkbox" style="width:16px;height:16px;accent-color:var(--amber);cursor:pointer;flex:none"
+                                           @bind="_agreed" />
+                                    <span>我已认真阅读并知晓上述使用须知与账号安全说明，自愿承担使用风险</span>
+                                </label>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
@@ -51,7 +60,7 @@
                     }
                     else
                     {
-                        <button class="blt-btn primary" @onclick="FinishAsync">完成</button>
+                        <button class="blt-btn primary" @onclick="FinishAsync" disabled="@(!_agreed)">完成并开始使用</button>
                     }
                 </span>
             </div>
@@ -95,10 +104,21 @@
                 "OBS 浮层：「OBS 浮层」分组下的 提醒特效墙 / 文字挂件 / 键鼠手柄可视化",
                 "记录与排查：「日志记录」分组，以及「设置」→「网络诊断」",
             }),
+        new StepInfo("⚖️",
+            "使用须知与账号安全声明",
+            "本工具为本地开源直播辅助软件，为了保障您的账号安全与合规使用，请仔细阅读以下须知：",
+            new[]
+            {
+                "本工具为本地运行软件，所有网络请求直连 B 站官方接口，不设任何中间代理或中转服务器",
+                "B 站登录 Cookie 仅保存在本机 data/config.json，严禁向任何人分享个人配置文件或日志",
+                "请合理使用自动欢迎、自动感谢等发送类功能，严格遵守 B 站主播行为规范与社区公约",
+                "开发者不对因使用本工具或个人凭据保管不当导致的任何异常或纠纷承担责任",
+            }),
     };
 
     private bool _checked;
     private bool _visible;
+    private bool _agreed;
     private int _step;
 
     private StepInfo Step => Steps[Math.Clamp(_step, 0, Steps.Length - 1)];
@@ -114,13 +134,14 @@
         try
         {
             var done = await JS.InvokeAsync<string>("localStorage.getItem", OnboardKey);
-            _visible = string.IsNullOrEmpty(done);
+            // 强门禁：不仅 localStorage 要有标记，Config.DisclaimerAgreed 必须为 true。任一不满足即强制弹出向导
+            _visible = string.IsNullOrEmpty(done) || !Config.DisclaimerAgreed;
         }
         catch
         {
-            // localStorage unavailable → legacy behaviour: show once for this session.
-            _visible = true;
+            _visible = !Config.DisclaimerAgreed;
         }
+        _agreed = Config.DisclaimerAgreed;
         if (_visible) StateHasChanged();
     }
 
@@ -134,13 +155,10 @@
         if (_step > 0) _step--;
     }
 
-    private Task FinishAsync() => DismissAsync();
-
-    private Task SkipAsync() => DismissAsync();
-
-    /// <summary>Hide immediately, then persist the flag (a failed write only re-shows next launch).</summary>
-    private async Task DismissAsync()
+    private async Task FinishAsync()
     {
+        if (!_agreed) return;
+        Config.DisclaimerAgreed = true;
         _visible = false;
         try { await JS.InvokeVoidAsync("localStorage.setItem", OnboardKey, "1"); } catch { }
     }

@@ -154,6 +154,11 @@ public sealed class AppConfig
         get { lock (_lock) return !_doc.TryGetPropertyValue("ignoreBrowsers", out var v) || (v is JsonValue bv && (!bv.TryGetValue<bool>(out var b) || b)); }
         set { lock (_lock) { _doc["ignoreBrowsers"] = value; SaveNoLock(); } }
     }
+    public bool DisclaimerAgreed
+    {
+        get { lock (_lock) return _doc.TryGetPropertyValue("disclaimerAgreed", out var v) && v is JsonValue bv && bv.TryGetValue<bool>(out var b) && b; }
+        set { lock (_lock) { _doc["disclaimerAgreed"] = value; SaveNoLock(); } }
+    }
 
     public void SetRoomAndCookie(string roomId, string cookie)
     {

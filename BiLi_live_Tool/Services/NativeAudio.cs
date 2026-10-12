@@ -201,17 +201,34 @@ public sealed class NativeAudio : IDisposable
             catch { /* voice does not expose options; defaults are fine */ }
 
             var stream = await synth.SynthesizeTextToStreamAsync(text ?? "");
+            if (stream == null || stream.Size == 0)
+            {
+                ServiceLog.Warn("语音", "系统语音合成返回空音频流。");
+                FinishTts(new PlayResult(false, "native:speech:empty-stream"));
+                return false;
+            }
+
             var tcs = new TaskCompletionSource<PlayResult>(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (_gate) _ttsWait = tcs;
             _ttsSynth = synth;   // must outlive the stream
+
+            // 核心修复：必须显式设置底层播放器音量与语速，防止静音
+            _tts.Volume = Clamp01(volume);
+            TrySetRate(_tts, 1.0); // 语速已在 synth.Options 中生效，播放器保持 1.0
             _tts.Source = MediaSource.CreateFromStream(stream, stream.ContentType);
             _tts.Play();
+
             var res = await tcs.Task.WaitAsync(TimeSpan.FromMinutes(3));
+            if (!res.Ok)
+            {
+                ServiceLog.Warn("语音", $"系统语音播放失败: {res.Error}");
+            }
             return res.Ok;
         }
-        catch
+        catch (Exception ex)
         {
-            FinishTts(new PlayResult(false, "native:speech"));
+            ServiceLog.Warn("语音", $"系统语音合成异常: {ex.GetType().Name} - {ex.Message}");
+            FinishTts(new PlayResult(false, "native:speech:" + ex.Message));
             return false;
         }
     }
@@ -350,8 +367,23 @@ public sealed class NativeAudio : IDisposable
                     || string.Equals(v.DisplayName, voice, StringComparison.OrdinalIgnoreCase))
                     return v;
         }
-        return all.FirstOrDefault(v => v.Language.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
-               ?? (all.Count > 0 ? all[0] : null);
+
+        // 优先匹配中文普通话语音库
+        var zhVoices = all.Where(v => v.Language.StartsWith("zh", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (zhVoices.Count > 0)
+        {
+            // 优先常见自然中文女声/男声音色
+            var preferred = zhVoices.FirstOrDefault(v =>
+                v.DisplayName.Contains("Huihui", StringComparison.OrdinalIgnoreCase) ||
+                v.DisplayName.Contains("Yaoyao", StringComparison.OrdinalIgnoreCase) ||
+                v.DisplayName.Contains("Xiaoxiao", StringComparison.OrdinalIgnoreCase) ||
+                v.DisplayName.Contains("Kangkang", StringComparison.OrdinalIgnoreCase));
+            return preferred ?? zhVoices[0];
+        }
+
+        ServiceLog.Warn("语音", "当前系统未检测到中文语音包，系统语音可能无法朗读中文弹幕；建议在 Windows 设置 -> 时间和语言 -> 语音 中添加「中文 (简体)」语音。");
+        try { return SpeechSynthesizer.DefaultVoice ?? (all.Count > 0 ? all[0] : null); }
+        catch { return all.Count > 0 ? all[0] : null; }
     }
 
     private static void TrySetRate(MediaPlayer p, double rate)

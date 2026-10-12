@@ -297,10 +297,33 @@ public sealed class DiagnosticService
         var mossAlive = TtsProcessGuard.IsPortAlive(TtsHost.MossPort);
         sb.AppendLine($"服务端口状态 : Edge-TTS(8020)={(edgeAlive ? "正常运行" : "未启动/未响应")}, MOSS-TTS(8021)={(mossAlive ? "运行中" : "按需离线")}");
         sb.AppendLine($"当前生效引擎 : {(_speaker.EffectiveEngine ?? "(默认未降级)")}");
-        sb.AppendLine($"降级自愈状态 : {(string.IsNullOrEmpty(_speaker.EffectiveEngine) ? "正常 (未触发自愈降级)" : $"★ 已降级至 {_speaker.EffectiveEngine} (触发于 {_speaker.DemotedAt:HH:mm:ss})")}");
-        sb.AppendLine($"引擎失败计数 : {_speaker.EngineFails} 次连续失败");
+        var demoteInfo = string.IsNullOrEmpty(_speaker.EffectiveEngine)
+            ? "正常 (未触发自愈降级)"
+            : $"★ 已降级至 {_speaker.EffectiveEngine}" + (_speaker.DemotedTime.HasValue ? $" (触发于 {_speaker.DemotedTime.Value:yyyy-MM-dd HH:mm:ss})" : "");
+        sb.AppendLine($"降级自愈状态 : {demoteInfo}");
+        var failsStr = _speaker.EngineFails.Count > 0
+            ? string.Join(", ", _speaker.EngineFails.Select(kv => $"{kv.Key}: {kv.Value} 次"))
+            : "0 次连续失败";
+        sb.AppendLine($"引擎失败计数 : {failsStr}");
+        sb.AppendLine($"最近合成结果 : {_speaker.LastResult}");
+        if (!string.IsNullOrWhiteSpace(_speaker.LastEngineError))
+        {
+            sb.AppendLine($"最近引擎报错 : {_speaker.LastEngineError}");
+        }
         sb.AppendLine($"待播队列状态 : 排队 {_speaker.QueueCount} 条, 当前播报中={_speaker.Speaking}, 正在播报文本: {(_speaker.Speaking ? $"\"{_speaker.CurrentText}\"" : "无")}");
         sb.AppendLine($"防刷去重池   : 关注去重缓存={_speaker.FollowedCount} 个, 进房欢迎去重={_speaker.WelcomeCount} 个");
+
+        var sysVoices = NativeAudio.SystemVoiceList();
+        var zhVoices = sysVoices.Where(v => v.Lang.StartsWith("zh", StringComparison.OrdinalIgnoreCase)).ToList();
+        sb.AppendLine($"本机系统语音 : 共 {sysVoices.Count} 个 (中文语音: {zhVoices.Count} 个)");
+        if (sysVoices.Count > 0)
+        {
+            sb.AppendLine($"  - 系统语音列表: " + string.Join(" | ", sysVoices.Take(5).Select(v => $"{v.Name}[{v.Lang}]")));
+        }
+        if (zhVoices.Count == 0)
+        {
+            sb.AppendLine($"  - ★ 警告: 本机未安装中文系统语音库！若降级至 sys，中文可能静音或无法朗读！");
+        }
 
         var queueSnapshot = _speaker.QueueSnapshot();
         if (queueSnapshot.Count > 0)

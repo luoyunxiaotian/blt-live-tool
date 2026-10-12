@@ -35,7 +35,17 @@
             <option value="moss">moss · 本地离线</option>
         </select>
     </span>
-    <span class="seg">引擎状态 <b class="@EngineClass()">@EngineText()</b></span>
+    @if (Speaker.EffectiveEngine != null && Speaker.EffectiveEngine != _engine)
+    {
+        <span class="seg" style="background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#ef4444;display:flex;align-items:center;gap:6px">
+            <b>★ 临时降级至 @Speaker.EffectiveEngine</b>
+            <button class="blt-btn" style="padding:1px 6px;font-size:10px;height:20px;line-height:18px" @onclick="ResetDemotion">立即恢复</button>
+        </span>
+    }
+    else
+    {
+        <span class="seg">引擎状态 <b class="@EngineClass()">@EngineText()</b></span>
+    }
     <span class="seg">edge 音色 <b>@_voices.Count</b></span>
     <span class="seg">总开关 <b class="@OnOff(_enabled)">@OnOffText(_enabled)</b></span>
 </div>
@@ -43,7 +53,7 @@
 @* Master switch (tts.enabled): promoted from the corner panel to a page-level control bar. *@
 <div class="blt-master @MasterCls()">
     <span class="st">启用语音念弹幕</span>
-    <span class="sub">观众弹幕/礼物/SC/进房 → 语音播报（引擎 @_engine）</span>
+    <span class="sub">观众弹幕/礼物/SC/进房 → 语音播报（配置: @_engine@(Speaker.EffectiveEngine != null && Speaker.EffectiveEngine != _engine ? $" · 当前降级生效: {Speaker.EffectiveEngine}" : "")）</span>
     <span class="right">
         <span class="@BigSwitchClass(_enabled)" @onclick="ToggleEnabled"><span class="track"></span>@OnOffText(_enabled)</span>
     </span>
@@ -89,6 +99,17 @@
                         <div class="blt-kv"><span class="k">回退顺序</span><span class="v">edge → moss → sys</span></div>
                     }
                 </div>
+
+                @if (Speaker.EffectiveEngine != null && Speaker.EffectiveEngine != _engine)
+                {
+                    <div style="margin-top:12px;padding:8px 12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+                        <div>
+                            <span style="color:#ef4444;font-weight:bold;font-size:12px">★ 当前已临时降级至 @Speaker.EffectiveEngine 语音兜底</span>
+                            <div class="blt-hint" style="margin:2px 0 0 0">首选引擎连续失败；30 秒冷却后将自动尝试恢复首选引擎。</div>
+                        </div>
+                        <button class="blt-btn" style="font-size:11px;padding:3px 10px;flex:none" @onclick="ResetDemotion">立即恢复</button>
+                    </div>
+                }
 
                 @if (_engine == "moss")
                 {
@@ -1763,6 +1784,12 @@
         if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var d)) return d;
         if (double.TryParse(s, out var d2)) return d2;
         return def;
+    }
+
+    private async Task ResetDemotion()
+    {
+        Speaker.ResetEngineDemotion();
+        await UI.ToastAsync("已重置 TTS 引擎降级状态，将重新尝试首选引擎。");
     }
 
     private static List<string> SplitList(string s)

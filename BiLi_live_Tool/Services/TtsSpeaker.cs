@@ -28,6 +28,7 @@ public sealed class TtsSpeaker
     private readonly List<string> _followOrder = new();
     private const int FollowCap = 5000;
     private long _demotedAt;
+    private DateTime? _demotedTime;
     private string? _lastKnownEngine;
     private bool _speaking;
     private string _currentText = "";
@@ -41,8 +42,10 @@ public sealed class TtsSpeaker
         {
             _effectiveEngine = null;
             _demotedAt = 0;
+            _demotedTime = null;
             _fails.Clear();
         }
+        Changed?.Invoke();
     }
 
     // Diagnostics for /api/maui/debug/tray and DiagnosticService
@@ -53,6 +56,7 @@ public sealed class TtsSpeaker
     public string CurrentText { get { lock (_lock) return _currentText; } }
     public string? EffectiveEngine { get { lock (_lock) return _effectiveEngine; } }
     public long DemotedAt { get { lock (_lock) return _demotedAt; } }
+    public DateTime? DemotedTime { get { lock (_lock) return _demotedTime; } }
     public int FollowedCount { get { lock (_lock) return _followedUids.Count; } }
     public int WelcomeCount { get { lock (_lock) return _lastWelcomeUid.Count; } }
     public Dictionary<string, int> EngineFails { get { lock (_lock) return new Dictionary<string, int>(_fails); } }
@@ -581,7 +585,10 @@ public sealed class TtsSpeaker
                 if (now - _demotedAt >= 30_000)
                 {
                     _effectiveEngine = null;
+                    _demotedAt = 0;
+                    _demotedTime = null;
                     _fails.Clear();
+                    Changed?.Invoke();
                 }
             }
 
@@ -604,10 +611,18 @@ public sealed class TtsSpeaker
                     var next = Next(engine);
                     _effectiveEngine = next;
                     _demotedAt = Environment.TickCount64;
+                    _demotedTime = DateTime.Now;
                     LastResult = $"demote {engine}->{next}";
-                    ServiceLog.Warn("语音", $"{engine} TTS 暂时不可用，临时降级至 {next} 语音，30秒后将自动尝试恢复...");
-                    // 本条立即降级重试一次
-                    ok = await TryEngineAsync(next, text, voice, cfg, rate, pitchHz, volume);
+                    ServiceLog.Warn("语音", $"{engine} TTS 暂时不可用 (连续失败: {LastEngineError})，临时降级至 {next} 语音，30秒后将自动尝试恢复...");
+                    Changed?.Invoke();
+
+                    // 本条立即降级重试一次：若降级至系统语音，清空特定在线音色名称让系统挑选原生中文音色
+                    var nextVoice = (next == "sys") ? "" : voice;
+                    ok = await TryEngineAsync(next, text, nextVoice, cfg, rate, pitchHz, volume);
+                    if (!ok)
+                    {
+                        ServiceLog.Warn("语音", $"降级至 {next} 依然发声失败 ({LastEngineError})，本条语音已跳过。");
+                    }
                 }
             }
             else
@@ -620,6 +635,8 @@ public sealed class TtsSpeaker
                     {
                         ServiceLog.Info("语音", $"{cfg.Engine} TTS 已自动恢复正常。");
                         _demotedAt = 0;
+                        _demotedTime = null;
+                        Changed?.Invoke();
                     }
                     _effectiveEngine = null;
                 }
@@ -676,19 +693,25 @@ public sealed class TtsSpeaker
                     var bytes = await PostSynthAsync("edge", body);
                     if (bytes == null || bytes.Length < 100)
                     {
-                        // 快速重试一次：可能 edge 服务瞬时连接重置或正在自愈拉起
-                        await Task.Delay(300);
+                        // 递增延迟重试一次（500ms）：应对偶发网络握手抖动
+                        await Task.Delay(500);
                         bytes = await PostSynthAsync("edge", body);
                     }
-                    if (bytes == null || bytes.Length < 100) { LastResult = "edge:synth-fail"; return false; }
+                    if (bytes == null || bytes.Length < 100)
+                    {
+                        LastResult = "edge:synth-fail";
+                        if (string.IsNullOrEmpty(LastEngineError)) LastEngineError = "edge:synth-empty-response";
+                        return false;
+                    }
                     var edgePlay = await _audio.PlayBase64Async(Convert.ToBase64String(bytes), "audio/mpeg", volume, 1);
                     if (!edgePlay.Ok) { LastResult = "edge:play:" + edgePlay.Error; LastEngineError = LastResult; }
                     return edgePlay.Ok;
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
+            LastEngineError = $"engine-ex:{ex.GetType().Name}:{ex.Message}";
             return false;
         }
     }
@@ -704,12 +727,12 @@ public sealed class TtsSpeaker
             {
                 var detail = "";
                 try { detail = (await resp.Content.ReadAsStringAsync()).Trim(); } catch { }
-                if (detail.Length > 160) detail = detail[..160];
-                LastEngineError = $"synth http {(int)resp.StatusCode} {detail}";
+                if (detail.Length > 200) detail = detail[..200];
+                LastEngineError = $"{engine} http {(int)resp.StatusCode} {detail}";
                 return null;
             }
             var bytes = await resp.Content.ReadAsByteArrayAsync();
-            if (bytes.Length < 100) LastEngineError = $"synth small {bytes.Length}";
+            if (bytes.Length < 100) LastEngineError = $"{engine} small {bytes.Length}";
             return bytes;
         }
         catch (Exception ex)
